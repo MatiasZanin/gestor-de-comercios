@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
 import { authService } from "@/lib/auth/cognito"
 import type { AuthState, LoginCredentials } from "@/lib/types/auth"
+import { useEffect, useState } from "react"
 
 export function useAuth() {
   const [authState, setAuthState] = useState<AuthState>(authService.getAuthState())
@@ -11,6 +11,7 @@ export function useAuth() {
 
   useEffect(() => {
     setAuthState(authService.getAuthState())
+    console.log("🚀 ~ useAuth ~ authService.getAuthState():", authService.getAuthState())
   }, [])
 
   const login = async (credentials: LoginCredentials) => {

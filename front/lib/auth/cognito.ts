@@ -85,14 +85,18 @@ export class AuthService {
       cognitoUser.authenticateUser(authenticationDetails, {
         onSuccess: (session: CognitoUserSession) => {
           const idToken = session.getIdToken()
+          console.log("🚀 ~ AuthService ~ login ~ idToken:", idToken)
           const payload = idToken.payload as any
 
           const user: CognitoUserType = {
+            username:   payload["cognito:username"],
+            email_verified: payload.email_verified,
             sub: payload.sub,
             email: payload.email,
             "cognito:groups": payload["cognito:groups"] || [],
-            "custom:commerceId": payload["custom:commerceId"],
-            "custom:commerceIds": payload["custom:commerceIds"]
+            role: payload["cognito:groups"]?.includes("admin") ? "admin" : "vendedor",
+            commerceId: payload["custom:commerceIds"].split(",")[0] || null,
+            commerceList: payload["custom:commerceIds"]
               ? payload["custom:commerceIds"].split(",")
               : [payload["custom:commerceId"]],
           }
@@ -103,7 +107,7 @@ export class AuthService {
             isAuthenticated: true,
             user,
             token: idToken.getJwtToken(),
-            commerceId: user["custom:commerceIds"]![0],
+            commerceId: user.commerceId,
             role,
           }
 

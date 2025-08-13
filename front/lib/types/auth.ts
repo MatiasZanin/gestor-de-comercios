@@ -1,9 +1,12 @@
 export interface CognitoUser {
+  username: string,
+  email_verified: boolean,
   sub: string
   email: string
   "cognito:groups": string[]
-  "custom:commerceId": string
-  "custom:commerceIds"?: string[]
+  commerceId: string
+  commerceList: string[]
+  role?: "admin" | "vendedor"
 }
 
 export interface AuthState {
