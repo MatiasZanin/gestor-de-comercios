@@ -1,0 +1,26 @@
+{
+  "name": "commerce-mvp",
+  "version": "1.0.0",
+  "description": "MVP de sistema de stock y ventas multi-tenant en AWS usando Lambda, API Gateway y DynamoDB.",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "clean": "rm -rf dist",
+    "build:deploy": "sam build --use-container && sam deploy --no-confirm-changeset --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.591.0",
+    "@aws-sdk/lib-dynamodb": "^3.591.0",
+    "@aws-sdk/util-dynamodb": "^3.591.0",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.122",
+    "@types/node": "^20.11.9",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.0",
+    "typescript": "^5.3.3"
+  }
+}

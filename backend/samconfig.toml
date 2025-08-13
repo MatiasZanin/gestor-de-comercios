@@ -1,0 +1,11 @@
+version = 0.1
+
+[default.deploy.parameters]
+stack_name = "gestor-stock-ventas-dev"
+resolve_s3 = true
+s3_prefix = "gestor-stock-ventas-dev"
+region = "us-east-1"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM CAPABILITY_NAMED_IAM"
+parameter_overrides = "CommerceStage=\"dev\" RetentionDays=\"90\""
+image_repositories = []

@@ -1,0 +1,279 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Description: >
+  Plantilla SAM para el MVP de sistema de stock y ventas multi‑tenant. Despliega una tabla DynamoDB
+  de single‑table, funciones Lambda para manejar productos, ventas y reportes, un API HTTP y
+  un User Pool de Cognito con grupos de rol.
+
+Parameters:
+  CommerceStage:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - prod
+    Description: Nombre del entorno (dev o prod).
+  RetentionDays:
+    Type: Number
+    Default: 90
+    Description: Número de dias que se retendrán las ventas antes de expirar (TTL).
+
+Globals:
+  Function:
+    Runtime: nodejs18.x
+    Architectures:
+      - x86_64
+    Timeout: 10
+    MemorySize: 256
+    Tracing: Active
+    Environment:
+      Variables:
+        TABLE_NAME: !Ref CommerceData
+        COMMERCE_STAGE: !Ref CommerceStage
+        RETENTION_DAYS: !Ref RetentionDays
+
+Resources:
+  ## DynamoDB single-table para productos y ventas
+  CommerceData:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub CommerceData-${CommerceStage}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+        - AttributeName: GSI1PK
+          AttributeType: S
+        - AttributeName: GSI1SK
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      GlobalSecondaryIndexes:
+        - IndexName: GSI-Ventas-Por-Dia
+          KeySchema:
+            - AttributeName: GSI1PK
+              KeyType: HASH
+            - AttributeName: GSI1SK
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
+  ## Cognito User Pool y grupos de roles
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub commerce-mvp-${CommerceStage}
+      AutoVerifiedAttributes:
+        - email
+      Schema:
+        - Name: email
+          Required: true
+          Mutable: true
+        - Name: custom:commerceIds
+          AttributeDataType: String
+          Mutable: true
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+          - Name: verified_email
+            Priority: 1
+
+  UserPoolAdminGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      GroupName: admin
+      UserPoolId: !Ref UserPool
+      Description: Administradores con acceso total a productos y ventas.
+
+  UserPoolVendedorGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      GroupName: vendedor
+      UserPoolId: !Ref UserPool
+      Description: Vendedores con permisos limitados.
+
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      UserPoolId: !Ref UserPool
+      GenerateSecret: false
+      AllowedOAuthFlowsUserPoolClient: false
+      ExplicitAuthFlows:
+        - ADMIN_NO_SRP_AUTH
+        - USER_PASSWORD_AUTH
+      SupportedIdentityProviders:
+        - COGNITO
+
+  ## API HTTP con authorizer
+  HttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: !Ref CommerceStage
+      Auth:
+        Authorizers:
+          CognitoJwtAuthorizer:
+            IdentitySource: "$request.header.Authorization"
+            JwtConfiguration:
+              Audience:
+                - !Ref UserPoolClient
+              Issuer: !Sub https://cognito-idp.${AWS::Region}.amazonaws.com/${UserPool}
+        DefaultAuthorizer: CognitoJwtAuthorizer
+
+  ## Rol para Lambdas con acceso a DynamoDB
+  LambdaDynamoRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub commerce-mvp-lambda-role-${CommerceStage}
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: CommerceMvpDynamoPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:Query
+                  - dynamodb:ConditionCheckItem
+                Resource: !GetAtt CommerceData.Arn
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+  ## Lambdas y rutas
+  CreateProductFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub createProduct-${CommerceStage}
+      CodeUri: ./dist
+      Handler: handlers/createProduct.handler
+      Role: !GetAtt LambdaDynamoRole.Arn
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: '/{commerceId}/products'
+            Method: POST
+
+  UpdateProductFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub updateProduct-${CommerceStage}
+      CodeUri: ./dist
+      Handler: handlers/updateProduct.handler
+      Role: !GetAtt LambdaDynamoRole.Arn
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: '/{commerceId}/products/{code}'
+            Method: PUT
+
+  ListProductsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub listProducts-${CommerceStage}
+      CodeUri: ./dist
+      Handler: handlers/listProducts.handler
+      Role: !GetAtt LambdaDynamoRole.Arn
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: '/{commerceId}/products'
+            Method: GET
+
+  CreateSaleFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub createSale-${CommerceStage}
+      CodeUri: ./dist
+      Handler: handlers/createSale.handler
+      Role: !GetAtt LambdaDynamoRole.Arn
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: '/{commerceId}/sales'
+            Method: POST
+
+  ListSalesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub listSales-${CommerceStage}
+      CodeUri: ./dist
+      Handler: handlers/listSales.handler
+      Role: !GetAtt LambdaDynamoRole.Arn
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: '/{commerceId}/sales'
+            Method: GET
+
+  GetDailyReportFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub getDailyReport-${CommerceStage}
+      CodeUri: ./dist
+      Handler: handlers/getDailyReport.handler
+      Role: !GetAtt LambdaDynamoRole.Arn
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: '/{commerceId}/reports/daily'
+            Method: GET
+
+  GetRangeReportFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub getRangeReport-${CommerceStage}
+      CodeUri: ./dist
+      Handler: handlers/getRangeReport.handler
+      Role: !GetAtt LambdaDynamoRole.Arn
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: '/{commerceId}/reports/range'
+            Method: GET
+
+  JwtAuthorizerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub jwtAuthorizer-${CommerceStage}
+      CodeUri: ./dist
+      Handler: authorizers/jwtAuthorizer.handler
+      Role: !GetAtt LambdaDynamoRole.Arn
+      Events: {}
+
+Outputs:
+  HttpApiUrl:
+    Description: URL base de la API HTTP.
+    Value: !Sub 'https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com/${CommerceStage}'
