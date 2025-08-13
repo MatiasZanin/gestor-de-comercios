@@ -81,6 +81,9 @@ Resources:
         - Name: custom:commerceIds
           AttributeDataType: String
           Mutable: true
+        - Name: commerceIds
+          AttributeDataType: String
+          Mutable: true
       Policies:
         PasswordPolicy:
           MinimumLength: 8
