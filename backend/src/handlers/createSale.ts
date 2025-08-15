@@ -29,8 +29,8 @@ export const handler = async (
       throw new BadRequestError('Missing commerceId');
     }
     const claims = (event.requestContext.authorizer as any)?.jwt?.claims ?? {};
-    const role: string | undefined = claims.role;
-    if (!role || (role !== 'admin' && role !== 'vendedor')) {
+    const roles: string[] | undefined = claims['cognito:groups'];
+    if (!roles || (roles.includes('admin') === false && roles.includes('vendedor') === false)) {
       throw new ForbiddenError('Not authorized to create sales');
     }
     if (!event.body) {
@@ -89,7 +89,7 @@ export const handler = async (
         Item: sale,
       }),
     );
-    const response = sanitizeForRole(sale, role);
+    const response = sanitizeForRole(sale, roles);
     return {
       statusCode: 201,
       body: JSON.stringify(response),

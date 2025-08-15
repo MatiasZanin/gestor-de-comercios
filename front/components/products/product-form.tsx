@@ -26,7 +26,7 @@ export function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) 
     priceSale: product?.priceSale || 0,
     notes: product?.notes || "",
     uom: product?.uom || "",
-    qtyStep: product?.qtyStep || 1,
+    stock: product?.stock || 0,
     isActive: product?.isActive ?? true,
   })
   const [loading, setLoading] = useState(false)
@@ -46,7 +46,7 @@ export function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) 
           priceSale: formData.priceSale,
           notes: formData.notes,
           uom: formData.uom,
-          qtyStep: formData.qtyStep,
+          stock: formData.stock,
           isActive: formData.isActive,
         }
         await apiClient.updateProduct(product.code, updateData)
@@ -59,7 +59,7 @@ export function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) 
           priceSale: formData.priceSale,
           notes: formData.notes,
           uom: formData.uom,
-          qtyStep: formData.qtyStep,
+          stock: formData.stock,
           isActive: formData.isActive,
         }
         await apiClient.createProduct(createData)
@@ -141,13 +141,13 @@ export function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) 
                 />
               </div>
               <div>
-                <Label htmlFor="qtyStep">Múltiplo Venta *</Label>
+                <Label htmlFor="stock">Stock *</Label>
                 <Input
-                  id="qtyStep"
+                  id="stock"
                   type="number"
                   min="1"
-                  value={formData.qtyStep}
-                  onChange={(e) => setFormData({ ...formData, qtyStep: Number.parseInt(e.target.value) || 1 })}
+                  value={formData.stock}
+                  onChange={(e) => setFormData({ ...formData, stock: Number.parseInt(e.target.value) || 1 })}
                   required
                 />
               </div>

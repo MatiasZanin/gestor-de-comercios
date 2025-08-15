@@ -20,7 +20,7 @@ export const handler = async (
       throw new BadRequestError('Missing commerceId');
     }
     const claims = event.requestContext.authorizer?.jwt?.claims ?? {};
-    const role: any = claims.role;
+    const role: any = claims['cognito:groups'];
     const queryParams = event.queryStringParameters || {};
     const isActiveParam = queryParams.isActive;
     let isActiveFilter: boolean | undefined;

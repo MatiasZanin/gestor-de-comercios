@@ -23,7 +23,7 @@ export interface CreateProductRequest {
   priceSale: number
   notes?: string
   uom: string
-  qtyStep: number
+  stock: number
   isActive?: boolean
 }
 
@@ -33,7 +33,7 @@ export interface UpdateProductRequest {
   priceSale?: number
   notes?: string
   uom?: string
-  qtyStep?: number
+  stock?: number
   isActive?: boolean
 }
 

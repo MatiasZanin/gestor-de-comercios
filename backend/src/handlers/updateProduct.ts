@@ -21,21 +21,26 @@ export const handler = async (
       throw new BadRequestError('Missing commerceId or code');
     }
     const claims = event.requestContext.authorizer?.jwt?.claims ?? {};
-    const role: any = claims.role;
-    if (role !== 'admin') {
+    const roles: any = claims['cognito:groups'];
+    if (!roles.includes('admin')) {
       throw new ForbiddenError('Only admin can update products');
     }
     if (!event.body) {
       throw new BadRequestError('Missing body');
     }
     const body = JSON.parse(event.body);
-    const allowedFields = ['name', 'priceBuy', 'priceSale', 'notes', 'uom', 'qtyStep', 'isActive'];
+    const allowedFields = ['name', 'priceBuy', 'priceSale', 'stock', 'notes', 'uom', 'qtyStep', 'isActive'];
     const expressionParts: string[] = [];
+    const expressionNames: Record<string, string> = {};
     const expressionValues: Record<string, any> = { ':now': new Date().toISOString() };
     for (const field of allowedFields) {
       if (body[field] !== undefined) {
         const placeholder = `:${field}`;
-        expressionParts.push(`${field} = ${placeholder}`);
+        const attr = field === 'name' ? '#name' : field;
+        if (field === 'name') {
+          expressionNames['#name'] = 'name';
+        }
+        expressionParts.push(`${attr} = ${placeholder}`);
         expressionValues[placeholder] = body[field];
       }
     }
@@ -52,6 +57,7 @@ export const handler = async (
         UpdateExpression: updateExpression,
         ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)',
         ExpressionAttributeValues: expressionValues,
+        ExpressionAttributeNames: Object.keys(expressionNames).length ? expressionNames : undefined,
         ReturnValues: 'ALL_NEW',
       }),
     );
@@ -59,7 +65,7 @@ export const handler = async (
       throw new NotFoundError('Product not found');
     }
     const updatedItem = result.Attributes;
-    const responseItem = sanitizeForRole(updatedItem, role);
+    const responseItem = sanitizeForRole(updatedItem, roles);
     return {
       statusCode: 200,
       body: JSON.stringify(responseItem),

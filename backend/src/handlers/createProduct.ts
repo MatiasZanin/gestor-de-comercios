@@ -24,8 +24,8 @@ export const handler = async (
       throw new BadRequestError('Missing commerceId');
     }
     const claims = event.requestContext.authorizer?.jwt?.claims ?? {};
-    const role: any = claims.role;
-    if (role !== 'admin') {
+    const roles: any = claims['cognito:groups'];
+    if (!roles?.includes('admin')) {
       throw new ForbiddenError('Only admin can create products');
     }
     if (!event.body) {
@@ -66,7 +66,7 @@ export const handler = async (
       }),
     );
     // Sanitize for seller just in case; but here role is admin
-    const responseItem = sanitizeForRole(item, role);
+    const responseItem = sanitizeForRole(item, roles);
     return {
       statusCode: 201,
       body: JSON.stringify(responseItem),

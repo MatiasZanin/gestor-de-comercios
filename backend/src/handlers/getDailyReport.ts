@@ -21,7 +21,7 @@ export const handler = async (
       throw new BadRequestError('Missing commerceId or day');
     }
     const claims = (event.requestContext.authorizer as any)?.jwt?.claims ?? {};
-    const role: string | undefined = claims.role;
+    const role: string | undefined = claims['cognito:groups'];
     const order = queryParams.orderBy || 'units';
     const gsiPk = `COM#${commerceId}#${day}`;
     // Obtener todas las ventas del día
