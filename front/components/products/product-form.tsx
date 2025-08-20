@@ -145,7 +145,7 @@ export function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) 
                 <Input
                   id="stock"
                   type="number"
-                  min="1"
+                  min="0"
                   value={formData.stock}
                   onChange={(e) => setFormData({ ...formData, stock: Number.parseInt(e.target.value) || 1 })}
                   required

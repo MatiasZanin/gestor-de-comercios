@@ -1,9 +1,9 @@
 import type { AuthState, CognitoUser as CognitoUserType, LoginCredentials } from "@/lib/types/auth"
 import {
-  AuthenticationDetails,
-  CognitoUser,
-  CognitoUserPool,
-  type CognitoUserSession,
+    AuthenticationDetails,
+    CognitoUser,
+    CognitoUserPool,
+    type CognitoUserSession,
 } from "amazon-cognito-identity-js"
 
 const userPoolId = process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID
@@ -136,6 +136,12 @@ export class AuthService {
     }
 
     this.clearStorage()
+  }
+
+  // Método específico para manejar tokens expirados
+  handleTokenExpired(): void {
+    console.warn("Token expired, logging out user")
+    this.logout()
   }
 
   getAuthState(): AuthState {

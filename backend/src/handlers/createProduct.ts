@@ -32,8 +32,8 @@ export const handler = async (
       throw new BadRequestError('Missing body');
     }
     const body = JSON.parse(event.body);
-    const { code, name, priceBuy, priceSale, notes, uom, qtyStep, isActive } = body;
-    if (!code || !name || priceBuy === undefined || priceSale === undefined || !uom || qtyStep === undefined) {
+    const { code, name, priceBuy, priceSale, notes, uom, stock, isActive } = body;
+    if (!code || !name || priceBuy === undefined || priceSale === undefined || !uom || stock === undefined) {
       throw new BadRequestError('Missing required fields');
     }
     const now = new Date().toISOString();
@@ -48,7 +48,7 @@ export const handler = async (
       priceBuy,
       priceSale,
       notes,
-      stock: 0,
+      stock: stock,
       unitsSold: 0,
       revenue: 0,
       profit: 0,
@@ -56,7 +56,7 @@ export const handler = async (
       updatedAt: now,
       uom,
       isActive: isActive !== undefined ? !!isActive : true,
-      qtyStep,
+      qtyStep: body.qtyStep || 1, // Default to 1 if not provided
     };
     await docClient.send(
       new PutCommand({

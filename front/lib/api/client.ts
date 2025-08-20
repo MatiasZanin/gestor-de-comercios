@@ -5,12 +5,30 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL!
 
 export class ApiClient {
   private static instance: ApiClient
+  private onUnauthorized?: () => void
 
   static getInstance(): ApiClient {
     if (!ApiClient.instance) {
       ApiClient.instance = new ApiClient()
     }
     return ApiClient.instance
+  }
+
+  // Método para establecer el callback de redirección
+  setOnUnauthorized(callback: () => void) {
+    this.onUnauthorized = callback
+  }
+
+  private handleUnauthorized() {
+    if (this.onUnauthorized) {
+      this.onUnauthorized()
+    } else {
+      // Fallback para casos donde no se ha establecido el callback
+      if (typeof window !== "undefined") {
+        authService.logout()
+        window.location.href = "/login"
+      }
+    }
   }
 
   private async makeRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
@@ -33,6 +51,12 @@ export class ApiClient {
     })
 
     if (!response.ok) {
+      // Si recibimos un 401, redirigir al login
+      if (response.status === 401) {
+        this.handleUnauthorized()
+        throw new Error("Sesión expirada. Redirigiendo al login...")
+      }
+
       const errorData: ApiError = await response.json().catch(() => ({
         error: { message: "Unknown error occurred" },
       }))
