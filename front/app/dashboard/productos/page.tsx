@@ -103,8 +103,8 @@ export default function ProductsPage() {
             </Button>
           )}
         </div>
-        <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
-          <CardHeader className="bg-gradient-to-r from-emerald-50 to-orange-50 border-b">
+        <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm pt-0">
+          <CardHeader className="bg-gradient-to-r from-emerald-50 to-orange-50 border-b pt-6">
             <div className="flex items-center justify-between">
               <CardTitle className="flex items-center gap-2 text-gray-800">
                 <Package className="w-5 h-5 text-emerald-600" />
@@ -120,14 +120,14 @@ export default function ProductsPage() {
                     className="pl-10 w-64 border-gray-200 focus:border-emerald-500"
                   />
                 </div>
-                <Button
+                {/* <Button
                   variant={showActiveOnly ? "default" : "outline"}
                   onClick={() => setShowActiveOnly(!showActiveOnly)}
                   size="sm"
                   className={showActiveOnly ? "bg-emerald-600 hover:bg-emerald-700" : ""}
                 >
                   {showActiveOnly ? "Solo Activos" : "Todos"}
-                </Button>
+                </Button> */}
               </div>
             </div>
           </CardHeader>

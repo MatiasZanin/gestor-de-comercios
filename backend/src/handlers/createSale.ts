@@ -1,7 +1,7 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, PutCommand } from '@aws-sdk/lib-dynamodb';
 import { APIGatewayProxyEventV2WithJWTAuthorizer, APIGatewayProxyResultV2 } from 'aws-lambda';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 import {
   BadRequestError,
   ForbiddenError,
@@ -52,7 +52,7 @@ export const handler = async (
     }
     const createdAt = new Date().toISOString();
     const day = createdAt.slice(0, 10);
-    const saleId = uuidv4();
+    const saleId = randomUUID();
     // Calcular total y profit
     let total = 0;
     let profit = 0;
