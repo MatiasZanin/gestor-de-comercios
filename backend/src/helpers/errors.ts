@@ -48,7 +48,7 @@ export class InternalServerError extends HttpError {
  * Dado un error, construye una respuesta estándar para API Gateway HTTP.
  */
 export function buildErrorResponse(err: unknown) {
-  console.log("🚀 ~ ", err)
+  console.log('🚀 ~ ', err);
   if (err instanceof HttpError) {
     return {
       statusCode: err.statusCode,

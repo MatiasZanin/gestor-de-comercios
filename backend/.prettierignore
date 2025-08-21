@@ -1,0 +1,12 @@
+node_modules
+dist
+.aws-sam
+build
+coverage
+*.min.js
+*.log
+.git
+.gitignore
+package-lock.json
+pnpm-lock.yaml
+yarn.lock

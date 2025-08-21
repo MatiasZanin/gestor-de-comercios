@@ -18,7 +18,7 @@ export async function updateDailyStats(
   code: string,
   qty: number,
   priceBuy: number,
-  priceSale: number,
+  priceSale: number
 ): Promise<void> {
   const tableName = process.env.TABLE_NAME;
   if (!tableName) {
@@ -45,7 +45,7 @@ export async function updateDailyStats(
           ':now': now,
         },
         ReturnValues: 'NONE',
-      }),
+      })
     );
   } catch (err: any) {
     if (err.name === 'ConditionalCheckFailedException') {

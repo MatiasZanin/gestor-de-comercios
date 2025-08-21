@@ -1,14 +1,22 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, UpdateCommand } from '@aws-sdk/lib-dynamodb';
-import { APIGatewayProxyEventV2WithJWTAuthorizer, APIGatewayProxyResultV2 } from 'aws-lambda';
-import { BadRequestError, ForbiddenError, NotFoundError, buildErrorResponse } from '../helpers/errors';
+import {
+  APIGatewayProxyEventV2WithJWTAuthorizer,
+  APIGatewayProxyResultV2,
+} from 'aws-lambda';
+import {
+  BadRequestError,
+  ForbiddenError,
+  NotFoundError,
+  buildErrorResponse,
+} from '../helpers/errors';
 import { sanitizeForRole } from '../helpers/sanitizeForRole';
 
 const dynamoClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(dynamoClient);
 
 export const handler = async (
-  event: APIGatewayProxyEventV2WithJWTAuthorizer,
+  event: APIGatewayProxyEventV2WithJWTAuthorizer
 ): Promise<APIGatewayProxyResultV2> => {
   try {
     const tableName = process.env.TABLE_NAME;
@@ -29,10 +37,21 @@ export const handler = async (
       throw new BadRequestError('Missing body');
     }
     const body = JSON.parse(event.body);
-    const allowedFields = ['name', 'priceBuy', 'priceSale', 'stock', 'notes', 'uom', 'qtyStep', 'isActive'];
+    const allowedFields = [
+      'name',
+      'priceBuy',
+      'priceSale',
+      'stock',
+      'notes',
+      'uom',
+      'qtyStep',
+      'isActive',
+    ];
     const expressionParts: string[] = [];
     const expressionNames: Record<string, string> = {};
-    const expressionValues: Record<string, any> = { ':now': new Date().toISOString() };
+    const expressionValues: Record<string, any> = {
+      ':now': new Date().toISOString(),
+    };
     for (const field of allowedFields) {
       if (body[field] !== undefined) {
         const placeholder = `:${field}`;
@@ -57,9 +76,11 @@ export const handler = async (
         UpdateExpression: updateExpression,
         ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)',
         ExpressionAttributeValues: expressionValues,
-        ExpressionAttributeNames: Object.keys(expressionNames).length ? expressionNames : undefined,
+        ExpressionAttributeNames: Object.keys(expressionNames).length
+          ? expressionNames
+          : undefined,
         ReturnValues: 'ALL_NEW',
-      }),
+      })
     );
     if (!result.Attributes) {
       throw new NotFoundError('Product not found');

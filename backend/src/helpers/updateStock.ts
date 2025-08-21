@@ -15,7 +15,7 @@ const docClient = DynamoDBDocumentClient.from(dynamoClient);
 export async function updateStock(
   commerceId: string,
   code: string,
-  qty: number,
+  qty: number
 ): Promise<number> {
   const tableName = process.env.TABLE_NAME;
   if (!tableName) {
@@ -30,14 +30,15 @@ export async function updateStock(
         TableName: tableName,
         Key: { PK: pk, SK: sk },
         UpdateExpression: 'SET stock = stock + :qty, updatedAt = :now',
-        ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK) AND stock + :qty >= :zero',
+        ConditionExpression:
+          'attribute_exists(PK) AND attribute_exists(SK) AND stock + :qty >= :zero',
         ExpressionAttributeValues: {
           ':qty': qty,
           ':now': now,
           ':zero': 0,
         },
         ReturnValues: 'UPDATED_NEW',
-      }),
+      })
     );
     const newStock = result.Attributes?.stock;
     return newStock;

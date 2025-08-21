@@ -1,7 +1,14 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, PutCommand } from '@aws-sdk/lib-dynamodb';
-import { APIGatewayProxyEventV2WithJWTAuthorizer, APIGatewayProxyResultV2 } from 'aws-lambda';
-import { BadRequestError, ForbiddenError, buildErrorResponse } from '../helpers/errors';
+import {
+  APIGatewayProxyEventV2WithJWTAuthorizer,
+  APIGatewayProxyResultV2,
+} from 'aws-lambda';
+import {
+  BadRequestError,
+  ForbiddenError,
+  buildErrorResponse,
+} from '../helpers/errors';
 import { sanitizeForRole } from '../helpers/sanitizeForRole';
 import { Product } from '../models/product';
 
@@ -12,7 +19,7 @@ const docClient = DynamoDBDocumentClient.from(dynamoClient);
  * Handler para crear un producto. Solo permite rol admin.
  */
 export const handler = async (
-  event: APIGatewayProxyEventV2WithJWTAuthorizer,
+  event: APIGatewayProxyEventV2WithJWTAuthorizer
 ): Promise<APIGatewayProxyResultV2> => {
   try {
     const tableName = process.env.TABLE_NAME;
@@ -32,8 +39,16 @@ export const handler = async (
       throw new BadRequestError('Missing body');
     }
     const body = JSON.parse(event.body);
-    const { code, name, priceBuy, priceSale, notes, uom, stock, isActive } = body;
-    if (!code || !name || priceBuy === undefined || priceSale === undefined || !uom || stock === undefined) {
+    const { code, name, priceBuy, priceSale, notes, uom, stock, isActive } =
+      body;
+    if (
+      !code ||
+      !name ||
+      priceBuy === undefined ||
+      priceSale === undefined ||
+      !uom ||
+      stock === undefined
+    ) {
       throw new BadRequestError('Missing required fields');
     }
     const now = new Date().toISOString();
@@ -62,8 +77,9 @@ export const handler = async (
       new PutCommand({
         TableName: tableName,
         Item: item,
-        ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)',
-      }),
+        ConditionExpression:
+          'attribute_not_exists(PK) AND attribute_not_exists(SK)',
+      })
     );
     // Sanitize for seller just in case; but here role is admin
     const responseItem = sanitizeForRole(item, roles);

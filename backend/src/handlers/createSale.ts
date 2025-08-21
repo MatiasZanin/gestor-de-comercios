@@ -1,6 +1,9 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, PutCommand } from '@aws-sdk/lib-dynamodb';
-import { APIGatewayProxyEventV2WithJWTAuthorizer, APIGatewayProxyResultV2 } from 'aws-lambda';
+import {
+  APIGatewayProxyEventV2WithJWTAuthorizer,
+  APIGatewayProxyResultV2,
+} from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import {
   BadRequestError,
@@ -16,7 +19,7 @@ const dynamoClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(dynamoClient);
 
 export const handler = async (
-  event: APIGatewayProxyEventV2WithJWTAuthorizer,
+  event: APIGatewayProxyEventV2WithJWTAuthorizer
 ): Promise<APIGatewayProxyResultV2> => {
   try {
     const tableName = process.env.TABLE_NAME;
@@ -30,7 +33,11 @@ export const handler = async (
     }
     const claims = (event.requestContext.authorizer as any)?.jwt?.claims ?? {};
     const roles: string[] | undefined = claims['cognito:groups'];
-    if (!roles || (roles.includes('admin') === false && roles.includes('vendedor') === false)) {
+    if (
+      !roles ||
+      (roles.includes('admin') === false &&
+        roles.includes('vendedor') === false)
+    ) {
       throw new ForbiddenError('Not authorized to create sales');
     }
     if (!event.body) {
@@ -43,8 +50,15 @@ export const handler = async (
     }
     // Validar campos de cada item
     for (const item of items) {
-      if (!item.code || !item.name || typeof item.qty !== 'number' || item.priceSale === undefined) {
-        throw new BadRequestError('Each item must include code, name, qty and priceSale');
+      if (
+        !item.code ||
+        !item.name ||
+        typeof item.qty !== 'number' ||
+        item.priceSale === undefined
+      ) {
+        throw new BadRequestError(
+          'Each item must include code, name, qty and priceSale'
+        );
       }
       if (item.priceBuy === undefined) {
         throw new BadRequestError('Each item must include priceBuy');
@@ -63,9 +77,16 @@ export const handler = async (
     // Actualizar stock y stats para cada item
     for (const item of items) {
       await updateStock(commerceId, item.code, item.qty);
-      await updateDailyStats(commerceId, item.code, item.qty, item.priceBuy!, item.priceSale);
+      await updateDailyStats(
+        commerceId,
+        item.code,
+        item.qty,
+        item.priceBuy!,
+        item.priceSale
+      );
     }
-    const ttlSeconds = Math.floor(Date.now() / 1000) + retentionDays * 24 * 60 * 60;
+    const ttlSeconds =
+      Math.floor(Date.now() / 1000) + retentionDays * 24 * 60 * 60;
     const pk = `COM#${commerceId}`;
     const isoDate = createdAt;
     const sk = `SALE#${isoDate}#${saleId}`;
@@ -87,7 +108,7 @@ export const handler = async (
       new PutCommand({
         TableName: tableName,
         Item: sale,
-      }),
+      })
     );
     const response = sanitizeForRole(sale, roles);
     return {

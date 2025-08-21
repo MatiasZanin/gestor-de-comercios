@@ -16,7 +16,13 @@ describe('createSale handler', () => {
       pathParameters: { commerceId: '1' },
       body: JSON.stringify({
         items: [
-          { code: 'A123', name: 'Producto 1', qty: 1, priceBuy: 10, priceSale: 20 },
+          {
+            code: 'A123',
+            name: 'Producto 1',
+            qty: 1,
+            priceBuy: 10,
+            priceSale: 20,
+          },
         ],
         notes: 'prueba',
       }),

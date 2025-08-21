@@ -53,7 +53,6 @@ La plantilla `sam/template.yaml` crea una tabla DynamoDB denominada `CommerceDat
    ```
 
 3. Configure un archivo `samconfig.toml` o ejecute `sam deploy --guided`. Asegúrese de exportar o definir en sus secretos:
-
    - `AWS_ACCESS_KEY_ID`
    - `AWS_SECRET_ACCESS_KEY`
    - `AWS_REGION`
@@ -92,15 +91,15 @@ Las funciones Lambda están expuestas a través de una API HTTP. El parámetro `
 
 Endpoints principales:
 
-| Método y ruta | Descripción |
-|---------------|-------------|
-| **POST /{commerceId}/products** | Crear producto (solo admin). |
-| **PUT /{commerceId}/products/{code}** | Actualizar producto (solo admin). |
-| **GET /{commerceId}/products** | Listar productos. Admite `lastKey` para paginación. |
-| **POST /{commerceId}/sales** | Registrar venta o devolución (admin o vendedor). |
-| **GET /{commerceId}/sales** | Listar ventas. Acepta filtros por día (`day=YYYY-MM-DD`), rango (`start` y `end`) y `lastKey`. |
-| **GET /{commerceId}/reports/daily** | Reporte diario por comercio y día. |
-| **GET /{commerceId}/reports/range** | Reporte por rango de fechas. |
+| Método y ruta                         | Descripción                                                                                    |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| **POST /{commerceId}/products**       | Crear producto (solo admin).                                                                   |
+| **PUT /{commerceId}/products/{code}** | Actualizar producto (solo admin).                                                              |
+| **GET /{commerceId}/products**        | Listar productos. Admite `lastKey` para paginación.                                            |
+| **POST /{commerceId}/sales**          | Registrar venta o devolución (admin o vendedor).                                               |
+| **GET /{commerceId}/sales**           | Listar ventas. Acepta filtros por día (`day=YYYY-MM-DD`), rango (`start` y `end`) y `lastKey`. |
+| **GET /{commerceId}/reports/daily**   | Reporte diario por comercio y día.                                                             |
+| **GET /{commerceId}/reports/range**   | Reporte por rango de fechas.                                                                   |
 
 ### Testing
 

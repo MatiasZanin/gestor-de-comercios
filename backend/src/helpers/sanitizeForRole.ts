@@ -3,14 +3,17 @@
  * cuando el rol no es admin.
  */
 
-export function sanitizeForRole<T extends Record<string, any>>(obj: T, roles: string[]): T {
+export function sanitizeForRole<T extends Record<string, any>>(
+  obj: T,
+  roles: string[]
+): T {
   if (roles.includes('admin')) {
     return obj;
   }
   // función recursiva para procesar arrays y objetos anidados
   const clean = (value: any): any => {
     if (Array.isArray(value)) {
-      return value.map((v) => clean(v));
+      return value.map(v => clean(v));
     }
     if (value && typeof value === 'object') {
       const result: Record<string, any> = {};

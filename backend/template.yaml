@@ -126,7 +126,7 @@ Resources:
       Auth:
         Authorizers:
           CognitoJwtAuthorizer:
-            IdentitySource: "$request.header.Authorization"
+            IdentitySource: '$request.header.Authorization'
             JwtConfiguration:
               Audience:
                 - !Ref UserPoolClient

@@ -1,6 +1,9 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, QueryCommand } from '@aws-sdk/lib-dynamodb';
-import { APIGatewayProxyEventV2WithJWTAuthorizer, APIGatewayProxyResultV2 } from 'aws-lambda';
+import {
+  APIGatewayProxyEventV2WithJWTAuthorizer,
+  APIGatewayProxyResultV2,
+} from 'aws-lambda';
 import { BadRequestError, buildErrorResponse } from '../helpers/errors';
 import { sanitizeForRole } from '../helpers/sanitizeForRole';
 
@@ -8,7 +11,7 @@ const dynamoClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(dynamoClient);
 
 export const handler = async (
-  event: APIGatewayProxyEventV2WithJWTAuthorizer,
+  event: APIGatewayProxyEventV2WithJWTAuthorizer
 ): Promise<APIGatewayProxyResultV2> => {
   try {
     const tableName = process.env.TABLE_NAME;
@@ -30,7 +33,9 @@ export const handler = async (
     let exclusiveStartKey;
     if (queryParams.lastKey) {
       try {
-        const decoded = Buffer.from(queryParams.lastKey, 'base64').toString('utf-8');
+        const decoded = Buffer.from(queryParams.lastKey, 'base64').toString(
+          'utf-8'
+        );
         exclusiveStartKey = JSON.parse(decoded);
       } catch (e) {
         throw new BadRequestError('Invalid lastKey');
@@ -47,18 +52,20 @@ export const handler = async (
         },
         ExclusiveStartKey: exclusiveStartKey,
         Limit: 25,
-      }),
+      })
     );
     let items = result.Items ?? [];
     // Filtrar por isActive si se solicitó
     if (typeof isActiveFilter === 'boolean') {
-      items = items.filter((item) => item.isActive === isActiveFilter);
+      items = items.filter(item => item.isActive === isActiveFilter);
     }
     // Sanitizar cada producto según rol
-    const sanitized = items.map((item) => sanitizeForRole(item, role!));
+    const sanitized = items.map(item => sanitizeForRole(item, role!));
     let lastKeyBase64: string | undefined;
     if (result.LastEvaluatedKey) {
-      lastKeyBase64 = Buffer.from(JSON.stringify(result.LastEvaluatedKey)).toString('base64');
+      lastKeyBase64 = Buffer.from(
+        JSON.stringify(result.LastEvaluatedKey)
+      ).toString('base64');
     }
     return {
       statusCode: 200,

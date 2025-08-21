@@ -1,13 +1,16 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, QueryCommand } from '@aws-sdk/lib-dynamodb';
-import { APIGatewayProxyEventV2WithJWTAuthorizer, APIGatewayProxyResultV2 } from 'aws-lambda';
+import {
+  APIGatewayProxyEventV2WithJWTAuthorizer,
+  APIGatewayProxyResultV2,
+} from 'aws-lambda';
 import { BadRequestError, buildErrorResponse } from '../helpers/errors';
 
 const dynamoClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(dynamoClient);
 
 export const handler = async (
-  event: APIGatewayProxyEventV2WithJWTAuthorizer,
+  event: APIGatewayProxyEventV2WithJWTAuthorizer
 ): Promise<APIGatewayProxyResultV2> => {
   try {
     const tableName = process.env.TABLE_NAME;
@@ -35,7 +38,7 @@ export const handler = async (
           KeyConditionExpression: 'GSI1PK = :gsiPk',
           ExpressionAttributeValues: { ':gsiPk': gsiPk },
           ExclusiveStartKey: exclusiveStartKey,
-        }),
+        })
       );
       const items = result.Items ?? [];
       for (const sale of items) {
@@ -53,14 +56,16 @@ export const handler = async (
           }
           aggregated[key].units += item.qty;
           aggregated[key].revenue += item.priceSale * item.qty;
-          aggregated[key].profit += (item.priceSale - (item.priceBuy || 0)) * item.qty;
+          aggregated[key].profit +=
+            (item.priceSale - (item.priceBuy || 0)) * item.qty;
         }
       }
       exclusiveStartKey = result.LastEvaluatedKey;
     } while (exclusiveStartKey);
     const list = Object.values(aggregated);
     // Ordenar según parámetro
-    const sortKey = order === 'revenue' ? 'revenue' : order === 'profit' ? 'profit' : 'units';
+    const sortKey =
+      order === 'revenue' ? 'revenue' : order === 'profit' ? 'profit' : 'units';
     list.sort((a: any, b: any) => b[sortKey] - a[sortKey]);
     // Si rol vendedor, ocultar campo profit
     if (role !== 'admin') {
