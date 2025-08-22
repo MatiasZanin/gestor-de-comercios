@@ -20,4 +20,6 @@ export interface Sale {
   total: number;
   notes?: string;
   profit?: number;
+  GSI1PK?: string;
+  GSI1SK?: string;
 }

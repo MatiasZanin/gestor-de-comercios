@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { DashboardLayout } from "@/components/dashboard/dashboard-layout"
 import { apiClient } from "@/lib/api/client"
@@ -22,17 +22,30 @@ export default function DashboardPage() {
     todayRevenue: 0,
   })
   const [loading, setLoading] = useState(true)
+  const [count, setCount] = useState(0)
   const { user } = useAuth()
+  const hasLoadedRef = useRef(false)
 
   useEffect(() => {
-    if (user) {
+    if (user && !hasLoadedRef.current) {
+      hasLoadedRef.current = true
+      setCount(prev => {
+        const newCount = prev + 1
+        console.log("count:", newCount)
+        return newCount
+      })
       loadDashboardData()
+    }
+
+    return () => {
+      // Cleanup si es necesario
     }
   }, [user])
 
   const loadDashboardData = async () => {
     try {
       setLoading(true)
+
 
       // Load products
       const productsResponse = await apiClient.listProducts()

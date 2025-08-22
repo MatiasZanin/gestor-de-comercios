@@ -103,6 +103,9 @@ export const handler = async (
       total,
       notes: body.notes,
       profit,
+      // 👉 clave para el GSI
+      GSI1PK: `COM#${commerceId}#${day}`,
+      GSI1SK: createdAt, // opcional: para ordenar por fecha
     };
     await docClient.send(
       new PutCommand({

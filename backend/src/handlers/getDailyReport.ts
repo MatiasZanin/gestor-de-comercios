@@ -34,7 +34,7 @@ export const handler = async (
       const result: any = await docClient.send(
         new QueryCommand({
           TableName: tableName,
-          IndexName: 'GSI-Ventas-Por-Día',
+          IndexName: 'GSI-Ventas-Por-Dia',
           KeyConditionExpression: 'GSI1PK = :gsiPk',
           ExpressionAttributeValues: { ':gsiPk': gsiPk },
           ExclusiveStartKey: exclusiveStartKey,

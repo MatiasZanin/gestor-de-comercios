@@ -29,13 +29,11 @@ export async function updateStock(
       new UpdateCommand({
         TableName: tableName,
         Key: { PK: pk, SK: sk },
-        UpdateExpression: 'SET stock = stock + :qty, updatedAt = :now',
-        ConditionExpression:
-          'attribute_exists(PK) AND attribute_exists(SK) AND stock + :qty >= :zero',
+        UpdateExpression: 'SET stock = stock - :qty, updatedAt = :now',
+        ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)',
         ExpressionAttributeValues: {
           ':qty': qty,
           ':now': now,
-          ':zero': 0,
         },
         ReturnValues: 'UPDATED_NEW',
       })

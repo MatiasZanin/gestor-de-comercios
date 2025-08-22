@@ -10,8 +10,7 @@ export function useAuth() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    setAuthState(authService.getAuthState())
-    console.log("🚀 ~ useAuth ~ authService.getAuthState():", authService.getAuthState())
+    // setAuthState(authService.getAuthState())
   }, [])
 
   const login = async (credentials: LoginCredentials) => {

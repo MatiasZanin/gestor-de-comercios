@@ -32,6 +32,7 @@ Globals:
         TABLE_NAME: !Ref CommerceData
         COMMERCE_STAGE: !Ref CommerceStage
         RETENTION_DAYS: !Ref RetentionDays
+        SALES_BY_DAY_GSI: GSI-Ventas-Por-Dia
 
 Resources:
   ## DynamoDB single-table para productos y ventas
@@ -157,7 +158,12 @@ Resources:
                   - dynamodb:UpdateItem
                   - dynamodb:Query
                   - dynamodb:ConditionCheckItem
+                  - dynamodb:DescribeTable
                 Resource: !GetAtt CommerceData.Arn
+              - Effect: Allow
+                Action:
+                  - dynamodb:Query
+                Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/CommerceData-${CommerceStage}/index/GSI-Ventas-Por-Dia
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
 
