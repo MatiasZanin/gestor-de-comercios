@@ -52,6 +52,9 @@ export const handler = async (
       throw new BadRequestError('Missing required fields');
     }
     const now = new Date().toISOString();
+    const activeFlag = isActive !== undefined ? !!isActive : true;
+    const gsi2pk = `COM#${commerceId}`;
+    const gsi2sk = `PRODUCT#${activeFlag ? 'true' : 'false'}#${now}`;
     const pk = `COM#${commerceId}`;
     const sk = `PRODUCT#${code}`;
     const item: Product = {
@@ -70,8 +73,10 @@ export const handler = async (
       createdAt: now,
       updatedAt: now,
       uom,
-      isActive: isActive !== undefined ? !!isActive : true,
+      isActive: activeFlag,
       qtyStep: body.qtyStep || 1, // Default to 1 if not provided
+      GSI2PK: gsi2pk,
+      GSI2SK: gsi2sk,
     };
     await docClient.send(
       new PutCommand({

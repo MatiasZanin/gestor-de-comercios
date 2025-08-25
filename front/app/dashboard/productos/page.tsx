@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { Plus, Search, Edit, Trash2, Package } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Switch } from "@/components/ui/switch"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -120,14 +121,15 @@ export default function ProductsPage() {
                     className="pl-10 w-64 border-gray-200 focus:border-emerald-500"
                   />
                 </div>
-                {/* <Button
-                  variant={showActiveOnly ? "default" : "outline"}
-                  onClick={() => setShowActiveOnly(!showActiveOnly)}
-                  size="sm"
-                  className={showActiveOnly ? "bg-emerald-600 hover:bg-emerald-700" : ""}
-                >
-                  {showActiveOnly ? "Solo Activos" : "Todos"}
-                </Button> */}
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-700">
+                    {showActiveOnly ? "Activos" : "Inactivos"}
+                  </span>
+                  <Switch
+                    checked={showActiveOnly}
+                    onCheckedChange={setShowActiveOnly}
+                  />
+                </div>
               </div>
             </div>
           </CardHeader>

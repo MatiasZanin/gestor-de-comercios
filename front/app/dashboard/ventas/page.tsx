@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Plus, Receipt, Calendar } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -47,7 +47,10 @@ export default function SalesPage() {
   }
 
   useEffect(() => {
-    loadSales(true)
+    if (sales.length === 0) {
+      loadSales(true)
+    }
+    console.log("🚀 ~ SalesPage ~ true:", true)
   }, [])
 
   const handleDateFilter = () => {

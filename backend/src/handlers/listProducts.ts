@@ -41,24 +41,47 @@ export const handler = async (
         throw new BadRequestError('Invalid lastKey');
       }
     }
-    const pk = `COM#${commerceId}`;
-    const result = await docClient.send(
-      new QueryCommand({
-        TableName: tableName,
-        KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
-        ExpressionAttributeValues: {
-          ':pk': pk,
-          ':prefix': 'PRODUCT#',
-        },
-        ExclusiveStartKey: exclusiveStartKey,
-        Limit: 25,
-      })
+    const pageSize = Math.min(
+      Math.max(parseInt(queryParams.pageSize ?? '25', 10) || 25, 1),
+      100
     );
-    let items = result.Items ?? [];
-    // Filtrar por isActive si se solicitó
+
+    const pk = `COM#${commerceId}`;
+
+    let result;
     if (typeof isActiveFilter === 'boolean') {
-      items = items.filter(item => item.isActive === isActiveFilter);
+      // Query sparse GSI for products by active flag
+      result = await docClient.send(
+        new QueryCommand({
+          TableName: tableName,
+          IndexName: 'GSI-Productos-Activos',
+          KeyConditionExpression:
+            'GSI2PK = :pk AND begins_with(GSI2SK, :gsiPrefix)',
+          ExpressionAttributeValues: {
+            ':pk': pk,
+            ':gsiPrefix': `PRODUCT#${isActiveFilter ? 'true' : 'false'}#`,
+          },
+          ExclusiveStartKey: exclusiveStartKey,
+          Limit: pageSize,
+        })
+      );
+    } else {
+      // Default: list all products for the commerce (any active state)
+      result = await docClient.send(
+        new QueryCommand({
+          TableName: tableName,
+          KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
+          ExpressionAttributeValues: {
+            ':pk': pk,
+            ':prefix': 'PRODUCT#',
+          },
+          ExclusiveStartKey: exclusiveStartKey,
+          Limit: pageSize,
+        })
+      );
     }
+
+    let items = result.Items ?? [];
     // Sanitizar cada producto según rol
     const sanitized = items.map(item => sanitizeForRole(item, role!));
     let lastKeyBase64: string | undefined;

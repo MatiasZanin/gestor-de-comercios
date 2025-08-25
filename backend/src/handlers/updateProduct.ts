@@ -49,9 +49,8 @@ export const handler = async (
     ];
     const expressionParts: string[] = [];
     const expressionNames: Record<string, string> = {};
-    const expressionValues: Record<string, any> = {
-      ':now': new Date().toISOString(),
-    };
+    const expressionValues: Record<string, any> = {};
+
     for (const field of allowedFields) {
       if (body[field] !== undefined) {
         const placeholder = `:${field}`;
@@ -66,6 +65,19 @@ export const handler = async (
     if (expressionParts.length === 0) {
       throw new BadRequestError('No updatable fields provided');
     }
+
+    const updatedAt = new Date().toISOString();
+    expressionValues[':now'] = updatedAt;
+
+    const newIsActive = body.isActive !== undefined ? body.isActive : undefined;
+    if (newIsActive !== undefined) {
+      const gsi2pk = `COM#${commerceId}`;
+      const gsi2sk = `PRODUCT#${newIsActive ? 'true' : 'false'}#${updatedAt}`;
+      expressionParts.push('GSI2PK = :gpk', 'GSI2SK = :gsk');
+      expressionValues[':gpk'] = gsi2pk;
+      expressionValues[':gsk'] = gsi2sk;
+    }
+
     const updateExpression = `SET ${expressionParts.join(', ')}, updatedAt = :now`;
     const pk = `COM#${commerceId}`;
     const sk = `PRODUCT#${code}`;

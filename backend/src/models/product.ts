@@ -16,4 +16,6 @@ export interface Product {
   uom: string;
   isActive: boolean;
   qtyStep: number;
+  GSI2PK: string;
+  GSI2SK: string;
 }
