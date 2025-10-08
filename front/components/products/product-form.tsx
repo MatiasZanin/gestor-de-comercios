@@ -29,11 +29,29 @@ export function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) 
     stock: product?.stock || 0,
     isActive: product?.isActive ?? true,
   })
+  const [priceBuyInput, setPriceBuyInput] = useState(
+    product?.priceBuy ? product.priceBuy.toString() : ""
+  )
+  const [priceSaleInput, setPriceSaleInput] = useState(
+    product?.priceSale ? product.priceSale.toString() : ""
+  )
+  const [stockInput, setStockInput] = useState(
+    product?.stock ? product.stock.toString() : ""
+  )
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    // Normalizar a 2 decimales antes de enviar
+    if (priceBuyInput !== "" && !priceBuyInput.endsWith(".")) {
+      const n = Number.parseFloat(priceBuyInput)
+      if (!Number.isNaN(n)) setPriceBuyInput(n.toFixed(2))
+    }
+    if (priceSaleInput !== "" && !priceSaleInput.endsWith(".")) {
+      const n = Number.parseFloat(priceSaleInput)
+      if (!Number.isNaN(n)) setPriceSaleInput(n.toFixed(2))
+    }
     setLoading(true)
     setError("")
 
@@ -107,11 +125,41 @@ export function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) 
                 <Label htmlFor="priceBuy">Precio Compra *</Label>
                 <Input
                   id="priceBuy"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={formData.priceBuy}
-                  onChange={(e) => setFormData({ ...formData, priceBuy: Number.parseFloat(e.target.value) || 0 })}
+                  type="text"
+                  value={priceBuyInput}
+                  onChange={(e) => {
+                    const value = e.target.value
+                    // Solo permitir números, punto decimal y vacío - hasta 2 decimales
+                    if (value === "" || /^\d*\.?\d{0,2}$/.test(value)) {
+                      setPriceBuyInput(value)
+                      // Parsear solo cuando el valor es numérico estable (no "." ni termina en ".")
+                      if (value !== "" && value !== "." && !value.endsWith(".")) {
+                        const n = Number.parseFloat(value)
+                        if (!Number.isNaN(n)) {
+                          setFormData({ ...formData, priceBuy: n })
+                        }
+                      }
+                    }
+                  }}
+                  onBlur={(e) => {
+                    let value = e.target.value
+                    // Si termina en ".", quita el punto suelto
+                    if (value.endsWith(".")) value = value.slice(0, -1)
+                    if (value === "") {
+                      setPriceBuyInput("")
+                      setFormData({ ...formData, priceBuy: 0 })
+                    } else {
+                      const n = Number.parseFloat(value)
+                      if (Number.isNaN(n) || n === 0) {
+                        setPriceBuyInput("")
+                        setFormData({ ...formData, priceBuy: 0 })
+                      } else {
+                        setPriceBuyInput(n.toFixed(2))
+                        setFormData({ ...formData, priceBuy: n })
+                      }
+                    }
+                  }}
+                  placeholder="0.00"
                   required
                 />
               </div>
@@ -119,11 +167,38 @@ export function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) 
                 <Label htmlFor="priceSale">Precio Venta *</Label>
                 <Input
                   id="priceSale"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={formData.priceSale}
-                  onChange={(e) => setFormData({ ...formData, priceSale: Number.parseFloat(e.target.value) || 0 })}
+                  type="text"
+                  value={priceSaleInput}
+                  onChange={(e) => {
+                    const value = e.target.value
+                    if (value === "" || /^\d*\.?\d{0,2}$/.test(value)) {
+                      setPriceSaleInput(value)
+                      if (value !== "" && value !== "." && !value.endsWith(".")) {
+                        const n = Number.parseFloat(value)
+                        if (!Number.isNaN(n)) {
+                          setFormData({ ...formData, priceSale: n })
+                        }
+                      }
+                    }
+                  }}
+                  onBlur={(e) => {
+                    let value = e.target.value
+                    if (value.endsWith(".")) value = value.slice(0, -1)
+                    if (value === "") {
+                      setPriceSaleInput("")
+                      setFormData({ ...formData, priceSale: 0 })
+                    } else {
+                      const n = Number.parseFloat(value)
+                      if (Number.isNaN(n) || n === 0) {
+                        setPriceSaleInput("")
+                        setFormData({ ...formData, priceSale: 0 })
+                      } else {
+                        setPriceSaleInput(n.toFixed(2))
+                        setFormData({ ...formData, priceSale: n })
+                      }
+                    }
+                  }}
+                  placeholder="0.00"
                   required
                 />
               </div>
@@ -144,10 +219,40 @@ export function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) 
                 <Label htmlFor="stock">Stock *</Label>
                 <Input
                   id="stock"
-                  type="number"
-                  min="0"
-                  value={formData.stock}
-                  onChange={(e) => setFormData({ ...formData, stock: Number.parseInt(e.target.value) || 1 })}
+                  type="text"
+                  value={stockInput}
+                  onChange={(e) => {
+                    const value = e.target.value
+                    // Solo permitir dígitos y vacío (enteros)
+                    if (value === "" || /^\d*\.?\d{0,2}$/.test(value)) {
+                      setStockInput(value)
+                      // Actualizar formData solo cuando hay un número (no vacío)
+                      if (value !== "") {
+                        const n = Number.parseFloat(value)
+                        if (!Number.isNaN(n)) {
+                          setFormData({ ...formData, stock: n })
+                        }
+                      }
+                    }
+                  }}
+                  onBlur={(e) => {
+                    let value = e.target.value
+                    if (value.endsWith(".")) value = value.slice(0, -1)
+                    if (value === "") {
+                      setStockInput("")
+                      setFormData({ ...formData, stock: 0 })
+                    } else {
+                      const n = Number.parseFloat(value)
+                      if (Number.isNaN(n) || n === 0) {
+                        setStockInput("")
+                        setFormData({ ...formData, stock: 0 })
+                      } else {
+                        setStockInput(n.toFixed(2))
+                        setFormData({ ...formData, stock: n })
+                      }
+                    }
+                  }}
+                  placeholder="0"
                   required
                 />
               </div>

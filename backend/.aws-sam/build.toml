@@ -7,6 +7,6 @@ architecture = "x86_64"
 handler = "handlers/createProduct.handler"
 manifest_hash = ""
 packagetype = "Zip"
-functions = ["CreateProductFunction", "UpdateProductFunction", "ListProductsFunction", "CreateSaleFunction", "ListSalesFunction", "GetDailyReportFunction", "GetRangeReportFunction", "JwtAuthorizerFunction"]
+functions = ["CreateProductFunction", "UpdateProductFunction", "ListProductsFunction", "GetProductByCodeFunction", "CreateSaleFunction", "ListSalesFunction", "GetDailyReportFunction", "GetRangeReportFunction", "JwtAuthorizerFunction"]
 
 [layer_build_definitions]

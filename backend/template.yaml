@@ -229,6 +229,21 @@ Resources:
             Path: '/{commerceId}/products'
             Method: GET
 
+  GetProductByCodeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub getProductByCode-${CommerceStage}
+      CodeUri: ./dist
+      Handler: handlers/getProductByCode.handler
+      Role: !GetAtt LambdaDynamoRole.Arn
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: '/{commerceId}/products/{code}'
+            Method: GET
+
   CreateSaleFunction:
     Type: AWS::Serverless::Function
     Properties:

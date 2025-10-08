@@ -132,7 +132,7 @@ export function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="mb-4"
                   />
-                  <div className="border rounded-lg max-h-64 overflow-y-auto">
+                  <div className="border rounded-lg h-[300px] max-h-[300px] overflow-y-auto">
                     {filteredProducts.map((product) => (
                       <div key={product.code} className="p-3 border-b last:border-b-0 hover:bg-gray-50">
                         <div className="flex items-center justify-between">
@@ -168,45 +168,46 @@ export function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
                   {selectedItems.length === 0 ? (
                     <p className="text-gray-500 text-center py-8">No hay productos seleccionados</p>
                   ) : (
-                    <div className="space-y-3">
-                      {selectedItems.map((item) => (
-                        <div key={item.code} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                          <div className="flex-1">
-                            <h4 className="font-medium">{item.name}</h4>
-                            <p className="text-sm text-gray-600">{item.code}</p>
+                    <div className="space-y-3 max-h-[320px] h-[320px] ">
+                      <div className="max-h-[260px] h-[260px] overflow-y-auto ">
+                        {selectedItems.map((item) => (
+                          <div key={item.code} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                            <div className="flex-1">
+                              <h4 className="font-medium">{item.name}</h4>
+                              <p className="text-sm text-gray-600">{item.code}</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => updateItemQty(item.code, item.qty - 1)}
+                              >
+                                <Minus className="w-3 h-3" />
+                              </Button>
+                              <span className="w-12 text-center">{item.qty}</span>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => updateItemQty(item.code, item.qty + 1)}
+                              >
+                                <Plus className="w-3 h-3" />
+                              </Button>
+                              <span className="w-20 text-right">{formatCurrency(item.qty * item.priceSale)}</span>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => removeItem(item.code)}
+                                className="text-red-600"
+                              >
+                                <X className="w-3 h-3" />
+                              </Button>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={() => updateItemQty(item.code, item.qty - 1)}
-                            >
-                              <Minus className="w-3 h-3" />
-                            </Button>
-                            <span className="w-12 text-center">{item.qty}</span>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={() => updateItemQty(item.code, item.qty + 1)}
-                            >
-                              <Plus className="w-3 h-3" />
-                            </Button>
-                            <span className="w-20 text-right">{formatCurrency(item.qty * item.priceSale)}</span>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={() => removeItem(item.code)}
-                              className="text-red-600"
-                            >
-                              <X className="w-3 h-3" />
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-
+                        ))}
+                      </div>
                       <div className="border-t pt-3 mt-4">
                         <div className="flex justify-between items-center text-lg font-bold">
                           <span>Total:</span>
@@ -215,6 +216,9 @@ export function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
                       </div>
                     </div>
                   )}
+
+
+
                 </div>
               </div>
             </div>

@@ -50,7 +50,6 @@ export default function SalesPage() {
     if (sales.length === 0) {
       loadSales(true)
     }
-    console.log("🚀 ~ SalesPage ~ true:", true)
   }, [])
 
   const handleDateFilter = () => {

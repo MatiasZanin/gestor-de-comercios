@@ -93,12 +93,21 @@ export class ApiClient {
     if (params?.isActive !== undefined) {
       searchParams.append("isActive", params.isActive.toString())
     }
+    if (params?.name) {
+      searchParams.append("name", params.name)
+    }
     if (params?.lastKey) {
       searchParams.append("lastKey", params.lastKey)
     }
 
     const query = searchParams.toString()
     return this.makeRequest(`/products${query ? `?${query}` : ""}`)
+  }
+
+  async getProductByCode(code: string): Promise<any> {
+    return this.makeRequest(`/products/${encodeURIComponent(code)}`, {
+      method: "GET",
+    })
   }
 
   // Sale endpoints

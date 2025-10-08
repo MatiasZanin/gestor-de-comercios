@@ -48,51 +48,73 @@ export const handler = async (
 
     const pk = `COM#${commerceId}`;
 
-    let result;
-    if (typeof isActiveFilter === 'boolean') {
-      // Query sparse GSI for products by active flag
-      result = await docClient.send(
-        new QueryCommand({
-          TableName: tableName,
-          IndexName: 'GSI-Productos-Activos',
-          KeyConditionExpression:
-            'GSI2PK = :pk AND begins_with(GSI2SK, :gsiPrefix)',
-          ExpressionAttributeValues: {
-            ':pk': pk,
-            ':gsiPrefix': `PRODUCT#${isActiveFilter ? 'true' : 'false'}#`,
-          },
-          ExclusiveStartKey: exclusiveStartKey,
-          Limit: pageSize,
-        })
+    // Fetch all pages and concatenate
+    let aggregatedItems: any[] = [];
+    let lastEvaluatedKey = exclusiveStartKey;
+
+    do {
+      const baseParams: any = {
+        TableName: tableName,
+        ExclusiveStartKey: lastEvaluatedKey,
+        Limit: pageSize,
+      };
+
+      let page;
+      if (typeof isActiveFilter === 'boolean') {
+        // Query sparse GSI for products by active flag
+        page = await docClient.send(
+          new QueryCommand({
+            ...baseParams,
+            IndexName: 'GSI-Productos-Activos',
+            KeyConditionExpression:
+              'GSI2PK = :pk AND begins_with(GSI2SK, :gsiPrefix)',
+            ExpressionAttributeValues: {
+              ':pk': pk,
+              ':gsiPrefix': `PRODUCT#${isActiveFilter ? 'true' : 'false'}#`,
+            },
+          })
+        );
+      } else {
+        // Default: list all products for the commerce (any active state)
+        page = await docClient.send(
+          new QueryCommand({
+            ...baseParams,
+            KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
+            ExpressionAttributeValues: {
+              ':pk': pk,
+              ':prefix': 'PRODUCT#',
+            },
+          })
+        );
+      }
+
+      if (page.Items && page.Items.length) {
+        aggregatedItems.push(...page.Items);
+      }
+      lastEvaluatedKey = page.LastEvaluatedKey;
+    } while (lastEvaluatedKey);
+
+    let items = aggregatedItems;
+    // Optional in-memory filters after fetching all items
+    const nameFilter = (queryParams.name ?? '').toString().trim().toLowerCase();
+    const codeFilter = (queryParams.code ?? '').toString().trim().toLowerCase();
+
+    if (nameFilter) {
+      items = items.filter((it: any) =>
+        (it.name ?? '').toString().toLowerCase().includes(nameFilter)
       );
-    } else {
-      // Default: list all products for the commerce (any active state)
-      result = await docClient.send(
-        new QueryCommand({
-          TableName: tableName,
-          KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
-          ExpressionAttributeValues: {
-            ':pk': pk,
-            ':prefix': 'PRODUCT#',
-          },
-          ExclusiveStartKey: exclusiveStartKey,
-          Limit: pageSize,
-        })
+    }
+    if (codeFilter) {
+      items = items.filter((it: any) =>
+        (it.code ?? '').toString().toLowerCase().includes(codeFilter)
       );
     }
 
-    let items = result.Items ?? [];
     // Sanitizar cada producto según rol
     const sanitized = items.map(item => sanitizeForRole(item, role!));
-    let lastKeyBase64: string | undefined;
-    if (result.LastEvaluatedKey) {
-      lastKeyBase64 = Buffer.from(
-        JSON.stringify(result.LastEvaluatedKey)
-      ).toString('base64');
-    }
     return {
       statusCode: 200,
-      body: JSON.stringify({ items: sanitized, lastKey: lastKeyBase64 }),
+      body: JSON.stringify({ items: sanitized }),
     };
   } catch (err) {
     return buildErrorResponse(err);
