@@ -92,8 +92,11 @@ export default function SalesPage() {
             <h1 className="text-3xl font-bold text-gray-900">Ventas</h1>
             <p className="text-gray-600">Registra y gestiona las ventas</p>
           </div>
-          <Button onClick={handleCreateSale} className="bg-orange-600 hover:bg-orange-700">
-            <Plus className="w-4 h-4 mr-2" />
+          <Button
+            onClick={handleCreateSale}
+            className="bg-orange-600 hover:bg-orange-700 text-lg px-6 py-3 rounded-lg shadow-md hover:shadow-lg transition-transform transform hover:scale-105"
+          >
+            <Plus className="w-5 h-5 mr-2" />
             Nueva Venta
           </Button>
         </div>
@@ -145,28 +148,53 @@ export default function SalesPage() {
                           {format(new Date(sale.createdAt), "dd/MM/yyyy HH:mm", { locale: es })}
                         </Badge>
                       </div>
-                      <div className="text-right">
+                      {/* <div className="text-right">
                         <div className="text-lg font-bold text-gray-900">{formatCurrency(sale.total)}</div>
                         {isAdmin && sale.profit && (
                           <div className="text-sm text-emerald-600">Ganancia: {formatCurrency(sale.profit)}</div>
                         )}
-                      </div>
+                      </div> */}
                     </div>
-                    <div className="space-y-2">
-                      {sale.items.map((item, index) => (
-                        <div key={index} className="flex items-center justify-start text-sm">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium">{item.name}</span>
-                            <span className="text-gray-500">({item.code})</span>
-                          </div>
-                          <div className="flex items-center gap-4">
-                            <span>Cant: {item.qty}</span>
-                            <span>Precio: {formatCurrency(item.priceSale)}</span>
-                            <span className="font-medium">{formatCurrency(item.qty * item.priceSale)}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                    <table className="w-full text-sm text-gray-700">
+                      <thead>
+                        <tr className="text-left">
+                          <th className="pr-5 py-1 whitespace-nowrap">Nombre</th>
+                          <th className="px-5 py-1 whitespace-nowrap">Código</th>
+                          <th className="px-5 py-1 whitespace-nowrap text-left">Cantidad</th>
+                          <th className="px-5 py-1 whitespace-nowrap text-left">Precio</th>
+                          <th className="px-5 py-1 whitespace-nowrap text-left">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {sale.items.map((item, index) => (
+                          <tr key={index} className="hover:bg-gray-50">
+                            <td className="pr-5 py-1 whitespace-nowrap w-0">{item.name}</td>
+                            <td className="px-5 py-1 whitespace-nowrap w-0">{item.code}</td>
+                            <td className="px-5 py-1 whitespace-nowrap w-0 text-left tabular-nums">{item.qty}</td>
+                            <td className="px-5 py-1 whitespace-nowrap w-0 text-left tabular-nums">{formatCurrency(item.priceSale)}</td>
+                            <td className="px-5 py-1 whitespace-nowrap w-full text-left tabular-nums font-medium">
+                              {formatCurrency(item.qty * item.priceSale)}
+                            </td>
+                          </tr>
+                        ))}
+                        <tr className="hover:bg-gray-50">
+                          <td className="pr-5 py-1 whitespace-nowrap w-0 text-lg font-bold text-gray-900 align-top">Total</td>
+                          <td className="px-5 py-1 whitespace-nowrap w-0"></td>
+                          <td className="px-5 py-1 whitespace-nowrap w-0 text-left tabular-nums"></td>
+                          <td className="px-5 py-1 whitespace-nowrap w-0 text-left tabular-nums text-lg font-bold text-gray-900"></td>
+                          <td className="px-5 py-1 whitespace-nowrap w-full text-left tabular-nums font-medium">
+                            <div className="flex flex-col">
+                              <span className="text-lg font-bold text-gray-900">{formatCurrency(sale.total)}</span>
+                              {sale.profit !== null && sale.profit !== undefined && (
+                                <span className="text-sm text-emerald-600">
+                                  Ganancia: {formatCurrency(sale.profit)}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
                     {sale.notes && (
                       <div className="mt-3 pt-3 border-t">
                         <p className="text-sm text-gray-600">
