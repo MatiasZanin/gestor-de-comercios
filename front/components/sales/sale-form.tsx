@@ -24,18 +24,62 @@ export function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [searchTerm, setSearchTerm] = useState("")
+  const [loadingProducts, setLoadingProducts] = useState(true)
+  const [showOtherModal, setShowOtherModal] = useState(false)
+  const [otherPrice, setOtherPrice] = useState<string>("")
+  const [otherPriceError, setOtherPriceError] = useState("")
 
   useEffect(() => {
     loadProducts()
   }, [])
 
   const loadProducts = async () => {
+    setLoadingProducts(true)
     try {
       const response = await apiClient.listProducts({ isActive: true })
       setProducts(response.items)
     } catch (error) {
       console.error("Error loading products:", error)
+    } finally {
+      setLoadingProducts(false)
     }
+  }
+
+  const openOtherModal = () => {
+    setOtherPrice("")
+    setOtherPriceError("")
+    setShowOtherModal(true)
+  }
+
+  const addOtherItem = (price: number) => {
+    // const existingItem = selectedItems.find((item) => item.code === "-1")
+    // if (existingItem) {
+    //   // Si ya existe "Otros", incremento la cantidad y actualizo el precio unitario al último ingresado
+    //   setSelectedItems((items) =>
+    //     items.map((item) =>
+    //       item.code === "-1" ? { ...item, qty: item.qty + 1, priceSale: price } : item,
+    //     ),
+    //   )
+    // } else {
+    const newItem: SaleItem = {
+      code: "-1",
+      name: "Otros",
+      qty: 1,
+      priceBuy: 0,
+      priceSale: price,
+    }
+    setSelectedItems((items) => [...items, newItem])
+    // }
+  }
+
+  const confirmOther = () => {
+    const value = parseFloat(otherPrice.replace(",", "."))
+    if (isNaN(value) || value <= 0) {
+      setOtherPriceError("Ingresá un precio válido mayor a 0")
+      return
+    }
+    addOtherItem(value)
+    setShowOtherModal(false)
   }
 
   const addItem = (product: Product) => {
@@ -132,31 +176,46 @@ export function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="mb-4"
                   />
-                  <div className="border rounded-lg h-[300px] max-h-[300px] overflow-y-auto">
-                    {filteredProducts.map((product) => (
-                      <div key={product.code} className="p-3 border-b last:border-b-0 hover:bg-gray-50">
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <h4 className="font-medium">{product.name}</h4>
-                            <div className="text-sm text-gray-600">
-                              <span>{product.code}</span>
-                              <span className="mx-2">•</span>
-                              <span>Stock: {product.stock}</span>
-                              <span className="mx-2">•</span>
-                              <span>{formatCurrency(product.priceSale)}</span>
+                  <div className="border rounded-lg h-[300px] max-h-[300px] overflow-y-scroll" style={{ scrollbarGutter: "stable" }}>
+                    {loadingProducts ? (
+                      <div className="flex items-center justify-center h-full">
+                        <span className="text-gray-500 text-center w-full">Cargando productos...</span>
+                      </div>
+                    ) : (
+                      <>
+                        {filteredProducts.map((product) => (
+                          <div key={product.code} className="p-3 border-b last:border-b-0 hover:bg-gray-50">
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1">
+                                <h4 className="font-medium">{product.name}</h4>
+                                <div className="text-sm text-gray-600">
+                                  <span>{product.code}</span>
+                                  <span className="mx-2">•</span>
+                                  <span>Stock: {product.stock}</span>
+                                  <span className="mx-2">•</span>
+                                  <span>{formatCurrency(product.priceSale)}</span>
+                                </div>
+                              </div>
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={() => {
+                                  if (product.code === "-1") {
+                                    openOtherModal()
+                                    return
+                                  } else {
+                                    addItem(product)
+                                  }
+                                }}
+                                disabled={product.stock <= 0}
+                              >
+                                <Plus className="w-4 h-4" />
+                              </Button>
                             </div>
                           </div>
-                          <Button
-                            type="button"
-                            size="sm"
-                            onClick={() => addItem(product)}
-                            disabled={product.stock <= 0}
-                          >
-                            <Plus className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
+                        ))}
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -169,7 +228,7 @@ export function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
                     <p className="text-gray-500 text-center py-8">No hay productos seleccionados</p>
                   ) : (
                     <div className="space-y-3 max-h-[320px] h-[320px] ">
-                      <div className="max-h-[260px] h-[260px] overflow-y-auto ">
+                      <div className="max-h-[260px] h-[260px] overflow-y-scroll" style={{ scrollbarGutter: "stable" }}>
                         {selectedItems.map((item) => (
                           <div key={item.code} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                             <div className="flex-1">
@@ -249,6 +308,38 @@ export function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
               </Button>
             </div>
           </form>
+          {/* Modal para ingresar precio de "Otros" */}
+          {showOtherModal && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[60]">
+              <div className="bg-white rounded-lg shadow-lg w-full max-w-sm p-6">
+                <h3 className="text-lg font-semibold mb-4">Precio para "Otros"</h3>
+                <Label htmlFor="otherPrice">Ingresá el precio</Label>
+                <Input
+                  id="otherPrice"
+                  type="text"
+                  inputMode="decimal"
+                  value={otherPrice}
+                  onChange={(e) => {
+                    setOtherPrice(e.target.value)
+                    setOtherPriceError("")
+                  }}
+                  placeholder="0,00"
+                  className="mt-1"
+                />
+                {otherPriceError && (
+                  <p className="text-red-600 text-sm mt-2">{otherPriceError}</p>
+                )}
+                <div className="flex justify-end gap-2 mt-6">
+                  <Button type="button" variant="outline" onClick={() => setShowOtherModal(false)}>
+                    Cancelar
+                  </Button>
+                  <Button type="button" className="bg-orange-600 hover:bg-orange-700" onClick={confirmOther}>
+                    Agregar
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

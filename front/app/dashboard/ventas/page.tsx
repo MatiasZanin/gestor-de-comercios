@@ -18,7 +18,8 @@ export default function SalesPage() {
   const { user } = useAuth()
   const [sales, setSales] = useState<Sale[]>([])
   const [loading, setLoading] = useState(true)
-  const [searchDate, setSearchDate] = useState("")
+  const [isFiltering, setIsFiltering] = useState(false)
+  const [searchDate, setSearchDate] = useState(new Date().toISOString().split("T")[0])
   const [showForm, setShowForm] = useState(false)
   const [lastKey, setLastKey] = useState<string | undefined>()
 
@@ -43,16 +44,18 @@ export default function SalesPage() {
       console.error("Error loading sales:", error)
     } finally {
       setLoading(false)
+      setIsFiltering(false)
     }
   }
 
   useEffect(() => {
     if (sales.length === 0) {
-      loadSales(true)
+      loadSales(true, { day: searchDate })
     }
   }, [])
 
   const handleDateFilter = () => {
+    setIsFiltering(true)
     if (searchDate) {
       loadSales(true, { day: searchDate })
     } else {
@@ -78,6 +81,11 @@ export default function SalesPage() {
 
   return (
     <DashboardLayout>
+      {loading && (
+        <div className="fixed inset-0 bg-white/50 flex items-center justify-center z-50">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600"></div>
+        </div>
+      )}
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
@@ -114,6 +122,7 @@ export default function SalesPage() {
                       size="sm"
                       onClick={() => {
                         setSearchDate("")
+                        setIsFiltering(true)
                         loadSales(true)
                       }}
                     >
@@ -125,12 +134,7 @@ export default function SalesPage() {
             </div>
           </CardHeader>
           <CardContent>
-            {loading && sales.length === 0 ? (
-              <div className="text-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600 mx-auto"></div>
-                <p className="text-gray-500 mt-2">Cargando ventas...</p>
-              </div>
-            ) : (
+            {!loading || (loading && sales.length > 0) ? (
               <div className="space-y-4">
                 {sales.map((sale) => (
                   <div key={sale.saleId} className="p-4 border rounded-lg hover:bg-gray-50">
@@ -150,7 +154,7 @@ export default function SalesPage() {
                     </div>
                     <div className="space-y-2">
                       {sale.items.map((item, index) => (
-                        <div key={index} className="flex items-center justify-between text-sm">
+                        <div key={index} className="flex items-center justify-start text-sm">
                           <div className="flex items-center gap-2">
                             <span className="font-medium">{item.name}</span>
                             <span className="text-gray-500">({item.code})</span>
@@ -179,6 +183,11 @@ export default function SalesPage() {
                     </Button>
                   </div>
                 )}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600 mx-auto"></div>
+                <p className="text-gray-500 mt-2">Cargando ventas...</p>
               </div>
             )}
           </CardContent>
