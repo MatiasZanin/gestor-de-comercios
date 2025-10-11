@@ -52,15 +52,6 @@ export function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
   }
 
   const addOtherItem = (price: number) => {
-    // const existingItem = selectedItems.find((item) => item.code === "-1")
-    // if (existingItem) {
-    //   // Si ya existe "Otros", incremento la cantidad y actualizo el precio unitario al último ingresado
-    //   setSelectedItems((items) =>
-    //     items.map((item) =>
-    //       item.code === "-1" ? { ...item, qty: item.qty + 1, priceSale: price } : item,
-    //     ),
-    //   )
-    // } else {
     const newItem: SaleItem = {
       code: "-1",
       name: "Otros",
@@ -69,7 +60,7 @@ export function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
       priceSale: price,
     }
     setSelectedItems((items) => [...items, newItem])
-    // }
+
   }
 
   const confirmOther = () => {
@@ -174,6 +165,19 @@ export function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
                     placeholder="Buscar productos..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        if (filteredProducts.length === 1) {
+                          const onlyOne = filteredProducts[0];
+                          if (onlyOne.code === "-1") {
+                            openOtherModal();
+                          } else if (onlyOne.stock > 0) {
+                            addItem(onlyOne);
+                          }
+                        }
+                      }
+                    }}
                     className="mb-4"
                   />
                   <div className="border rounded-lg h-[300px] max-h-[300px] overflow-y-scroll" style={{ scrollbarGutter: "stable" }}>

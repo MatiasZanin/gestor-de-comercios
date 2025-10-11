@@ -53,6 +53,7 @@ export const handler = async (
           ExpressionAttributeValues: { ':gsiPk': gsiPk },
           ExclusiveStartKey: exclusiveStartKey,
           Limit: 25,
+          ScanIndexForward: false,
         })
       );
       items = result.Items ?? [];
@@ -87,6 +88,7 @@ export const handler = async (
           ExpressionAttributeValues: expressionValues,
           ExclusiveStartKey: exclusiveStartKey,
           Limit: 25,
+          ScanIndexForward: false,
         })
       );
       items = result.Items ?? [];
