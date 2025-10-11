@@ -94,7 +94,7 @@ export default function SalesPage() {
           </div>
           <Button
             onClick={handleCreateSale}
-            className="bg-orange-600 hover:bg-orange-700 text-lg px-6 py-3 rounded-lg shadow-md hover:shadow-lg transition-transform transform hover:scale-105"
+            className="bg-orange-600 hover:bg-orange-700 text-lg px-6 py-6 rounded-lg cursor-pointer transition-transform transform hover:scale-105"
           >
             <Plus className="w-5 h-5 mr-2" />
             Nueva Venta
