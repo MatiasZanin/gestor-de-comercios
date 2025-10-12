@@ -309,6 +309,15 @@ export default function ReportsPage() {
                         )}
                       </TableRow>
                     ))}
+                    <TableRow className="bg-gray-100 font-semibold">
+                      <TableCell className="text-left text-lg">Total</TableCell>
+                      <TableCell className="text-left text-lg"></TableCell>
+                      <TableCell className="text-right text-lg"></TableCell>
+                      <TableCell className="text-right text-lg">{formatCurrency(totalRevenue)}</TableCell>
+                      {isAdmin && (
+                        <TableCell className="text-right text-lg text-emerald-700">{formatCurrency(totalProfit)}</TableCell>
+                      )}
+                    </TableRow>
                   </TableBody>
                 </Table>
               </div>
