@@ -5,6 +5,7 @@ import {
   APIGatewayProxyResultV2,
 } from 'aws-lambda';
 import { BadRequestError, buildErrorResponse } from '../helpers/errors';
+import { sanitizeForRole } from '../helpers/sanitizeForRole';
 
 const dynamoClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(dynamoClient);
@@ -24,7 +25,7 @@ export const handler = async (
       throw new BadRequestError('Missing commerceId or day');
     }
     const claims = (event.requestContext.authorizer as any)?.jwt?.claims ?? {};
-    const role: string | undefined = claims['cognito:groups'];
+    const role: any = claims['cognito:groups'];
     const order = queryParams.orderBy || 'units';
     const gsiPk = `COM#${commerceId}#${day}`;
     // Obtener todas las ventas del día
@@ -64,18 +65,15 @@ export const handler = async (
     } while (exclusiveStartKey);
     const list = Object.values(aggregated);
     // Ordenar según parámetro
+    const sanitized = list.map(item => sanitizeForRole(item, role!));
     const sortKey =
       order === 'revenue' ? 'revenue' : order === 'profit' ? 'profit' : 'units';
-    list.sort((a: any, b: any) => b[sortKey] - a[sortKey]);
-    // Si rol vendedor, ocultar campo profit
-    if (role !== 'admin') {
-      for (const entry of list) {
-        delete entry.profit;
-      }
-    }
+    sanitized.sort((a: any, b: any) => b[sortKey] - a[sortKey]);
+
     return {
       statusCode: 200,
-      body: JSON.stringify({ day, results: list }),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ day, results: sanitized }),
     };
   } catch (err) {
     return buildErrorResponse(err);
