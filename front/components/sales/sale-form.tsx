@@ -28,6 +28,8 @@ export function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
   const [showOtherModal, setShowOtherModal] = useState(false)
   const [otherPrice, setOtherPrice] = useState<string>("")
   const [otherPriceError, setOtherPriceError] = useState("")
+  // Estado para inputs de cantidad de cada item
+  const [qtyInputs, setQtyInputs] = useState<Record<string, string>>({})
 
   useEffect(() => {
     loadProducts()
@@ -58,9 +60,10 @@ export function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
       qty: 1,
       priceBuy: 0,
       priceSale: price,
+      uom: "un",
     }
     setSelectedItems((items) => [...items, newItem])
-
+    setQtyInputs((prev) => ({ ...prev, "-1": "1.00" }))
   }
 
   const confirmOther = () => {
@@ -75,34 +78,41 @@ export function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
 
   const addItem = (product: Product) => {
     const existingItem = selectedItems.find((item) => item.code === product.code)
-
     if (existingItem) {
       setSelectedItems((items) =>
-        items.map((item) => (item.code === product.code ? { ...item, qty: item.qty + product.qtyStep } : item)),
+        items.map((item) => (item.code === product.code ? { ...item, qty: item.qty + 1 } : item)),
       )
+      setQtyInputs((prev) => {
+        const currentQty = existingItem.qty + 1
+        return { ...prev, [product.code]: currentQty.toFixed(2) }
+      })
     } else {
       const newItem: SaleItem = {
         code: product.code,
         name: product.name,
-        qty: product.qtyStep,
+        qty: 1,
         priceBuy: product.priceBuy || 0,
         priceSale: product.priceSale,
+        uom: product.uom,
       }
       setSelectedItems((items) => [...items, newItem])
+      setQtyInputs((prev) => ({ ...prev, [product.code]: "1.00" }))
     }
   }
 
   const updateItemQty = (code: string, qty: number) => {
-    if (qty <= 0) {
-      removeItem(code)
-      return
-    }
-
-    setSelectedItems((items) => items.map((item) => (item.code === code ? { ...item, qty } : item)))
+    if (isNaN(qty)) return
+    const safeQty = qty < 0 ? 0 : qty
+    setSelectedItems((items) => items.map((item) => (item.code === code ? { ...item, qty: safeQty } : item)))
   }
 
   const removeItem = (code: string) => {
     setSelectedItems((items) => items.filter((item) => item.code !== code))
+    setQtyInputs((prev) => {
+      const newInputs = { ...prev }
+      delete newInputs[code]
+      return newInputs
+    })
   }
 
   const calculateTotal = () => {
@@ -150,7 +160,7 @@ export function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <Card className="w-full max-w-4xl max-h-[90vh] overflow-hidden">
+      <Card className="w-full max-w-6xl max-h-[90vh] overflow-hidden">
         <CardHeader>
           <CardTitle>Nueva Venta</CardTitle>
         </CardHeader>
@@ -195,7 +205,7 @@ export function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
                                 <div className="text-sm text-gray-600">
                                   <span>{product.code}</span>
                                   <span className="mx-2">•</span>
-                                  <span>Stock: {product.stock}</span>
+                                  <span>Stock: {product.stock} {product.uom}</span>
                                   <span className="mx-2">•</span>
                                   <span>{formatCurrency(product.priceSale)}</span>
                                 </div>
@@ -239,35 +249,94 @@ export function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
                               <h4 className="font-medium">{item.name}</h4>
                               <p className="text-sm text-gray-600">{item.code}</p>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                onClick={() => updateItemQty(item.code, item.qty - 1)}
-                              >
-                                <Minus className="w-3 h-3" />
-                              </Button>
-                              <span className="w-12 text-center">{item.qty}</span>
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                onClick={() => updateItemQty(item.code, item.qty + 1)}
-                              >
-                                <Plus className="w-3 h-3" />
-                              </Button>
-                              <span className="w-20 text-right">{formatCurrency(item.qty * item.priceSale)}</span>
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                onClick={() => removeItem(item.code)}
-                                className="text-red-600"
-                              >
-                                <X className="w-3 h-3" />
-                              </Button>
-                            </div>
+                            {(() => {
+                              const productRef = products.find((p) => p.code === item.code)
+                              const uom = productRef?.uom || ""
+                              const qtyInput = qtyInputs[item.code] ?? item.qty.toString()
+                              return (
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                      const newQty = Math.max(0, item.qty - 1)
+                                      updateItemQty(item.code, newQty)
+                                      setQtyInputs((prev) => ({ ...prev, [item.code]: newQty.toFixed(2) }))
+                                    }}
+                                  >
+                                    <Minus className="w-3 h-3" />
+                                  </Button>
+
+                                  {/* Input editable de cantidad: solo dígitos y punto decimal */}
+                                  <Input
+                                    type="text"
+                                    inputMode="decimal"
+                                    value={qtyInput}
+                                    onChange={(e) => {
+                                      const value = e.target.value
+                                      // Solo permitir números, punto decimal y vacío - hasta 2 decimales
+                                      if (value === "" || /^\d*\.?\d{0,2}$/.test(value)) {
+                                        setQtyInputs((prev) => ({ ...prev, [item.code]: value }))
+                                        // Parsear solo cuando el valor es numérico estable
+                                        if (value !== "" && value !== "." && !value.endsWith(".")) {
+                                          const n = Number.parseFloat(value)
+                                          if (!Number.isNaN(n)) {
+                                            updateItemQty(item.code, n)
+                                          }
+                                        }
+                                      }
+                                    }}
+                                    onBlur={(e) => {
+                                      let value = e.target.value
+                                      // Si termina en ".", quita el punto suelto
+                                      if (value.endsWith(".")) value = value.slice(0, -1)
+                                      if (value === "") {
+                                        setQtyInputs((prev) => ({ ...prev, [item.code]: "" }))
+                                        updateItemQty(item.code, 0)
+                                      } else {
+                                        const n = Number.parseFloat(value)
+                                        if (Number.isNaN(n) || n === 0) {
+                                          setQtyInputs((prev) => ({ ...prev, [item.code]: "" }))
+                                          updateItemQty(item.code, 0)
+                                        } else {
+                                          setQtyInputs((prev) => ({ ...prev, [item.code]: n.toFixed(2) }))
+                                          updateItemQty(item.code, n)
+                                        }
+                                      }
+                                    }}
+                                    className="w-20 text-center"
+                                  />
+
+                                  {/* UOM al lado de la cantidad */}
+                                  <span className="w-10 text-center text-gray-600">{uom}</span>
+
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                      const newQty = item.qty + 1
+                                      updateItemQty(item.code, newQty)
+                                      setQtyInputs((prev) => ({ ...prev, [item.code]: newQty.toFixed(2) }))
+                                    }}
+                                  >
+                                    <Plus className="w-3 h-3" />
+                                  </Button>
+
+                                  <span className="w-24 text-right">{formatCurrency(item.qty * item.priceSale)}</span>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => removeItem(item.code)}
+                                    className="text-red-600"
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </Button>
+                                </div>
+                              )
+                            })()}
                           </div>
                         ))}
                       </div>

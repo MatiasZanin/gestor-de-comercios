@@ -58,6 +58,7 @@ export const handler = async (
               units: 0,
               revenue: 0,
               profit: 0,
+              uom: item.uom || '',
             };
           }
           aggregated[key].units += item.qty;

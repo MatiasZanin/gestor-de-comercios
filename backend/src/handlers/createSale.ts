@@ -54,10 +54,11 @@ export const handler = async (
         !item.code ||
         !item.name ||
         typeof item.qty !== 'number' ||
-        item.priceSale === undefined
+        item.priceSale === undefined ||
+        !item.uom
       ) {
         throw new BadRequestError(
-          'Each item must include code, name, qty and priceSale'
+          'Each item must include code, name, qty, priceSale and uom'
         );
       }
       if (item.priceBuy === undefined) {
@@ -82,7 +83,8 @@ export const handler = async (
         item.code,
         item.qty,
         item.priceBuy!,
-        item.priceSale
+        item.priceSale,
+        item.uom
       );
     }
     const ttlSeconds =

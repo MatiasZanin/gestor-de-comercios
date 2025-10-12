@@ -5,6 +5,7 @@ export interface SaleItem {
   priceBuy?: number;
   priceSale: number;
   profit?: number;
+  uom: string;
 }
 
 export interface Sale {

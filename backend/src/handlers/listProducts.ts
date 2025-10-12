@@ -114,6 +114,7 @@ export const handler = async (
     const sanitized = items.map(item => sanitizeForRole(item, role!));
     return {
       statusCode: 200,
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ items: sanitized }),
     };
   } catch (err) {

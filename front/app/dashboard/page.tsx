@@ -56,7 +56,7 @@ export default function DashboardPage() {
       const today = new Date().toISOString().split("T")[0]
       const dailyReport = await apiClient.getDailyReport({ day: today })
 
-      const todaySales = dailyReport.results.reduce((sum: number, item: any) => sum + item.units, 0)
+      const todaySales = dailyReport.results.length
       const todayRevenue = dailyReport.results.reduce((sum: number, item: any) => sum + item.revenue, 0)
 
       setStats({
@@ -91,17 +91,10 @@ export default function DashboardPage() {
   const statCards = [
     {
       title: "Total Productos",
-      value: stats.totalProducts,
+      value: stats.activeProducts,
       icon: Package,
       color: "text-blue-600",
       bgColor: "bg-blue-50",
-    },
-    {
-      title: "Productos Activos",
-      value: stats.activeProducts,
-      icon: TrendingUp,
-      color: "text-emerald-600",
-      bgColor: "bg-emerald-50",
     },
     {
       title: "Ventas Hoy",

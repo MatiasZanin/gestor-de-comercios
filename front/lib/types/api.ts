@@ -50,6 +50,7 @@ export interface SaleItem {
   priceBuy: number
   priceSale: number
   profit?: number // Only visible for admin
+  uom: string
 }
 
 export interface Sale {
@@ -72,6 +73,7 @@ export interface CreateSaleRequest {
     qty: number
     priceBuy: number
     priceSale: number
+    uom: string
   }[]
   notes?: string
 }

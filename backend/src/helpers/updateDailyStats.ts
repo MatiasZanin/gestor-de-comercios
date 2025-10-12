@@ -12,13 +12,15 @@ const docClient = DynamoDBDocumentClient.from(dynamoClient);
  * @param qty Cantidad (positiva para venta, negativa para devolución)
  * @param priceBuy Precio de compra por unidad
  * @param priceSale Precio de venta por unidad
+ * @param uom Unidad de medida
  */
 export async function updateDailyStats(
   commerceId: string,
   code: string,
   qty: number,
   priceBuy: number,
-  priceSale: number
+  priceSale: number,
+  uom: string
 ): Promise<void> {
   const tableName = process.env.TABLE_NAME;
   if (!tableName) {
@@ -36,13 +38,14 @@ export async function updateDailyStats(
         TableName: tableName,
         Key: { PK: pk, SK: sk },
         UpdateExpression:
-          'ADD unitsSold :unitsDelta, revenue :revenueDelta, profit :profitDelta SET updatedAt = :now',
+          'ADD unitsSold :unitsDelta, revenue :revenueDelta, profit :profitDelta SET updatedAt = :now, uom = :uom',
         ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)',
         ExpressionAttributeValues: {
           ':unitsDelta': unitsDelta,
           ':revenueDelta': revenueDelta,
           ':profitDelta': profitDelta,
           ':now': now,
+          ':uom': uom,
         },
         ReturnValues: 'NONE',
       })

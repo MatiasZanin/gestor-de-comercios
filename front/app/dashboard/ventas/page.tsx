@@ -170,7 +170,7 @@ export default function SalesPage() {
                           <tr key={index} className="hover:bg-gray-50">
                             <td className="pr-5 py-1 whitespace-nowrap w-0">{item.name}</td>
                             <td className="px-5 py-1 whitespace-nowrap w-0">{item.code}</td>
-                            <td className="px-5 py-1 whitespace-nowrap w-0 text-left tabular-nums">{item.qty}</td>
+                            <td className="px-5 py-1 whitespace-nowrap w-0 text-left tabular-nums">{item.qty} {item.uom}</td>
                             <td className="px-5 py-1 whitespace-nowrap w-0 text-left tabular-nums">{formatCurrency(item.priceSale)}</td>
                             <td className="px-5 py-1 whitespace-nowrap w-full text-left tabular-nums font-medium">
                               {formatCurrency(item.qty * item.priceSale)}
