@@ -68,8 +68,8 @@ export default function SalesPage() {
   }
 
   const handleFormSuccess = () => {
-    setShowForm(false)
-    loadSales(true)
+    // setShowForm(false)
+    // loadSales(true)
   }
 
   const formatCurrency = (amount: number) => {

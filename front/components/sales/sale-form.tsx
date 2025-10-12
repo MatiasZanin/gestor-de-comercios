@@ -28,12 +28,22 @@ export function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
   const [showOtherModal, setShowOtherModal] = useState(false)
   const [otherPrice, setOtherPrice] = useState<string>("")
   const [otherPriceError, setOtherPriceError] = useState("")
+  const [showSuccess, setShowSuccess] = useState(false)
   // Estado para inputs de cantidad de cada item
   const [qtyInputs, setQtyInputs] = useState<Record<string, string>>({})
 
   useEffect(() => {
     loadProducts()
   }, [])
+
+  useEffect(() => {
+    if (!showSuccess) return
+    const id = setTimeout(() => {
+      setShowSuccess(false)
+      onSuccess()
+    }, 2000)
+    return () => clearTimeout(id)
+  }, [showSuccess, onSuccess])
 
   const loadProducts = async () => {
     setLoadingProducts(true)
@@ -137,7 +147,13 @@ export function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
       }
 
       await apiClient.createSale(saleData)
-      onSuccess()
+      // Refrescar productos y limpiar items/inputs al finalizar la venta
+      await loadProducts()
+      setSelectedItems([])
+      setQtyInputs({})
+      setNotes("")
+      setSearchTerm("")
+      setShowSuccess(true)
     } catch (error) {
       setError(error instanceof Error ? error.message : "Error al registrar venta")
     } finally {
@@ -158,6 +174,22 @@ export function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
     }).format(amount)
   }
 
+  // Detecta EAN-13 de balanza (peso variable) y devuelve { plu, qty }
+  const parseVariableWeightEAN13 = (raw: string) => {
+    const digits = (raw || "").replace(/\D/g, "")
+    if (digits.length !== 13) return null
+    if (digits[0] !== "2") return null
+    // Formato típico: 2 + 5 (PLU) + 5 (peso/precio) + 1 (check)
+    const plu = digits.slice(1, 6) // 5 dígitos de código de producto
+    const weightPart = digits.slice(6, 11) // 5 dígitos de peso/precio
+    const wNum = Number.parseInt(weightPart, 10)
+    if (Number.isNaN(wNum)) return null
+    // Por defecto interpretamos como KG con 3 decimales (xxxxx => xx.xxx kg)
+    // Si tu balanza codifica distinto (p.ej., /100), ajustar aquí.
+    let qty = wNum / 1000
+    return { plu, qty }
+  }
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <Card className="w-full max-w-6xl max-h-[90vh] overflow-hidden">
@@ -176,17 +208,87 @@ export function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        if (filteredProducts.length === 1) {
-                          const onlyOne = filteredProducts[0];
-                          if (onlyOne.code === "-1") {
-                            openOtherModal();
-                          } else if (onlyOne.stock > 0) {
-                            addItem(onlyOne);
+                      if (e.key !== "Enter") return;
+                      e.preventDefault();
+
+                      // --- EAN-13 de balanza (peso variable) ---
+                      const parsedScale = parseVariableWeightEAN13(searchTerm)
+                      if (parsedScale) {
+                        const { plu, qty } = parsedScale
+                        // Buscar por código exacto (permitiendo cero-padding en catálogo si aplica)
+                        const candidate = products.find(p => {
+                          const code = (p.code || "")
+                          return code === plu || code.padStart(5, "0") === plu
+                        })
+
+                        if (candidate) {
+                          // No agregar "Otros" ni ítems sin stock (si se controla stock)
+                          if (candidate.code !== "-1" && !(typeof candidate.stock === "number" && candidate.stock <= 0)) {
+                            const existingItem = selectedItems.find(it => it.code === candidate.code)
+                            if (existingItem) {
+                              const newQty = existingItem.qty + qty
+                              updateItemQty(candidate.code, newQty)
+                              setQtyInputs(prev => ({ ...prev, [candidate.code]: newQty.toFixed(2) }))
+                            } else {
+                              addItem(candidate)
+                              // addItem agrega 1 por defecto; lo ajustamos al qty leído
+                              const finalQty = qty
+                              updateItemQty(candidate.code, finalQty)
+                              setQtyInputs(prev => ({ ...prev, [candidate.code]: finalQty.toFixed(2) }))
+                            }
+                            // Limpiar búsqueda tras escaneo
+                            setSearchTerm("")
+                            return
                           }
                         }
+                        // Si no se encontró, continúa con la lógica existente
                       }
+
+                      // Nada que agregar si no hay resultados
+                      if (!filteredProducts || filteredProducts.length === 0) return;
+
+                      // 1) Si hay un solo producto => agregarlo
+                      if (filteredProducts.length === 1) {
+                        const onlyOne = filteredProducts[0];
+                        if (onlyOne.code === "-1") {
+                          openOtherModal();
+                          return;
+                        }
+                        if (typeof onlyOne.stock === "number" && onlyOne.stock <= 0) return;
+                        addItem(onlyOne);
+                        return;
+                      }
+
+                      // 2) Si hay más de uno => intentar coincidencia exacta por código
+                      const term = (searchTerm || "").trim().toLowerCase();
+                      let candidate = filteredProducts.find(p => (p.code || "").toLowerCase() === term);
+
+                      // 3) Si no hay coincidencia exacta => tomar el primero de la lista
+                      if (!candidate) {
+                        candidate = filteredProducts[0];
+                      }
+
+                      // Manejo de "Otros" (code -1)
+                      if (candidate.code === "-1") {
+                        openOtherModal();
+                        return;
+                      }
+
+                      // Respetar stock si está definido: solo agregar si hay stock
+                      if (typeof candidate.stock === "number" && candidate.stock <= 0) {
+                        // Intentar un fallback al primer producto con stock > 0
+                        const withStock = filteredProducts.find(p => typeof p.stock === "number" ? p.stock > 0 : true);
+                        if (withStock) {
+                          if (withStock.code === "-1") {
+                            openOtherModal();
+                            return;
+                          }
+                          addItem(withStock);
+                        }
+                        return;
+                      }
+
+                      addItem(candidate);
                     }}
                     className="mb-4"
                   />
@@ -408,6 +510,32 @@ export function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
                   </Button>
                   <Button type="button" className="bg-orange-600 hover:bg-orange-700" onClick={confirmOther}>
                     Agregar
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+          {loading && (
+            <div className="fixed inset-0 bg-white/50 flex items-center justify-center z-50">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600"></div>
+            </div>
+          )}
+          {showSuccess && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[70]">
+              <div className="bg-white rounded-lg shadow-lg w-full max-w-sm p-6 text-center">
+                <h3 className="text-lg font-semibold mb-2">¡Venta creada!</h3>
+                <p className="text-sm text-gray-600">La venta se registró con éxito.</p>
+                <p className="text-xs text-gray-500 mt-1">Se cerrará automáticamente en 2 segundos…</p>
+                <div className="flex justify-center gap-2 mt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setShowSuccess(false)
+                      onSuccess()
+                    }}
+                  >
+                    Cerrar ahora
                   </Button>
                 </div>
               </div>
