@@ -1,9 +1,9 @@
 import type { AuthState, CognitoUser as CognitoUserType, LoginCredentials } from "@/lib/types/auth"
 import {
-    AuthenticationDetails,
-    CognitoUser,
-    CognitoUserPool,
-    type CognitoUserSession,
+  AuthenticationDetails,
+  CognitoUser,
+  CognitoUserPool,
+  type CognitoUserSession,
 } from "amazon-cognito-identity-js"
 
 const userPoolId = process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID
@@ -117,7 +117,84 @@ export class AuthService {
         onFailure: (error) => {
           reject(error)
         },
+        newPasswordRequired: (userAttributes, requiredAttributes) => {
+          // Guardamos el usuario temporalmente para usarlo en completeNewPassword
+          this.tempCognitoUser = cognitoUser
+          this.tempUserAttributes = userAttributes
+          
+          // Rechazamos con un error especial para que el frontend sepa que necesita nueva contraseña
+          reject({
+            code: "NewPasswordRequired",
+            name: "NewPasswordRequired",
+            message: "Se requiere cambiar la contraseña",
+            userAttributes,
+            requiredAttributes,
+          })
+        },
       })
+    })
+  }
+
+  // Propiedades temporales para manejar el cambio de contraseña
+  private tempCognitoUser: CognitoUser | null = null
+  private tempUserAttributes: any = null
+
+  async completeNewPassword(newPassword: string): Promise<AuthState> {
+    return new Promise((resolve, reject) => {
+      if (!this.tempCognitoUser) {
+        reject(new Error("No hay proceso de cambio de contraseña en curso"))
+        return
+      }
+
+      // Removemos los atributos que no se pueden modificar
+      const attributesData = { ...this.tempUserAttributes }
+      delete attributesData.email_verified
+      delete attributesData.email
+
+      this.tempCognitoUser.completeNewPasswordChallenge(
+        newPassword,
+        attributesData,
+        {
+          onSuccess: (session: CognitoUserSession) => {
+            const idToken = session.getIdToken()
+            const payload = idToken.payload as any
+
+            const user: CognitoUserType = {
+              username: payload["cognito:username"],
+              email_verified: payload.email_verified,
+              sub: payload.sub,
+              email: payload.email,
+              "cognito:groups": payload["cognito:groups"] || [],
+              role: payload["cognito:groups"]?.includes("admin") ? "admin" : "vendedor",
+              commerceId: payload["custom:commerceIds"]?.split(",")[0] || null,
+              commerceList: payload["custom:commerceIds"]
+                ? payload["custom:commerceIds"].split(",")
+                : [payload["custom:commerceId"]],
+            }
+
+            const role = user["cognito:groups"]?.includes("admin") ? "admin" : "vendedor"
+
+            this.authState = {
+              isAuthenticated: true,
+              user,
+              token: idToken.getJwtToken(),
+              commerceId: user.commerceId,
+              role,
+            }
+
+            this.saveToStorage()
+            
+            // Limpiamos las referencias temporales
+            this.tempCognitoUser = null
+            this.tempUserAttributes = null
+            
+            resolve(this.authState)
+          },
+          onFailure: (error) => {
+            reject(error)
+          },
+        }
+      )
     })
   }
 

@@ -109,7 +109,7 @@ export function Sidebar() {
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-gray-900 truncate">{user?.username}</p>{" "}
                 {/* Show username instead of email */}
-                <p className="text-xs text-gray-500">Comercio: {user?.["custom:commerceId"]}</p>
+                <p className="text-xs text-gray-500">Comercio: {user?.commerceId}</p>
               </div>
             </div>
             <Button

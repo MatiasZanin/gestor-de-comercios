@@ -136,6 +136,23 @@ Resources:
     Type: AWS::Serverless::HttpApi
     Properties:
       StageName: !Ref CommerceStage
+      CorsConfiguration:
+        AllowOrigins:
+          - https://comercios.gestionystock.com
+          - http://localhost:3000
+        AllowHeaders:
+          - Content-Type
+          - Authorization
+          - X-Amz-Date
+          - X-Api-Key
+          - X-Amz-Security-Token
+        AllowMethods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - OPTIONS
+        AllowCredentials: true
       Auth:
         Authorizers:
           CognitoJwtAuthorizer:
