@@ -5,7 +5,7 @@ import { ApiProvider } from '@/components/providers/api-provider'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'v0 App',
+  title: 'G&S Comercios',
   description: 'Created with v0',
   generator: 'v0.app',
 }

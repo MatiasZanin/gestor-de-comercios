@@ -87,14 +87,14 @@ export default function SalesPage() {
         </div>
       )}
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Ventas</h1>
-            <p className="text-gray-600">Registra y gestiona las ventas</p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Ventas</h1>
+            <p className="text-sm sm:text-base text-gray-600">Registra y gestiona las ventas</p>
           </div>
           <Button
             onClick={handleCreateSale}
-            className="bg-orange-600 hover:bg-orange-700 text-lg px-6 py-6 rounded-lg cursor-pointer transition-transform transform hover:scale-105"
+            className="bg-orange-600 hover:bg-orange-700 text-base sm:text-lg px-4 py-4 sm:px-6 sm:py-6 rounded-lg cursor-pointer transition-transform transform hover:scale-105 w-full sm:w-auto"
           >
             <Plus className="w-5 h-5 mr-2" />
             Nueva Venta
@@ -102,21 +102,23 @@ export default function SalesPage() {
         </div>
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <CardTitle className="flex items-center gap-2">
                 <Receipt className="w-5 h-5" />
                 Lista de Ventas
               </CardTitle>
-              <div className="flex items-center gap-4">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
                 <div className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-gray-400" />
+                  <Calendar className="w-4 h-4 text-gray-400 flex-shrink-0" />
                   <Input
                     type="date"
                     value={searchDate}
                     onChange={(e) => setSearchDate(e.target.value)}
-                    className="w-40"
+                    className="flex-1 sm:w-40"
                   />
-                  <Button onClick={handleDateFilter} size="sm">
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={handleDateFilter} size="sm" className="flex-1 sm:flex-initial">
                     Filtrar
                   </Button>
                   {searchDate && (
@@ -128,6 +130,7 @@ export default function SalesPage() {
                         setIsFiltering(true)
                         loadSales(true)
                       }}
+                      className="flex-1 sm:flex-initial"
                     >
                       Limpiar
                     </Button>
@@ -140,64 +143,97 @@ export default function SalesPage() {
             {!loading || (loading && sales.length > 0) ? (
               <div className="space-y-4">
                 {sales.map((sale) => (
-                  <div key={sale.saleId} className="p-4 border rounded-lg hover:bg-gray-50">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-3">
-                        <h3 className="font-semibold text-gray-900">Venta #{sale.saleId.slice(-8)}</h3>
-                        <Badge variant="outline">
+                  <div key={sale.saleId} className="p-3 sm:p-4 border rounded-lg hover:bg-gray-50">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 gap-2">
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+                        <h3 className="font-semibold text-gray-900 text-sm sm:text-base">Venta #{sale.saleId.slice(-8)}</h3>
+                        <Badge variant="outline" className="w-fit text-xs">
                           {format(new Date(sale.createdAt), "dd/MM/yyyy HH:mm", { locale: es })}
                         </Badge>
                       </div>
-                      {/* <div className="text-right">
-                        <div className="text-lg font-bold text-gray-900">{formatCurrency(sale.total)}</div>
-                        {isAdmin && sale.profit && (
-                          <div className="text-sm text-emerald-600">Ganancia: {formatCurrency(sale.profit)}</div>
-                        )}
-                      </div> */}
                     </div>
-                    <table className="w-full text-sm text-gray-700">
-                      <thead>
-                        <tr className="text-left">
-                          <th className="pr-5 py-1 whitespace-nowrap">Nombre</th>
-                          <th className="px-5 py-1 whitespace-nowrap">Código</th>
-                          <th className="px-5 py-1 whitespace-nowrap text-left">Cantidad</th>
-                          <th className="px-5 py-1 whitespace-nowrap text-left">Precio</th>
-                          <th className="px-5 py-1 whitespace-nowrap text-left">Total</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {sale.items.map((item, index) => (
-                          <tr key={index} className="hover:bg-gray-50">
-                            <td className="pr-5 py-1 whitespace-nowrap w-0">{item.name}</td>
-                            <td className="px-5 py-1 whitespace-nowrap w-0">{item.code}</td>
-                            <td className="px-5 py-1 whitespace-nowrap w-0 text-left tabular-nums">{item.qty} {item.uom}</td>
-                            <td className="px-5 py-1 whitespace-nowrap w-0 text-left tabular-nums">{formatCurrency(item.priceSale)}</td>
-                            <td className="px-5 py-1 whitespace-nowrap w-full text-left tabular-nums font-medium">
+
+                    {/* Vista mobile - Cards */}
+                    <div className="sm:hidden space-y-3">
+                      {sale.items.map((item, index) => (
+                        <div key={index} className="bg-gray-50 p-3 rounded-lg space-y-1.5">
+                          <div className="flex justify-between items-start">
+                            <div className="font-medium text-gray-900 text-sm">{item.name}</div>
+                            <div className="font-bold text-gray-900 text-sm tabular-nums">
                               {formatCurrency(item.qty * item.priceSale)}
+                            </div>
+                          </div>
+                          <div className="text-xs text-gray-600 space-y-0.5">
+                            <div>Código: {item.code}</div>
+                            <div className="flex justify-between">
+                              <span>Cantidad: {item.qty} {item.uom}</span>
+                              <span>Precio: {formatCurrency(item.priceSale)}</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                      <div className="border-t-2 pt-3 mt-3">
+                        <div className="flex justify-between items-center">
+                          <span className="text-base font-bold text-gray-900">Total</span>
+                          <div className="text-right">
+                            <div className="text-base font-bold text-gray-900">{formatCurrency(sale.total)}</div>
+                            {sale.profit !== null && sale.profit !== undefined && (
+                              <div className="text-xs text-emerald-600">
+                                Ganancia: {formatCurrency(sale.profit)}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Vista desktop - Tabla */}
+                    <div className="hidden sm:block">
+                      <table className="w-full text-sm text-gray-700">
+                        <thead>
+                          <tr className="text-left">
+                            <th className="pr-5 py-1 whitespace-nowrap">Nombre</th>
+                            <th className="px-5 py-1 whitespace-nowrap">Código</th>
+                            <th className="px-5 py-1 whitespace-nowrap text-left">Cantidad</th>
+                            <th className="px-5 py-1 whitespace-nowrap text-left">Precio</th>
+                            <th className="px-5 py-1 whitespace-nowrap text-left">Total</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {sale.items.map((item, index) => (
+                            <tr key={index} className="hover:bg-gray-50">
+                              <td className="pr-5 py-1 whitespace-nowrap w-0">{item.name}</td>
+                              <td className="px-5 py-1 whitespace-nowrap w-0">{item.code}</td>
+                              <td className="px-5 py-1 whitespace-nowrap w-0 text-left tabular-nums">{item.qty} {item.uom}</td>
+                              <td className="px-5 py-1 whitespace-nowrap w-0 text-left tabular-nums">{formatCurrency(item.priceSale)}</td>
+                              <td className="px-5 py-1 whitespace-nowrap w-full text-left tabular-nums font-medium">
+                                {formatCurrency(item.qty * item.priceSale)}
+                              </td>
+                            </tr>
+                          ))}
+                          <tr className="hover:bg-gray-50 border-t-2">
+                            <td className="pr-5 py-2 whitespace-nowrap w-0 text-lg font-bold text-gray-900 align-top">Total</td>
+                            <td className="px-5 py-2 whitespace-nowrap w-0"></td>
+                            <td className="px-5 py-2 whitespace-nowrap w-0 text-left tabular-nums"></td>
+                            <td className="px-5 py-2 whitespace-nowrap w-0 text-left tabular-nums"></td>
+                            <td className="px-5 py-2 whitespace-nowrap w-full text-left tabular-nums font-medium">
+                              <div className="flex flex-col">
+                                <span className="text-lg font-bold text-gray-900">{formatCurrency(sale.total)}</span>
+                                {sale.profit !== null && sale.profit !== undefined && (
+                                  <span className="text-sm text-emerald-600">
+                                    Ganancia: {formatCurrency(sale.profit)}
+                                  </span>
+                                )}
+                              </div>
                             </td>
                           </tr>
-                        ))}
-                        <tr className="hover:bg-gray-50">
-                          <td className="pr-5 py-1 whitespace-nowrap w-0 text-lg font-bold text-gray-900 align-top">Total</td>
-                          <td className="px-5 py-1 whitespace-nowrap w-0"></td>
-                          <td className="px-5 py-1 whitespace-nowrap w-0 text-left tabular-nums"></td>
-                          <td className="px-5 py-1 whitespace-nowrap w-0 text-left tabular-nums text-lg font-bold text-gray-900"></td>
-                          <td className="px-5 py-1 whitespace-nowrap w-full text-left tabular-nums font-medium">
-                            <div className="flex flex-col">
-                              <span className="text-lg font-bold text-gray-900">{formatCurrency(sale.total)}</span>
-                              {sale.profit !== null && sale.profit !== undefined && (
-                                <span className="text-sm text-emerald-600">
-                                  Ganancia: {formatCurrency(sale.profit)}
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
+                        </tbody>
+                      </table>
+                    </div>
+
                     {sale.notes && (
                       <div className="mt-3 pt-3 border-t">
-                        <p className="text-sm text-gray-600">
+                        <p className="text-xs sm:text-sm text-gray-600">
                           <strong>Notas:</strong> {sale.notes}
                         </p>
                       </div>
@@ -206,7 +242,7 @@ export default function SalesPage() {
                 ))}
                 {lastKey && (
                   <div className="text-center pt-4">
-                    <Button variant="outline" onClick={() => loadSales(false)} disabled={loading}>
+                    <Button variant="outline" onClick={() => loadSales(false)} disabled={loading} className="w-full sm:w-auto">
                       {loading ? "Cargando..." : "Cargar más"}
                     </Button>
                   </div>

@@ -89,7 +89,7 @@ export default function ProductsPage() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-emerald-600 to-orange-500 bg-clip-text text-transparent">
+            <h1 className="text-3xl font-bold ">
               Productos
             </h1>
             <p className="text-gray-600">Gestiona el inventario de productos de tu comercio</p>
@@ -105,7 +105,7 @@ export default function ProductsPage() {
           )}
         </div>
         <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm pt-0">
-          <CardHeader className="bg-gradient-to-r from-emerald-50 to-orange-50 border-b pt-6">
+          <CardHeader className="border-b pt-6">
             <div className="flex items-center justify-between">
               <CardTitle className="flex items-center gap-2 text-gray-800">
                 <Package className="w-5 h-5 text-emerald-600" />
@@ -152,7 +152,7 @@ export default function ProductsPage() {
                 {filteredProducts.map((product) => (
                   <div
                     key={product.code}
-                    className="flex items-center justify-between p-4 border border-gray-100 rounded-xl hover:bg-gradient-to-r hover:from-emerald-50 hover:to-orange-50 transition-all duration-200 hover:shadow-md"
+                    className="flex items-center justify-between p-4 border border-gray-100 rounded-xl hover:bg-gray-50 transition-all duration-200 "
                   >
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">

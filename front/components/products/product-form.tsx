@@ -99,8 +99,8 @@ export function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) 
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             {!product && (
-              <div>
-                <Label htmlFor="code">Código *</Label>
+              <div className="mt-2">
+                <Label className="mb-2" htmlFor="code">Código *</Label>
                 <Input
                   id="code"
                   value={formData.code}
@@ -110,8 +110,8 @@ export function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) 
               </div>
             )}
 
-            <div>
-              <Label htmlFor="name">Nombre *</Label>
+            <div className="mt-2">
+              <Label className="mb-2" htmlFor="name">Nombre *</Label>
               <Input
                 id="name"
                 value={formData.name}
@@ -121,8 +121,8 @@ export function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) 
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="priceBuy">Precio Compra *</Label>
+              <div className="mt-2">
+                <Label className="mb-2" htmlFor="priceBuy">Precio Compra *</Label>
                 <Input
                   id="priceBuy"
                   type="text"
@@ -163,8 +163,8 @@ export function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) 
                   required
                 />
               </div>
-              <div>
-                <Label htmlFor="priceSale">Precio Venta *</Label>
+              <div className="mt-2">
+                <Label className="mb-2" htmlFor="priceSale">Precio Venta *</Label>
                 <Input
                   id="priceSale"
                   type="text"
@@ -205,8 +205,8 @@ export function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) 
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="uom">Unidad de Medida *</Label>
+              <div className="mt-2">
+                <Label className="mb-2" htmlFor="uom">Unidad de Medida *</Label>
                 <Input
                   id="uom"
                   value={formData.uom}
@@ -215,8 +215,8 @@ export function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) 
                   required
                 />
               </div>
-              <div>
-                <Label htmlFor="stock">Stock *</Label>
+              <div className="mt-2">
+                <Label className="mb-2" htmlFor="stock">Stock *</Label>
                 <Input
                   id="stock"
                   type="text"
@@ -258,8 +258,8 @@ export function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) 
               </div>
             </div>
 
-            <div>
-              <Label htmlFor="notes">Notas</Label>
+            <div className="mt-2">
+              <Label className="mb-2" htmlFor="notes">Notas</Label>
               <Textarea
                 id="notes"
                 value={formData.notes}
@@ -274,7 +274,7 @@ export function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) 
                 checked={formData.isActive}
                 onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })}
               />
-              <Label htmlFor="isActive">Producto activo</Label>
+              <Label className="mb-2" htmlFor="isActive">Producto activo</Label>
             </div>
 
             {error && <div className="text-red-600 text-sm">{error}</div>}
