@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -40,6 +39,26 @@ export function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) 
   )
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+
+  // --- NUEVA FUNCIÓN ---
+  // Genera un código aleatorio con el formato INT-XXXX-XXXX
+  const generateSKU = () => {
+    const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+    let randomPart = ""
+    for (let i = 0; i < 8; i++) {
+      randomPart += alphabet.charAt(Math.floor(Math.random() * alphabet.length))
+    }
+    // Formatea como INT-XXXX-XXXX
+    return `INT-${randomPart.substring(0, 4)}-${randomPart.substring(4, 8)}`
+  }
+
+  // --- NUEVA FUNCIÓN ---
+  // Manejador para el botón de generar código
+  const handleGenerateCode = () => {
+    const newCode = generateSKU()
+    setFormData({ ...formData, code: newCode })
+  }
+  // --------------------
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -98,20 +117,42 @@ export function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) 
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* --- BLOQUE DE CÓDIGO MODIFICADO --- */}
             {!product && (
               <div className="mt-2">
-                <Label className="mb-2" htmlFor="code">Código *</Label>
-                <Input
-                  id="code"
-                  value={formData.code}
-                  onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                  required
-                />
+                <Label className="mb-2" htmlFor="code">
+                  Código (SKU, EAN, etc.) *
+                </Label>
+                <div className="flex items-center space-x-2">
+                  <Input
+                    id="code"
+                    value={formData.code}
+                    onChange={(e) =>
+                      setFormData({ ...formData, code: e.target.value.toUpperCase() }) // Opcional: forzar mayúsculas
+                    }
+                    placeholder="Ej: MART-01"
+                    required
+                  />
+                  <Button
+                    type="button" // Importante: previene el submit del formulario
+                    variant="outline"
+                    onClick={handleGenerateCode}
+                    className="whitespace-nowrap" // Evita que el texto se parta
+                  >
+                    Generar
+                  </Button>
+                </div>
+                <p className="text-sm text-gray-500 mt-1">
+                  Ingresa un código único (SKU, EAN) o genera uno automático.
+                </p>
               </div>
             )}
+            {/* --- FIN DEL BLOQUE MODIFICADO --- */}
 
             <div className="mt-2">
-              <Label className="mb-2" htmlFor="name">Nombre *</Label>
+              <Label className="mb-2" htmlFor="name">
+                Nombre *
+              </Label>
               <Input
                 id="name"
                 value={formData.name}
@@ -122,7 +163,9 @@ export function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) 
 
             <div className="grid grid-cols-2 gap-4">
               <div className="mt-2">
-                <Label className="mb-2" htmlFor="priceBuy">Precio Compra *</Label>
+                <Label className="mb-2" htmlFor="priceBuy">
+                  Precio Compra *
+                </Label>
                 <Input
                   id="priceBuy"
                   type="text"
@@ -164,7 +207,9 @@ export function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) 
                 />
               </div>
               <div className="mt-2">
-                <Label className="mb-2" htmlFor="priceSale">Precio Venta *</Label>
+                <Label className="mb-2" htmlFor="priceSale">
+                  Precio Venta *
+                </Label>
                 <Input
                   id="priceSale"
                   type="text"
@@ -206,7 +251,9 @@ export function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) 
 
             <div className="grid grid-cols-2 gap-4">
               <div className="mt-2">
-                <Label className="mb-2" htmlFor="uom">Unidad de Medida *</Label>
+                <Label className="mb-2" htmlFor="uom">
+                  Unidad de Medida *
+                </Label>
                 <Input
                   id="uom"
                   value={formData.uom}
@@ -216,7 +263,9 @@ export function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) 
                 />
               </div>
               <div className="mt-2">
-                <Label className="mb-2" htmlFor="stock">Stock *</Label>
+                <Label className="mb-2" htmlFor="stock">
+                  Stock *
+                </Label>
                 <Input
                   id="stock"
                   type="text"
@@ -259,7 +308,9 @@ export function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) 
             </div>
 
             <div className="mt-2">
-              <Label className="mb-2" htmlFor="notes">Notas</Label>
+              <Label className="mb-2" htmlFor="notes">
+                Notas
+              </Label>
               <Textarea
                 id="notes"
                 value={formData.notes}
@@ -272,9 +323,13 @@ export function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) 
               <Switch
                 id="isActive"
                 checked={formData.isActive}
-                onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })}
+                onCheckedChange={(checked) =>
+                  setFormData({ ...formData, isActive: checked })
+                }
               />
-              <Label className="mb-2" htmlFor="isActive">Producto activo</Label>
+              <Label className="mb-2" htmlFor="isActive">
+                Producto activo
+              </Label>
             </div>
 
             {error && <div className="text-red-600 text-sm">{error}</div>}
@@ -283,7 +338,11 @@ export function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) 
               <Button type="button" variant="outline" onClick={onCancel}>
                 Cancelar
               </Button>
-              <Button type="submit" disabled={loading} className="bg-emerald-600 hover:bg-emerald-700">
+              <Button
+                type="submit"
+                disabled={loading}
+                className="bg-emerald-600 hover:bg-emerald-700"
+              >
                 {loading ? "Guardando..." : "Guardar"}
               </Button>
             </div>

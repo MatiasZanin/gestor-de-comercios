@@ -1,12 +1,37 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Plus, Search, Edit, Trash2, Package } from "lucide-react"
+// --- Imports Modificados ---
+import {
+  Plus,
+  Search,
+  Edit,
+  Trash2,
+  Package,
+  ArrowDownUp, // Icono para el botón del Select
+  ArrowUp,     // Icono para ascendente
+  ArrowDown,   // Icono para descendente
+} from "lucide-react"
+// -------------------------
+
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+
+// --- Nuevos Imports ---
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+// --------------------
+
 import { useAuth } from "@/lib/hooks/use-auth"
 import { apiClient } from "@/lib/api/client"
 import type { Product, ProductListResponse } from "@/lib/types/api"
@@ -14,12 +39,22 @@ import { ProductForm } from "@/components/products/product-form"
 import { DeleteProductDialog } from "@/components/products/delete-product-dialog"
 import { DashboardLayout } from "../../../components/dashboard/dashboard-layout"
 
+// --- Nuevo Tipo ---
+// Tipo para las claves de ordenamiento
+type SortKey = "name_asc" | "name_desc" | "stock_asc" | "stock_desc"
+// ------------------
+
 export default function ProductsPage() {
   const { user } = useAuth()
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [showActiveOnly, setShowActiveOnly] = useState(true)
+
+  // --- Nuevo Estado ---
+  const [sortOrder, setSortOrder] = useState<SortKey>("name_asc") // Por defecto: Nombre (A-Z)
+  // --------------------
+
   const [showForm, setShowForm] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null)
@@ -78,21 +113,39 @@ export default function ProductsPage() {
     loadProducts(true)
   }
 
-  const filteredProducts = products.filter(
-    (product) =>
-      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.code.toLowerCase().includes(searchTerm.toLowerCase()),
-  )
+  // --- LÓGICA DE FILTRADO Y ORDEN MODIFICADA ---
+  const filteredProducts = products
+    .filter(
+      (product) =>
+        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        product.code.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+    .sort((a, b) => {
+      // Aplicamos el ordenamiento basado en sortOrder
+      switch (sortOrder) {
+        case "name_asc":
+          return a.name.localeCompare(b.name) // Compara strings alfabéticamente
+        case "name_desc":
+          return b.name.localeCompare(a.name)
+        case "stock_asc":
+          return a.stock - b.stock // Compara números
+        case "stock_desc":
+          return b.stock - a.stock
+        default:
+          return 0
+      }
+    })
+  // ---------------------------------------------
 
   return (
     <DashboardLayout>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold ">
-              Productos
-            </h1>
-            <p className="text-gray-600">Gestiona el inventario de productos de tu comercio</p>
+            <h1 className="text-3xl font-bold ">Productos</h1>
+            <p className="text-gray-600">
+              Gestiona el inventario de productos de tu comercio
+            </p>
           </div>
           {isAdmin && (
             <Button
@@ -111,6 +164,8 @@ export default function ProductsPage() {
                 <Package className="w-5 h-5 text-emerald-600" />
                 Lista de Productos
               </CardTitle>
+            </div>
+            <div className="flex mt-4 items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -121,6 +176,51 @@ export default function ProductsPage() {
                     className="pl-10 w-64 border-gray-200 focus:border-emerald-500"
                   />
                 </div>
+
+                {/* --- NUEVO DESPLEGABLE DE ORDEN --- */}
+                <Select
+                  onValueChange={(value) => setSortOrder(value as SortKey)}
+                  defaultValue={sortOrder}
+                >
+                  <SelectTrigger className="w-[200px] border-gray-200 focus:border-emerald-500">
+
+                    <SelectValue placeholder="Ordenar por..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectLabel>Nombre</SelectLabel>
+                      <SelectItem value="name_asc">
+                        <div className="flex items-center gap-2">
+                          <ArrowUp className="w-3 h-3" />
+                          Alfabético (A-Z)
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="name_desc">
+                        <div className="flex items-center gap-2">
+                          <ArrowDown className="w-3 h-3" />
+                          Alfabético (Z-A)
+                        </div>
+                      </SelectItem>
+                    </SelectGroup>
+                    <SelectGroup>
+                      <SelectLabel>Stock</SelectLabel>
+                      <SelectItem value="stock_asc">
+                        <div className="flex items-center gap-2">
+                          <ArrowUp className="w-3 h-3" />
+                          Menor a Mayor
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="stock_desc">
+                        <div className="flex items-center gap-2">
+                          <ArrowDown className="w-3 h-3" />
+                          Mayor a Menor
+                        </div>
+                      </SelectItem>
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+                {/* ---------------------------------- */}
+
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-gray-700">
                     {showActiveOnly ? "Activos" : "Inactivos"}
@@ -142,13 +242,18 @@ export default function ProductsPage() {
             ) : filteredProducts.length === 0 ? (
               <div className="text-center py-12">
                 <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <p className="text-gray-500 text-lg">No se encontraron productos</p>
+                <p className="text-gray-500 text-lg">
+                  No se encontraron productos
+                </p>
                 <p className="text-gray-400">
-                  {searchTerm ? "Intenta con otros términos de búsqueda" : "Comienza creando tu primer producto"}
+                  {searchTerm
+                    ? "Intenta con otros términos de búsqueda"
+                    : "Comienza creando tu primer producto"}
                 </p>
               </div>
             ) : (
               <div className="space-y-3">
+                {/* AHORA .map() USA LA LISTA YA ORDENADA */}
                 {filteredProducts.map((product) => (
                   <div
                     key={product.code}
@@ -156,15 +261,24 @@ export default function ProductsPage() {
                   >
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
-                        <h3 className="font-semibold text-gray-900 text-lg">{product.name}</h3>
+                        <h3 className="font-semibold text-gray-900 text-lg">
+                          {product.name}
+                        </h3>
                         <Badge
                           variant={product.isActive ? "default" : "secondary"}
-                          className={product.isActive ? "bg-emerald-100 text-emerald-800" : ""}
+                          className={
+                            product.isActive
+                              ? "bg-emerald-100 text-emerald-800"
+                              : ""
+                          }
                         >
                           {product.isActive ? "Activo" : "Inactivo"}
                         </Badge>
                         {product.stock <= 5 && product.isActive && (
-                          <Badge variant="destructive" className="bg-orange-100 text-orange-800">
+                          <Badge
+                            variant="destructive"
+                            className="bg-orange-100 text-orange-800"
+                          >
                             Stock Bajo
                           </Badge>
                         )}
@@ -172,28 +286,41 @@ export default function ProductsPage() {
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                         <div>
                           <span className="text-gray-500">Código:</span>
-                          <span className="ml-1 font-medium">{product.code}</span>
+                          <span className="ml-1 font-medium">
+                            {product.code}
+                          </span>
                         </div>
                         <div>
                           <span className="text-gray-500">Stock:</span>
                           <span
-                            className={`ml-1 font-medium ${product.stock <= 5 ? "text-orange-600" : "text-gray-900"}`}
+                            className={`ml-1 font-medium ${product.stock <= 5
+                              ? "text-orange-600"
+                              : "text-gray-900"
+                              }`}
                           >
                             {product.stock} {product.uom}
                           </span>
                         </div>
                         <div>
                           <span className="text-gray-500">Precio:</span>
-                          <span className="ml-1 font-medium text-emerald-600">${product.priceSale}</span>
+                          <span className="ml-1 font-medium text-emerald-600">
+                            ${product.priceSale}
+                          </span>
                         </div>
                         {isAdmin && product.priceBuy && (
                           <div>
                             <span className="text-gray-500">Costo:</span>
-                            <span className="ml-1 font-medium">${product.priceBuy}</span>
+                            <span className="ml-1 font-medium">
+                              ${product.priceBuy}
+                            </span>
                           </div>
                         )}
                       </div>
-                      {product.notes && <p className="text-sm text-gray-600 mt-2 italic">{product.notes}</p>}
+                      {product.notes && (
+                        <p className="text-sm text-gray-600 mt-2 italic">
+                          {product.notes}
+                        </p>
+                      )}
                     </div>
                     {isAdmin && (
                       <div className="flex items-center gap-2 ml-4">
@@ -234,7 +361,11 @@ export default function ProductsPage() {
           </CardContent>
         </Card>
         {showForm && (
-          <ProductForm product={editingProduct} onSuccess={handleFormSuccess} onCancel={() => setShowForm(false)} />
+          <ProductForm
+            product={editingProduct}
+            onSuccess={handleFormSuccess}
+            onCancel={() => setShowForm(false)}
+          />
         )}
         {deletingProduct && (
           <DeleteProductDialog
@@ -244,6 +375,6 @@ export default function ProductsPage() {
           />
         )}
       </div>
-    </DashboardLayout>
+    </DashboardLayout >
   )
 }
