@@ -8,8 +8,34 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { HelpCircle } from "lucide-react"
 import { apiClient } from "@/lib/api/client"
 import type { Product, CreateProductRequest, UpdateProductRequest } from "@/lib/types/api"
+
+const UOM_OPTIONS = [
+  { value: "u", label: "Unidad (u)" },
+  { value: "g", label: "Gramo (g)" },
+  { value: "kg", label: "Kilogramo (kg)" },
+  { value: "ml", label: "Mililitro (ml)" },
+  { value: "l", label: "Litro (l)" },
+  { value: "mm", label: "Milímetro (mm)" },
+  { value: "cm", label: "Centímetro (cm)" },
+  { value: "m", label: "Metro (m)" },
+]
 
 interface ProductFormProps {
   product?: Product | null
@@ -39,6 +65,7 @@ export function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) 
   )
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [showUomHelp, setShowUomHelp] = useState(false)
 
   // --- NUEVA FUNCIÓN ---
   // Genera un código aleatorio con el formato INT-XXXX-XXXX
@@ -251,16 +278,35 @@ export function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) 
 
             <div className="grid grid-cols-2 gap-4">
               <div className="mt-2">
-                <Label className="mb-2" htmlFor="uom">
-                  Unidad de Medida *
-                </Label>
-                <Input
-                  id="uom"
+                <div className="flex items-center gap-1 mb-2">
+                  <Label htmlFor="uom">
+                    Unidad de Medida *
+                  </Label>
+                  <button
+                    type="button"
+                    onClick={() => setShowUomHelp(true)}
+                    className="text-gray-400 hover:text-gray-600 transition-colors"
+                    aria-label="Ayuda sobre unidad de medida"
+                  >
+                    <HelpCircle className="h-4 w-4" />
+                  </button>
+                </div>
+                <Select
                   value={formData.uom}
-                  onChange={(e) => setFormData({ ...formData, uom: e.target.value })}
-                  placeholder="ej: unidad, kg"
+                  onValueChange={(value) => setFormData({ ...formData, uom: value })}
                   required
-                />
+                >
+                  <SelectTrigger id="uom" className="w-full">
+                    <SelectValue placeholder="Seleccionar..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {UOM_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="mt-2">
                 <Label className="mb-2" htmlFor="stock">
@@ -349,6 +395,72 @@ export function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) 
           </form>
         </CardContent>
       </Card>
+
+      {/* Modal de ayuda para Unidad de Medida */}
+      <Dialog open={showUomHelp} onOpenChange={setShowUomHelp}>
+        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold">¿Cómo elegir la Unidad de Medida?</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 text-sm">
+            <p className="text-gray-600">
+              Preguntate: <strong>¿Cómo lo cobro?</strong> No importa lo que diga la etiqueta, sino cómo lo entregás al cliente.
+            </p>
+
+            {/* Unidad */}
+            <div className="flex gap-3 p-3 bg-blue-50 rounded-lg border-l-4 border-blue-500">
+              <span className="text-xl">🥤</span>
+              <div>
+                <p className="font-semibold text-blue-800">Unidad (u)</p>
+                <p className="text-blue-900/80 text-xs mt-1">
+                  Productos <strong>envasados o cerrados</strong>. Ej: Una Coca de 2L = 1 unidad.
+                </p>
+              </div>
+            </div>
+
+            {/* Peso */}
+            <div className="flex gap-3 p-3 bg-orange-50 rounded-lg border-l-4 border-orange-500">
+              <span className="text-xl">⚖️</span>
+              <div>
+                <p className="font-semibold text-orange-800">Kilogramo (kg)</p>
+                <p className="text-orange-900/80 text-xs mt-1">
+                  Cuando usás la <strong>balanza</strong>. Ej: Fruta, carne, pan al peso.
+                </p>
+              </div>
+            </div>
+
+            {/* Volumen */}
+            <div className="flex gap-3 p-3 bg-purple-50 rounded-lg border-l-4 border-purple-500">
+              <span className="text-xl">🍺</span>
+              <div>
+                <p className="font-semibold text-purple-800">Litro (lt)</p>
+                <p className="text-purple-900/80 text-xs mt-1">
+                  Líquidos <strong>sueltos o tirados</strong>. Ej: Cerveza de barril, limpieza a granel.
+                </p>
+              </div>
+            </div>
+
+            {/* Tabla resumen */}
+            <div className="bg-gray-50 rounded-lg p-3">
+              <p className="font-medium text-gray-700 mb-2 text-xs">Resumen rápido:</p>
+              <div className="space-y-1 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Viene cerrado (lata, caja, botella)</span>
+                  <span className="font-semibold text-blue-600">→ Unidad</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Se pone en la balanza</span>
+                  <span className="font-semibold text-orange-600">→ Kilogramo</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Se sirve desde bidón/grifo</span>
+                  <span className="font-semibold text-purple-600">→ Litro</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
