@@ -66,6 +66,7 @@ export function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [showUomHelp, setShowUomHelp] = useState(false)
+  const [showCodeHelp, setShowCodeHelp] = useState(false)
 
   // --- NUEVA FUNCIÓN ---
   // Genera un código aleatorio con el formato INT-XXXX-XXXX
@@ -147,31 +148,38 @@ export function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) 
             {/* --- BLOQUE DE CÓDIGO MODIFICADO --- */}
             {!product && (
               <div className="mt-2">
-                <Label className="mb-2" htmlFor="code">
-                  Código (SKU, EAN, etc.) *
-                </Label>
+                <div className="flex items-center gap-1 mb-2">
+                  <Label htmlFor="code">
+                    Código (SKU, EAN, etc.) *
+                  </Label>
+                  <button
+                    type="button"
+                    onClick={() => setShowCodeHelp(true)}
+                    className="text-gray-400 hover:text-gray-600 transition-colors"
+                    aria-label="Ayuda sobre código de producto"
+                  >
+                    <HelpCircle className="h-4 w-4" />
+                  </button>
+                </div>
                 <div className="flex items-center space-x-2">
                   <Input
                     id="code"
                     value={formData.code}
                     onChange={(e) =>
-                      setFormData({ ...formData, code: e.target.value.toUpperCase() }) // Opcional: forzar mayúsculas
+                      setFormData({ ...formData, code: e.target.value.toUpperCase() })
                     }
                     placeholder="Ej: MART-01"
                     required
                   />
                   <Button
-                    type="button" // Importante: previene el submit del formulario
+                    type="button"
                     variant="outline"
                     onClick={handleGenerateCode}
-                    className="whitespace-nowrap" // Evita que el texto se parta
+                    className="whitespace-nowrap"
                   >
                     Generar
                   </Button>
                 </div>
-                <p className="text-sm text-gray-500 mt-1">
-                  Ingresa un código único (SKU, EAN) o genera uno automático.
-                </p>
               </div>
             )}
             {/* --- FIN DEL BLOQUE MODIFICADO --- */}
@@ -457,6 +465,49 @@ export function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) 
                   <span className="font-semibold text-purple-600">→ Litro</span>
                 </div>
               </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de ayuda para Código de Producto */}
+      <Dialog open={showCodeHelp} onOpenChange={setShowCodeHelp}>
+        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold">¿Qué es el Código de Producto?</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 text-sm">
+            <p className="text-gray-600">
+              El código es un <strong>identificador único</strong> para cada producto. Sirve para buscarlo rápidamente y evitar confusiones.
+            </p>
+
+            {/* Tipos de código */}
+            <div className="flex gap-3 p-3 bg-blue-50 rounded-lg border-l-4 border-blue-500">
+              <span className="text-xl">🏷️</span>
+              <div>
+                <p className="font-semibold text-blue-800">SKU (Stock Keeping Unit)</p>
+                <p className="text-blue-900/80 text-xs mt-1">
+                  Código interno que vos definís. Ej: <strong>GAL-CHOC-500</strong> (galleta chocolate 500g)
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3 p-3 bg-green-50 rounded-lg border-l-4 border-green-500">
+              <span className="text-xl">📊</span>
+              <div>
+                <p className="font-semibold text-green-800">EAN / Código de barras</p>
+                <p className="text-green-900/80 text-xs mt-1">
+                  Número del código de barras del producto. Ej: <strong>7790001234567</strong>
+                </p>
+              </div>
+            </div>
+
+            {/* Generar automático */}
+            <div className="bg-gray-50 rounded-lg p-3">
+              <p className="font-medium text-gray-700 mb-2">💡 ¿No tenés código?</p>
+              <p className="text-gray-600 text-xs">
+                Si el producto no tiene código de barras o no querés inventar uno, usá el botón <strong>&quot;Generar&quot;</strong> para crear uno automático con formato <code className="bg-gray-200 px-1 rounded">INT-XXXX-XXXX</code>.
+              </p>
             </div>
           </div>
         </DialogContent>
