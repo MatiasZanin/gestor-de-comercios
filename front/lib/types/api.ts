@@ -14,6 +14,7 @@ export interface Product {
   uom: string // Unit of measure
   isActive: boolean
   qtyStep: number // Minimum multiple for sales
+  category?: string
 }
 
 export interface CreateProductRequest {
@@ -25,6 +26,7 @@ export interface CreateProductRequest {
   uom: string
   stock: number
   isActive?: boolean
+  category?: string
 }
 
 export interface UpdateProductRequest {
@@ -35,6 +37,7 @@ export interface UpdateProductRequest {
   uom?: string
   stock?: number
   isActive?: boolean
+  category?: string
 }
 
 export interface ProductListResponse {
@@ -137,4 +140,10 @@ export interface DailyReportParams extends ReportParams {
 export interface RangeReportParams extends ReportParams {
   start: string // YYYY-MM-DD
   end: string // YYYY-MM-DD
+}
+
+// Metadata Config
+export interface MetadataConfig {
+  categories: string[]
+  iva_rates: number[]
 }

@@ -10,6 +10,7 @@ import {
   buildErrorResponse,
 } from '../helpers/errors';
 import { sanitizeForRole } from '../helpers/sanitizeForRole';
+import { addCategory } from '../helpers/addCategory';
 import { Product } from '../models/product';
 
 const dynamoClient = new DynamoDBClient({});
@@ -39,7 +40,7 @@ export const handler = async (
       throw new BadRequestError('Missing body');
     }
     const body = JSON.parse(event.body);
-    const { code, name, priceBuy, priceSale, notes, uom, stock, isActive } =
+    const { code, name, priceBuy, priceSale, notes, uom, stock, isActive, category } =
       body;
     if (
       !code ||
@@ -75,9 +76,14 @@ export const handler = async (
       uom,
       isActive: activeFlag,
       qtyStep: body.qtyStep || 1, // Default to 1 if not provided
+      category: category || undefined,
       GSI2PK: gsi2pk,
       GSI2SK: gsi2sk,
     };
+    // Si se proporciona una categoría, agregarla a METADATA#CONFIG si no existe
+    if (category) {
+      await addCategory(tableName, commerceId, category);
+    }
     await docClient.send(
       new PutCommand({
         TableName: tableName,

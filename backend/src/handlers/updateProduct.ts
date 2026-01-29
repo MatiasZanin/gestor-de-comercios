@@ -11,6 +11,7 @@ import {
   buildErrorResponse,
 } from '../helpers/errors';
 import { sanitizeForRole } from '../helpers/sanitizeForRole';
+import { addCategory } from '../helpers/addCategory';
 
 const dynamoClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(dynamoClient);
@@ -46,7 +47,12 @@ export const handler = async (
       'uom',
       'qtyStep',
       'isActive',
+      'category',
     ];
+    // Si se actualiza la categoría, agregarla a METADATA#CONFIG si no existe
+    if (body.category) {
+      await addCategory(tableName, commerceId, body.category);
+    }
     const expressionParts: string[] = [];
     const expressionNames: Record<string, string> = {};
     const expressionValues: Record<string, any> = {};

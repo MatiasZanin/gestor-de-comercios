@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -25,6 +25,7 @@ import {
 import { HelpCircle } from "lucide-react"
 import { apiClient } from "@/lib/api/client"
 import type { Product, CreateProductRequest, UpdateProductRequest } from "@/lib/types/api"
+import CreatableSelect from "react-select/creatable"
 
 const UOM_OPTIONS = [
   { value: "u", label: "Unidad (u)" },
@@ -43,6 +44,11 @@ interface ProductFormProps {
   onCancel: () => void
 }
 
+interface CategoryOption {
+  value: string
+  label: string
+}
+
 export function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) {
   const [formData, setFormData] = useState({
     code: product?.code || "",
@@ -53,6 +59,7 @@ export function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) 
     uom: product?.uom || "",
     stock: product?.stock || 0,
     isActive: product?.isActive ?? true,
+    category: product?.category || "",
   })
   const [priceBuyInput, setPriceBuyInput] = useState(
     product?.priceBuy ? product.priceBuy.toString() : ""
@@ -67,6 +74,28 @@ export function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) 
   const [error, setError] = useState("")
   const [showUomHelp, setShowUomHelp] = useState(false)
   const [showCodeHelp, setShowCodeHelp] = useState(false)
+  const [categoryOptions, setCategoryOptions] = useState<CategoryOption[]>([])
+  const [loadingCategories, setLoadingCategories] = useState(true)
+
+  // Cargar categorías al montar el componente
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const metadata = await apiClient.getMetadata()
+        const options = (metadata.categories || []).map((cat: string) => ({
+          value: cat,
+          label: cat,
+        }))
+        setCategoryOptions(options)
+      } catch (err) {
+        console.error("Error loading categories:", err)
+      } finally {
+        setLoadingCategories(false)
+      }
+    }
+    loadCategories()
+  }, [])
+
 
   // --- NUEVA FUNCIÓN ---
   // Genera un código aleatorio con el formato INT-XXXX-XXXX
@@ -113,6 +142,7 @@ export function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) 
           uom: formData.uom,
           stock: formData.stock,
           isActive: formData.isActive,
+          category: formData.category || undefined,
         }
         await apiClient.updateProduct(product.code, updateData)
       } else {
@@ -126,6 +156,7 @@ export function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) 
           uom: formData.uom,
           stock: formData.stock,
           isActive: formData.isActive,
+          category: formData.category || undefined,
         }
         await apiClient.createProduct(createData)
       }
@@ -193,6 +224,42 @@ export function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) 
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 required
+              />
+            </div>
+
+            <div className="mt-2">
+              <Label className="mb-2" htmlFor="category">
+                Categoría
+              </Label>
+              <CreatableSelect
+                id="category"
+                isClearable
+                isLoading={loadingCategories}
+                options={categoryOptions}
+                value={formData.category ? { value: formData.category, label: formData.category } : null}
+                onChange={(option) => {
+                  setFormData({ ...formData, category: option?.value || "" })
+                }}
+                onCreateOption={(inputValue) => {
+                  const newOption = { value: inputValue, label: inputValue }
+                  setCategoryOptions((prev) => [...prev, newOption])
+                  setFormData({ ...formData, category: inputValue })
+                }}
+                placeholder="Seleccionar o crear..."
+                formatCreateLabel={(inputValue) => `Crear "${inputValue}"`}
+                noOptionsMessage={() => "Escribí para crear una categoría"}
+                classNames={{
+                  control: () => "!border-input !bg-background !shadow-sm !rounded-md !min-h-10",
+                  menu: () => "!bg-background !border !border-input !rounded-md !shadow-md",
+                  option: () => "!bg-background hover:!bg-accent !cursor-pointer",
+                  singleValue: () => "!text-foreground",
+                  input: () => "!text-foreground",
+                  placeholder: () => "!text-muted-foreground",
+                }}
+                styles={{
+                  control: (base) => ({ ...base, borderColor: "hsl(var(--input))" }),
+                  menu: (base) => ({ ...base, zIndex: 50 }),
+                }}
               />
             </div>
 

@@ -321,6 +321,22 @@ Resources:
             Path: '/{commerceId}/reports/range'
             Method: GET
 
+  GetMetadataFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub getMetadata-${CommerceStage}
+      CodeUri: ./dist
+      Handler: handlers/getMetadata.handler
+      Role: !GetAtt LambdaDynamoRole.Arn
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: '/{commerceId}/metadata'
+            Method: GET
+
+
   JwtAuthorizerFunction:
     Type: AWS::Serverless::Function
     Properties:

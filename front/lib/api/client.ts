@@ -158,6 +158,12 @@ export class ApiClient {
 
     return this.makeRequest(`/reports/range?${searchParams.toString()}`)
   }
+
+  // Metadata endpoints
+  async getMetadata(): Promise<any> {
+    return this.makeRequest("/metadata")
+  }
 }
 
 export const apiClient = ApiClient.getInstance()
+
