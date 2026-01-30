@@ -15,6 +15,7 @@ export interface Product {
   isActive: boolean
   qtyStep: number // Minimum multiple for sales
   category?: string
+  brand?: string
 }
 
 export interface CreateProductRequest {
@@ -27,6 +28,7 @@ export interface CreateProductRequest {
   stock: number
   isActive?: boolean
   category?: string
+  brand?: string
 }
 
 export interface UpdateProductRequest {
@@ -38,6 +40,7 @@ export interface UpdateProductRequest {
   stock?: number
   isActive?: boolean
   category?: string
+  brand?: string
 }
 
 export interface ProductListResponse {

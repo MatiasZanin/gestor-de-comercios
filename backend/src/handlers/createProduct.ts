@@ -40,7 +40,7 @@ export const handler = async (
       throw new BadRequestError('Missing body');
     }
     const body = JSON.parse(event.body);
-    const { code, name, priceBuy, priceSale, notes, uom, stock, isActive, category } =
+    const { code, name, priceBuy, priceSale, notes, uom, stock, isActive, category, brand } =
       body;
     if (
       !code ||
@@ -77,6 +77,7 @@ export const handler = async (
       isActive: activeFlag,
       qtyStep: body.qtyStep || 1, // Default to 1 if not provided
       category: category || undefined,
+      brand: brand || undefined,
       GSI2PK: gsi2pk,
       GSI2SK: gsi2sk,
     };

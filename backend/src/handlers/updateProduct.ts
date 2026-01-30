@@ -48,6 +48,7 @@ export const handler = async (
       'qtyStep',
       'isActive',
       'category',
+      'brand',
     ];
     // Si se actualiza la categoría, agregarla a METADATA#CONFIG si no existe
     if (body.category) {

@@ -17,6 +17,7 @@ export interface Product {
   isActive: boolean;
   qtyStep: number;
   category?: string;
+  brand?: string;
   GSI2PK: string;
   GSI2SK: string;
 }

@@ -283,7 +283,7 @@ export default function ProductsPage() {
                           </Badge>
                         )}
                       </div>
-                      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
+                      <div className="grid grid-cols-2 md:grid-cols-6 gap-4 text-sm">
                         <div className="flex flex-col">
                           <span className="text-gray-500">Código</span>
                           <span className="font-medium">
@@ -293,7 +293,13 @@ export default function ProductsPage() {
                         <div className="flex flex-col">
                           <span className="text-gray-500">Categoría</span>
                           <span className="font-medium">
-                            {product.category}
+                            {product.category || "-"}
+                          </span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-gray-500">Marca</span>
+                          <span className="font-medium">
+                            {product.brand || "-"}
                           </span>
                         </div>
                         <div className="flex flex-col">
@@ -369,6 +375,7 @@ export default function ProductsPage() {
         {showForm && (
           <ProductForm
             product={editingProduct}
+            products={products}
             onSuccess={handleFormSuccess}
             onCancel={() => setShowForm(false)}
           />

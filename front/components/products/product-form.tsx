@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -40,6 +40,7 @@ const UOM_OPTIONS = [
 
 interface ProductFormProps {
   product?: Product | null
+  products?: Product[] // Para derivar las opciones de marca
   onSuccess: () => void
   onCancel: () => void
 }
@@ -49,7 +50,12 @@ interface CategoryOption {
   label: string
 }
 
-export function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) {
+interface BrandOption {
+  value: string
+  label: string
+}
+
+export function ProductForm({ product, products = [], onSuccess, onCancel }: ProductFormProps) {
   const [formData, setFormData] = useState({
     code: product?.code || "",
     name: product?.name || "",
@@ -60,6 +66,7 @@ export function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) 
     stock: product?.stock || 0,
     isActive: product?.isActive ?? true,
     category: product?.category || "",
+    brand: product?.brand || "",
   })
   const [priceBuyInput, setPriceBuyInput] = useState(
     product?.priceBuy ? product.priceBuy.toString() : ""
@@ -95,6 +102,12 @@ export function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) 
     }
     loadCategories()
   }, [])
+
+  // Derivar opciones de marca desde los productos existentes
+  const brandOptions: BrandOption[] = useMemo(() => {
+    const uniqueBrands = [...new Set(products.map(p => p.brand).filter(Boolean))] as string[]
+    return uniqueBrands.map(brand => ({ value: brand, label: brand }))
+  }, [products])
 
 
   // --- NUEVA FUNCIÓN ---
@@ -143,6 +156,7 @@ export function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) 
           stock: formData.stock,
           isActive: formData.isActive,
           category: formData.category || undefined,
+          brand: formData.brand || undefined,
         }
         await apiClient.updateProduct(product.code, updateData)
       } else {
@@ -157,6 +171,7 @@ export function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) 
           stock: formData.stock,
           isActive: formData.isActive,
           category: formData.category || undefined,
+          brand: formData.brand || undefined,
         }
         await apiClient.createProduct(createData)
       }
@@ -248,6 +263,39 @@ export function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) 
                 placeholder="Seleccionar o crear..."
                 formatCreateLabel={(inputValue) => `Crear "${inputValue}"`}
                 noOptionsMessage={() => "Escribí para crear una categoría"}
+                classNames={{
+                  control: () => "!border-input !bg-background !shadow-sm !rounded-md !min-h-10",
+                  menu: () => "!bg-background !border !border-input !rounded-md !shadow-md",
+                  option: () => "!bg-background hover:!bg-accent !cursor-pointer",
+                  singleValue: () => "!text-foreground",
+                  input: () => "!text-foreground",
+                  placeholder: () => "!text-muted-foreground",
+                }}
+                styles={{
+                  control: (base) => ({ ...base, borderColor: "hsl(var(--input))" }),
+                  menu: (base) => ({ ...base, zIndex: 50 }),
+                }}
+              />
+            </div>
+
+            <div className="mt-2">
+              <Label className="mb-2" htmlFor="brand">
+                Marca
+              </Label>
+              <CreatableSelect
+                id="brand"
+                isClearable
+                options={brandOptions}
+                value={formData.brand ? { value: formData.brand, label: formData.brand } : null}
+                onChange={(option) => {
+                  setFormData({ ...formData, brand: option?.value || "" })
+                }}
+                onCreateOption={(inputValue) => {
+                  setFormData({ ...formData, brand: inputValue })
+                }}
+                placeholder="Seleccionar o crear..."
+                formatCreateLabel={(inputValue) => `⚠️ Nueva marca: "${inputValue}"`}
+                noOptionsMessage={() => "Escribí para crear una marca"}
                 classNames={{
                   control: () => "!border-input !bg-background !shadow-sm !rounded-md !min-h-10",
                   menu: () => "!bg-background !border !border-input !rounded-md !shadow-md",
