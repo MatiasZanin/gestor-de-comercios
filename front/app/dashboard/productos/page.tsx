@@ -283,17 +283,23 @@ export default function ProductsPage() {
                           </Badge>
                         )}
                       </div>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                        <div>
-                          <span className="text-gray-500">Código:</span>
-                          <span className="ml-1 font-medium">
+                      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
+                        <div className="flex flex-col">
+                          <span className="text-gray-500">Código</span>
+                          <span className="font-medium">
                             {product.code}
                           </span>
                         </div>
-                        <div>
-                          <span className="text-gray-500">Stock:</span>
+                        <div className="flex flex-col">
+                          <span className="text-gray-500">Categoría</span>
+                          <span className="font-medium">
+                            {product.category}
+                          </span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-gray-500">Stock</span>
                           <span
-                            className={`ml-1 font-medium ${product.stock <= 5
+                            className={`font-medium ${product.stock <= 5
                               ? "text-orange-600"
                               : "text-gray-900"
                               }`}
@@ -301,16 +307,16 @@ export default function ProductsPage() {
                             {product.stock} {product.uom}
                           </span>
                         </div>
-                        <div>
-                          <span className="text-gray-500">Precio:</span>
-                          <span className="ml-1 font-medium text-emerald-600">
+                        <div className="flex flex-col">
+                          <span className="text-gray-500">Precio</span>
+                          <span className="font-medium text-emerald-600">
                             ${product.priceSale}
                           </span>
                         </div>
                         {isAdmin && product.priceBuy && (
-                          <div>
-                            <span className="text-gray-500">Costo:</span>
-                            <span className="ml-1 font-medium">
+                          <div className="flex flex-col">
+                            <span className="text-gray-500">Costo</span>
+                            <span className="font-medium">
                               ${product.priceBuy}
                             </span>
                           </div>
