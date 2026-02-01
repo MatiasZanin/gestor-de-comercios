@@ -26,6 +26,7 @@ import { HelpCircle } from "lucide-react"
 import { apiClient } from "@/lib/api/client"
 import type { Product, CreateProductRequest, UpdateProductRequest } from "@/lib/types/api"
 import CreatableSelect from "react-select/creatable"
+import ReactSelect from "react-select"
 
 const UOM_OPTIONS = [
   { value: "u", label: "Unidad (u)" },
@@ -266,7 +267,7 @@ export function ProductForm({ product, products = [], onSuccess, onCancel }: Pro
                 classNames={{
                   control: () => "!border-input !bg-background !shadow-sm !rounded-md !min-h-10",
                   menu: () => "!bg-background !border !border-input !rounded-md !shadow-md",
-                  option: () => "!bg-background hover:!bg-accent !cursor-pointer",
+                  option: () => "!bg-background hover:!bg-accent !cursor-pointer !text-foreground",
                   singleValue: () => "!text-foreground",
                   input: () => "!text-foreground",
                   placeholder: () => "!text-muted-foreground",
@@ -299,7 +300,7 @@ export function ProductForm({ product, products = [], onSuccess, onCancel }: Pro
                 classNames={{
                   control: () => "!border-input !bg-background !shadow-sm !rounded-md !min-h-10",
                   menu: () => "!bg-background !border !border-input !rounded-md !shadow-md",
-                  option: () => "!bg-background hover:!bg-accent !cursor-pointer",
+                  option: () => "!bg-background hover:!bg-accent !cursor-pointer !text-foreground",
                   singleValue: () => "!text-foreground",
                   input: () => "!text-foreground",
                   placeholder: () => "!text-muted-foreground",
@@ -414,22 +415,28 @@ export function ProductForm({ product, products = [], onSuccess, onCancel }: Pro
                     <HelpCircle className="h-4 w-4" />
                   </button>
                 </div>
-                <Select
-                  value={formData.uom}
-                  onValueChange={(value) => setFormData({ ...formData, uom: value })}
-                  required
-                >
-                  <SelectTrigger id="uom" className="w-full">
-                    <SelectValue placeholder="Seleccionar..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {UOM_OPTIONS.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <ReactSelect
+                  id="uom"
+                  options={UOM_OPTIONS}
+                  value={UOM_OPTIONS.find(opt => opt.value === formData.uom) || null}
+                  onChange={(option) => {
+                    setFormData({ ...formData, uom: option?.value || "" })
+                  }}
+                  placeholder="Seleccionar..."
+                  noOptionsMessage={() => "Sin opciones"}
+                  classNames={{
+                    control: () => "!border-input !bg-background !shadow-sm !rounded-md !min-h-10",
+                    menu: () => "!bg-background !border !border-input !rounded-md !shadow-md",
+                    option: () => "!bg-background hover:!bg-accent !cursor-pointer !text-foreground",
+                    singleValue: () => "!text-foreground",
+                    input: () => "!text-foreground",
+                    placeholder: () => "!text-muted-foreground",
+                  }}
+                  styles={{
+                    control: (base) => ({ ...base, borderColor: "hsl(var(--input))" }),
+                    menu: (base) => ({ ...base, zIndex: 50 }),
+                  }}
+                />
               </div>
               <div className="mt-2">
                 <Label className="mb-2" htmlFor="stock">

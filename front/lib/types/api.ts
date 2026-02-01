@@ -61,6 +61,15 @@ export interface SaleItem {
   category?: string
 }
 
+export type PaymentMethod = 'CASH' | 'CARD' | 'TRANSFER' | 'OTHER'
+
+export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
+  CASH: 'Efectivo',
+  CARD: 'Tarjeta',
+  TRANSFER: 'Transferencia',
+  OTHER: 'Otros',
+}
+
 export interface Sale {
   saleId: string
   commerceId: string
@@ -72,6 +81,7 @@ export interface Sale {
   total: number
   profit?: number // Only visible for admin
   notes?: string
+  paymentMethod?: PaymentMethod
 }
 
 export interface CreateSaleRequest {
@@ -84,6 +94,7 @@ export interface CreateSaleRequest {
     uom: string
   }[]
   notes?: string
+  paymentMethod?: PaymentMethod
 }
 
 export interface SaleListResponse {

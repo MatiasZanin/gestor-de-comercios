@@ -11,7 +11,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Plus, Minus, X } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { apiClient } from "@/lib/api/client"
-import type { Product, CreateSaleRequest, SaleItem } from "@/lib/types/api"
+import type { Product, CreateSaleRequest, SaleItem, PaymentMethod } from "@/lib/types/api"
+import { PAYMENT_METHOD_LABELS } from "@/lib/types/api"
+import ReactSelect from "react-select"
 
 interface SaleFormProps {
   onSuccess: () => void
@@ -30,6 +32,7 @@ export function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
   const [otherPrice, setOtherPrice] = useState<string>("")
   const [otherPriceError, setOtherPriceError] = useState("")
   const [showSuccess, setShowSuccess] = useState(false)
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("CASH")
   // Estado para inputs de cantidad de cada item
   const [qtyInputs, setQtyInputs] = useState<Record<string, string>>({})
 
@@ -147,6 +150,7 @@ export function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
       const saleData: CreateSaleRequest = {
         items: selectedItems,
         notes: notes.trim() || undefined,
+        paymentMethod,
       }
 
       await apiClient.createSale(saleData)
@@ -471,6 +475,34 @@ export function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
 
                 </div>
               </div>
+            </div>
+
+            <div>
+              <Label htmlFor="paymentMethod">Método de Pago</Label>
+              <ReactSelect
+                id="paymentMethod"
+                value={{ value: paymentMethod, label: PAYMENT_METHOD_LABELS[paymentMethod] }}
+                onChange={(option) => {
+                  if (option) setPaymentMethod(option.value as PaymentMethod)
+                }}
+                options={(Object.keys(PAYMENT_METHOD_LABELS) as PaymentMethod[]).map((method) => ({
+                  value: method,
+                  label: PAYMENT_METHOD_LABELS[method],
+                }))}
+                isSearchable={false}
+                classNames={{
+                  control: () => "!border-input !bg-background !shadow-sm !rounded-md !min-h-10 !mt-2",
+                  menu: () => "!bg-background !border !border-input !rounded-md !shadow-md",
+                  option: () => "!bg-background hover:!bg-accent !cursor-pointer !text-foreground",
+                  singleValue: () => "!text-foreground",
+                  input: () => "!text-foreground",
+                  placeholder: () => "!text-muted-foreground",
+                }}
+                styles={{
+                  control: (base) => ({ ...base, borderColor: "hsl(var(--input))" }),
+                  menu: (base) => ({ ...base, zIndex: 50 }),
+                }}
+              />
             </div>
 
             <div>

@@ -8,6 +8,8 @@ export interface SaleItem {
   uom: string;
 }
 
+export type PaymentMethod = 'CASH' | 'CARD' | 'TRANSFER' | 'OTHER';
+
 export interface Sale {
   PK: string;
   SK: string;
@@ -21,6 +23,7 @@ export interface Sale {
   total: number;
   notes?: string;
   profit?: number;
+  paymentMethod?: PaymentMethod;
   GSI1PK?: string;
   GSI1SK?: string;
 }

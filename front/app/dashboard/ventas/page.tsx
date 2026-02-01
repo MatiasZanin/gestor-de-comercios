@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/lib/hooks/use-auth"
 import { apiClient } from "@/lib/api/client"
 import type { Sale, SaleListResponse } from "@/lib/types/api"
+import { PAYMENT_METHOD_LABELS } from "@/lib/types/api"
 import { SaleForm } from "@/components/sales/sale-form"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
@@ -150,6 +151,11 @@ export default function SalesPage() {
                         <Badge variant="outline" className="w-fit text-xs">
                           {format(new Date(sale.createdAt), "dd/MM/yyyy HH:mm", { locale: es })}
                         </Badge>
+                        {sale.paymentMethod && (
+                          <Badge variant="secondary" className="w-fit text-xs">
+                            {PAYMENT_METHOD_LABELS[sale.paymentMethod]}
+                          </Badge>
+                        )}
                       </div>
                     </div>
 
@@ -199,6 +205,7 @@ export default function SalesPage() {
                             <th className="px-5 py-1 whitespace-nowrap text-left">Cantidad</th>
                             <th className="px-5 py-1 whitespace-nowrap text-left">Precio</th>
                             <th className="px-5 py-1 whitespace-nowrap text-left">Total</th>
+                            <th className="px-5 py-1 whitespace-nowrap text-left">Método de Pago</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -213,11 +220,16 @@ export default function SalesPage() {
                               <td className="px-5 py-1 whitespace-nowrap w-0 text-left tabular-nums font-medium">
                                 {formatCurrency(item.qty * item.priceSale)}
                               </td>
+                              {index === 0 && (
+                                <td className="px-5 py-1 whitespace-nowrap w-0 text-left" rowSpan={sale.items.length}>
+                                  {sale.paymentMethod ? PAYMENT_METHOD_LABELS[sale.paymentMethod] : '-'}
+                                </td>
+                              )}
                             </tr>
                           ))}
                           {/* Fila de Total Principal */}
                           <tr className="border-t-2 border-gray-100">
-                            <td colSpan={6} className="pt-4 pb-1 text-right font-bold text-gray-900">Total:</td>
+                            <td colSpan={7} className="pt-4 pb-1 text-right font-bold text-gray-900">Total:</td>
                             <td className="pt-4 pb-1 px-5 text-left text-lg font-bold text-gray-900 tabular-nums">
                               {formatCurrency(sale.total)}
                             </td>
@@ -226,7 +238,7 @@ export default function SalesPage() {
                           {/* Fila de Ganancias (Independiente) */}
                           {sale.profit !== null && sale.profit !== undefined && (
                             <tr>
-                              <td colSpan={6} className=" pb-1 text-right font-bold text-gray-900">Ganancia:</td>
+                              <td colSpan={7} className=" pb-1 text-right font-bold text-gray-900">Ganancia:</td>
                               <td colSpan={7} className=" pb-1 px-5 text-left text-l font-bold  tabular-nums text-emerald-600 ">
                                 {formatCurrency(sale.profit)}
                               </td>
