@@ -57,6 +57,8 @@ export interface SaleItem {
   priceSale: number
   profit?: number // Only visible for admin
   uom: string
+  brand?: string
+  category?: string
 }
 
 export interface Sale {

@@ -194,6 +194,8 @@ export default function SalesPage() {
                           <tr className="text-left">
                             <th className="pr-5 py-1 whitespace-nowrap">Nombre</th>
                             <th className="px-5 py-1 whitespace-nowrap">Código</th>
+                            <th className="px-5 py-1 whitespace-nowrap">Marca</th>
+                            <th className="px-5 py-1 whitespace-nowrap">Categoría</th>
                             <th className="px-5 py-1 whitespace-nowrap text-left">Cantidad</th>
                             <th className="px-5 py-1 whitespace-nowrap text-left">Precio</th>
                             <th className="px-5 py-1 whitespace-nowrap text-left">Total</th>
@@ -204,29 +206,32 @@ export default function SalesPage() {
                             <tr key={index} className="hover:bg-gray-50">
                               <td className="pr-5 py-1 whitespace-nowrap w-0">{item.name}</td>
                               <td className="px-5 py-1 whitespace-nowrap w-0">{item.code}</td>
+                              <td className="px-5 py-1 whitespace-nowrap w-0 text-left tabular-nums">{item.brand}</td>
+                              <td className="px-5 py-1 whitespace-nowrap w-0 text-left tabular-nums">{item.category}</td>
                               <td className="px-5 py-1 whitespace-nowrap w-0 text-left tabular-nums">{item.qty} {item.uom}</td>
                               <td className="px-5 py-1 whitespace-nowrap w-0 text-left tabular-nums">{formatCurrency(item.priceSale)}</td>
-                              <td className="px-5 py-1 whitespace-nowrap w-full text-left tabular-nums font-medium">
+                              <td className="px-5 py-1 whitespace-nowrap w-0 text-left tabular-nums font-medium">
                                 {formatCurrency(item.qty * item.priceSale)}
                               </td>
                             </tr>
                           ))}
-                          <tr className="hover:bg-gray-50 border-t-2">
-                            <td className="pr-5 py-2 whitespace-nowrap w-0 text-lg font-bold text-gray-900 align-top">Total</td>
-                            <td className="px-5 py-2 whitespace-nowrap w-0"></td>
-                            <td className="px-5 py-2 whitespace-nowrap w-0 text-left tabular-nums"></td>
-                            <td className="px-5 py-2 whitespace-nowrap w-0 text-left tabular-nums"></td>
-                            <td className="px-5 py-2 whitespace-nowrap w-full text-left tabular-nums font-medium">
-                              <div className="flex flex-col">
-                                <span className="text-lg font-bold text-gray-900">{formatCurrency(sale.total)}</span>
-                                {sale.profit !== null && sale.profit !== undefined && (
-                                  <span className="text-sm text-emerald-600">
-                                    Ganancia: {formatCurrency(sale.profit)}
-                                  </span>
-                                )}
-                              </div>
+                          {/* Fila de Total Principal */}
+                          <tr className="border-t-2 border-gray-100">
+                            <td colSpan={6} className="pt-4 pb-1 text-right font-bold text-gray-900">Total:</td>
+                            <td className="pt-4 pb-1 px-5 text-left text-lg font-bold text-gray-900 tabular-nums">
+                              {formatCurrency(sale.total)}
                             </td>
                           </tr>
+
+                          {/* Fila de Ganancias (Independiente) */}
+                          {sale.profit !== null && sale.profit !== undefined && (
+                            <tr>
+                              <td colSpan={6} className=" pb-1 text-right font-bold text-gray-900">Ganancia:</td>
+                              <td colSpan={7} className=" pb-1 px-5 text-left text-l font-bold  tabular-nums text-emerald-600 ">
+                                {formatCurrency(sale.profit)}
+                              </td>
+                            </tr>
+                          )}
                         </tbody>
                       </table>
                     </div>

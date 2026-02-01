@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Plus, Minus, X } from "lucide-react"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { apiClient } from "@/lib/api/client"
 import type { Product, CreateSaleRequest, SaleItem } from "@/lib/types/api"
 
@@ -104,6 +105,8 @@ export function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
         priceBuy: product.priceBuy || 0,
         priceSale: product.priceSale,
         uom: product.uom,
+        brand: product.brand,
+        category: product.category,
       }
       setSelectedItems((items) => [...items, newItem])
       setQtyInputs((prev) => ({ ...prev, [product.code]: "1.00" }))
@@ -303,7 +306,7 @@ export function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
                           <div key={product.code} className="p-3 border-b last:border-b-0 hover:bg-gray-50">
                             <div className="flex items-center justify-between">
                               <div className="flex-1">
-                                <h4 className="font-medium">{product.name}</h4>
+                                <h4 className="font-medium">{product.name}{product.brand && <span className="mx-2">•</span>}{product.brand}</h4>
                                 <div className="text-sm text-gray-600">
                                   <span>{product.code}</span>
                                   <span className="mx-2">•</span>
@@ -349,7 +352,18 @@ export function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
                           <div key={item.code} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                             <div className="flex-1">
                               <h4 className="font-medium">{item.name}</h4>
-                              <p className="text-sm text-gray-600">{item.code}</p>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div>
+                                    {item.brand && <p className="text-sm text-gray-600 truncate max-w-[150px] cursor-default">{item.brand}</p>}
+                                    <p className="text-sm text-gray-600 truncate max-w-[150px] cursor-default">{item.code}</p>
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>{item.brand}</p>
+                                  <p>{item.code}</p>
+                                </TooltipContent>
+                              </Tooltip>
                             </div>
                             {(() => {
                               const productRef = products.find((p) => p.code === item.code)
@@ -359,15 +373,16 @@ export function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
                                 <div className="flex items-center gap-2">
                                   <Button
                                     type="button"
-                                    size="sm"
+                                    size="icon"
                                     variant="outline"
+                                    className="h-6 w-6"
                                     onClick={() => {
                                       const newQty = Math.max(0, item.qty - 1)
                                       updateItemQty(item.code, newQty)
                                       setQtyInputs((prev) => ({ ...prev, [item.code]: newQty.toFixed(2) }))
                                     }}
                                   >
-                                    <Minus className="w-3 h-3" />
+                                    <Minus className="w-2.5 h-2.5" />
                                   </Button>
 
                                   {/* Input editable de cantidad: solo dígitos y punto decimal */}
@@ -411,19 +426,20 @@ export function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
                                   />
 
                                   {/* UOM al lado de la cantidad */}
-                                  <span className="w-10 text-center text-gray-600">{uom}</span>
+                                  <span className="text-center text-gray-600">{uom}</span>
 
                                   <Button
                                     type="button"
-                                    size="sm"
+                                    size="icon"
                                     variant="outline"
+                                    className="h-6 w-6"
                                     onClick={() => {
                                       const newQty = item.qty + 1
                                       updateItemQty(item.code, newQty)
                                       setQtyInputs((prev) => ({ ...prev, [item.code]: newQty.toFixed(2) }))
                                     }}
                                   >
-                                    <Plus className="w-3 h-3" />
+                                    <Plus className="w-2.5 h-2.5" />
                                   </Button>
 
                                   <span className="w-24 text-right">{formatCurrency(item.qty * item.priceSale)}</span>
