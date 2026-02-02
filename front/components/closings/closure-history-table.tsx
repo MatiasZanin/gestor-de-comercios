@@ -1,11 +1,12 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Calendar, History, Loader2 } from "lucide-react"
+import { Calendar, History, Loader2, Eye } from "lucide-react"
 import { apiClient } from "@/lib/api/client"
 import type { CashClose, CashCloseListResponse } from "@/lib/types/api"
 import { format } from "date-fns"
@@ -16,6 +17,7 @@ interface ClosureHistoryTableProps {
 }
 
 export function ClosureHistoryTable({ refreshTrigger }: ClosureHistoryTableProps) {
+    const router = useRouter()
     const [closures, setClosures] = useState<CashClose[]>([])
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState("")
@@ -162,10 +164,10 @@ export function ClosureHistoryTable({ refreshTrigger }: ClosureHistoryTableProps
                                             <p className="text-gray-500">Diferencia</p>
                                             <p
                                                 className={`font-medium ${closure.difference === 0
-                                                        ? "text-emerald-600"
-                                                        : closure.difference > 0
-                                                            ? "text-blue-600"
-                                                            : "text-red-600"
+                                                    ? "text-emerald-600"
+                                                    : closure.difference > 0
+                                                        ? "text-blue-600"
+                                                        : "text-red-600"
                                                     }`}
                                             >
                                                 {formatCurrency(closure.difference)}
@@ -177,6 +179,17 @@ export function ClosureHistoryTable({ refreshTrigger }: ClosureHistoryTableProps
                                             {closure.notes}
                                         </p>
                                     )}
+                                    <div className="pt-2 border-t mt-2">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="w-full"
+                                            onClick={() => router.push(`/dashboard/cierres/${closure.closureId}`)}
+                                        >
+                                            <Eye className="w-4 h-4 mr-2" />
+                                            Ver detalle
+                                        </Button>
+                                    </div>
                                 </div>
                             ))}
                         </div>
@@ -194,7 +207,8 @@ export function ClosureHistoryTable({ refreshTrigger }: ClosureHistoryTableProps
                                         <th className="pb-2 px-4">Gastos</th>
                                         <th className="pb-2 px-4">Fondo</th>
                                         <th className="pb-2 px-4">Diferencia</th>
-                                        <th className="pb-2 pl-4">Estado</th>
+                                        <th className="pb-2 px-4">Estado</th>
+                                        <th className="pb-2 pl-4">Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -223,10 +237,10 @@ export function ClosureHistoryTable({ refreshTrigger }: ClosureHistoryTableProps
                                             </td>
                                             <td
                                                 className={`py-3 px-4 tabular-nums font-medium ${closure.difference === 0
-                                                        ? "text-emerald-600"
-                                                        : closure.difference > 0
-                                                            ? "text-blue-600"
-                                                            : "text-red-600"
+                                                    ? "text-emerald-600"
+                                                    : closure.difference > 0
+                                                        ? "text-blue-600"
+                                                        : "text-red-600"
                                                     }`}
                                             >
                                                 {formatCurrency(closure.difference)}
@@ -248,6 +262,16 @@ export function ClosureHistoryTable({ refreshTrigger }: ClosureHistoryTableProps
                                                             ? "Sobrante"
                                                             : "Faltante"}
                                                 </Badge>
+                                            </td>
+                                            <td className="py-3 pl-4">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => router.push(`/dashboard/cierres/${closure.closureId}`)}
+                                                    title="Ver detalle"
+                                                >
+                                                    <Eye className="w-4 h-4" />
+                                                </Button>
                                             </td>
                                         </tr>
                                     ))}

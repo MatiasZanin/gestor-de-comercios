@@ -179,6 +179,10 @@ export class ApiClient {
     const query = searchParams.toString()
     return this.makeRequest(`/closures${query ? `?${query}` : ""}`)
   }
+
+  async getClosureDetail(closureId: string): Promise<any> {
+    return this.makeRequest(`/closures/${encodeURIComponent(closureId)}`)
+  }
 }
 
 export const apiClient = ApiClient.getInstance()

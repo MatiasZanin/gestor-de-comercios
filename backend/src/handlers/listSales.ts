@@ -50,7 +50,11 @@ export const handler = async (
           TableName: tableName,
           IndexName: 'GSI-Ventas-Por-Dia',
           KeyConditionExpression: 'GSI1PK = :gsiPk',
-          ExpressionAttributeValues: { ':gsiPk': gsiPk },
+          FilterExpression: 'begins_with(SK, :salePrefix)',
+          ExpressionAttributeValues: {
+            ':gsiPk': gsiPk,
+            ':salePrefix': 'SALE#'
+          },
           ExclusiveStartKey: exclusiveStartKey,
           Limit: 25,
           ScanIndexForward: false,

@@ -351,6 +351,21 @@ Resources:
             Path: '/{commerceId}/closures'
             Method: GET
 
+  GetClosureDetailFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub getClosureDetail-${CommerceStage}
+      CodeUri: ./dist
+      Handler: handlers/getClosureDetail.handler
+      Role: !GetAtt LambdaDynamoRole.Arn
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: '/{commerceId}/closures/{closureId}'
+            Method: GET
+
   GetMetadataFunction:
     Type: AWS::Serverless::Function
     Properties:

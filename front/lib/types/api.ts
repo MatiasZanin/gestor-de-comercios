@@ -197,3 +197,8 @@ export interface CashCloseListParams {
   day?: string // YYYY-MM-DD
   lastKey?: string
 }
+
+export interface CashCloseDetailResponse {
+  closure: CashClose
+  sales: Sale[]
+}

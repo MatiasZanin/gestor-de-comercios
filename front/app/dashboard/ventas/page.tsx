@@ -20,11 +20,21 @@ export default function SalesPage() {
   const [sales, setSales] = useState<Sale[]>([])
   const [loading, setLoading] = useState(true)
   const [isFiltering, setIsFiltering] = useState(false)
-  const [searchDate, setSearchDate] = useState(new Date().toISOString().split("T")[0])
+  const [searchDate, setSearchDate] = useState("")
   const [showForm, setShowForm] = useState(false)
   const [lastKey, setLastKey] = useState<string | undefined>()
+  const [isInitialized, setIsInitialized] = useState(false)
 
   const isAdmin = user?.role === "admin"
+
+  // Set initial date on client side only to avoid hydration mismatch
+  useEffect(() => {
+    if (!isInitialized) {
+      const today = new Date().toISOString().split("T")[0]
+      setSearchDate(today)
+      setIsInitialized(true)
+    }
+  }, [isInitialized])
 
   const loadSales = async (reset = false, params?: any) => {
     try {
@@ -50,10 +60,10 @@ export default function SalesPage() {
   }
 
   useEffect(() => {
-    if (sales.length === 0) {
+    if (isInitialized && sales.length === 0) {
       loadSales(true, { day: searchDate })
     }
-  }, [])
+  }, [isInitialized])
 
   const handleDateFilter = () => {
     setIsFiltering(true)

@@ -25,6 +25,11 @@ const navigation = [
     icon: ShoppingCart,
   },
   {
+    name: "Cierres",
+    href: "/dashboard/cierres", // Updated href to match new route
+    icon: BarChart3,
+  },
+  {
     name: "Reportes",
     href: "/dashboard/reportes", // Updated href to match new route
     icon: BarChart3,
