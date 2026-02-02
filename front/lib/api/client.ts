@@ -163,6 +163,22 @@ export class ApiClient {
   async getMetadata(): Promise<any> {
     return this.makeRequest("/metadata")
   }
+
+  // Closure endpoints
+  async createClosure(data: any): Promise<any> {
+    return this.makeRequest("/closures", {
+      method: "POST",
+      body: JSON.stringify(data),
+    })
+  }
+
+  async listClosures(params?: { day?: string; lastKey?: string }): Promise<any> {
+    const searchParams = new URLSearchParams()
+    if (params?.day) searchParams.append("day", params.day)
+    if (params?.lastKey) searchParams.append("lastKey", params.lastKey)
+    const query = searchParams.toString()
+    return this.makeRequest(`/closures${query ? `?${query}` : ""}`)
+  }
 }
 
 export const apiClient = ApiClient.getInstance()

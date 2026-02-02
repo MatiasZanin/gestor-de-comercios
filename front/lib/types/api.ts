@@ -163,3 +163,37 @@ export interface MetadataConfig {
   categories: string[]
   iva_rates: number[]
 }
+
+// Cash Close Models
+export interface CashClose {
+  closureId: string
+  commerceId: string
+  userId: string
+  openedAt: string
+  closedAt: string
+  systemTotalCash: number
+  systemTotalCard: number
+  systemTotalTransfer: number
+  declaredCash: number
+  expenses: number
+  initialFund: number
+  difference: number
+  notes?: string
+}
+
+export interface CreateCashCloseRequest {
+  declaredCash: number
+  expenses: number
+  initialFund: number
+  notes?: string
+}
+
+export interface CashCloseListResponse {
+  items: CashClose[]
+  lastKey?: string
+}
+
+export interface CashCloseListParams {
+  day?: string // YYYY-MM-DD
+  lastKey?: string
+}

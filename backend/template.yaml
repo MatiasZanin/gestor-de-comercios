@@ -321,6 +321,36 @@ Resources:
             Path: '/{commerceId}/reports/range'
             Method: GET
 
+  CloseRegisterFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub closeRegister-${CommerceStage}
+      CodeUri: ./dist
+      Handler: handlers/closeRegister.handler
+      Role: !GetAtt LambdaDynamoRole.Arn
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: '/{commerceId}/closures'
+            Method: POST
+
+  ListClosuresFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub listClosures-${CommerceStage}
+      CodeUri: ./dist
+      Handler: handlers/listClosures.handler
+      Role: !GetAtt LambdaDynamoRole.Arn
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: '/{commerceId}/closures'
+            Method: GET
+
   GetMetadataFunction:
     Type: AWS::Serverless::Function
     Properties:
