@@ -40,7 +40,7 @@ export const handler = async (
       throw new BadRequestError('Missing body');
     }
     const body = JSON.parse(event.body);
-    const { code, name, priceBuy, priceSale, notes, uom, stock, isActive, category, brand } =
+    const { code, name, priceBuy, priceSale, notes, uom, stock, isActive, category, brand, minStock } =
       body;
     if (
       !code ||
@@ -58,6 +58,11 @@ export const handler = async (
     const gsi2sk = `PRODUCT#${activeFlag ? 'true' : 'false'}#${now}`;
     const pk = `COM#${commerceId}`;
     const sk = `PRODUCT#${code}`;
+
+    // Calcular alertStatus para Sparse Index: solo se guarda si stock <= minStock
+    const effectiveMinStock = minStock !== undefined && minStock !== null ? minStock : 0;
+    const shouldSetAlert = effectiveMinStock > 0 && stock <= effectiveMinStock;
+
     const item: Product = {
       PK: pk,
       SK: sk,
@@ -80,6 +85,8 @@ export const handler = async (
       brand: brand || undefined,
       GSI2PK: gsi2pk,
       GSI2SK: gsi2sk,
+      minStock: effectiveMinStock > 0 ? effectiveMinStock : undefined, // Solo guardar si > 0
+      ...(shouldSetAlert && { alertStatus: 'LOW' }), // Sparse Index: solo agregar si aplica
     };
     // Si se proporciona una categoría, agregarla a METADATA#CONFIG si no existe
     if (category) {

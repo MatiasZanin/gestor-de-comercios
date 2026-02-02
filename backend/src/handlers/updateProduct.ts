@@ -49,6 +49,7 @@ export const handler = async (
       'isActive',
       'category',
       'brand',
+      'minStock',
     ];
     // Si se actualiza la categoría, agregarla a METADATA#CONFIG si no existe
     if (body.category) {
@@ -85,7 +86,33 @@ export const handler = async (
       expressionValues[':gsk'] = gsi2sk;
     }
 
-    const updateExpression = `SET ${expressionParts.join(', ')}, updatedAt = :now`;
+    // Manejar alertStatus para Sparse Index cuando se actualiza stock o minStock
+    // Si ambos están presentes en el body, evaluamos la condición de alerta
+    let removeExpressionParts: string[] = [];
+    if (body.stock !== undefined || body.minStock !== undefined) {
+      // Si se está actualizando el stock o minStock, necesitamos evaluar la alerta
+      // Nota: Esta lógica asume que si se cambia minStock, también se provee el stock actual
+      // o se usa el valor existente. Para casos complejos, updateStock.ts maneja la lógica atomica.
+      const newStock = body.stock;
+      const newMinStock = body.minStock;
+
+      if (newStock !== undefined && newMinStock !== undefined) {
+        // Ambos valores están disponibles, podemos evaluar
+        if (newMinStock > 0 && newStock <= newMinStock) {
+          expressionParts.push('alertStatus = :alertStatus');
+          expressionValues[':alertStatus'] = 'LOW';
+        } else if (newMinStock === 0 || newStock > newMinStock) {
+          // Remover alertStatus (Sparse Index)
+          removeExpressionParts.push('alertStatus');
+        }
+      }
+    }
+
+    let updateExpression = `SET ${expressionParts.join(', ')}, updatedAt = :now`;
+    if (removeExpressionParts.length > 0) {
+      updateExpression += ` REMOVE ${removeExpressionParts.join(', ')}`;
+    }
+
     const pk = `COM#${commerceId}`;
     const sk = `PRODUCT#${code}`;
     const result = await docClient.send(

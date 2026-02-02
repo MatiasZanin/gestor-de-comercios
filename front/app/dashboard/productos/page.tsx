@@ -274,7 +274,7 @@ export default function ProductsPage() {
                         >
                           {product.isActive ? "Activo" : "Inactivo"}
                         </Badge>
-                        {product.stock <= 5 && product.isActive && (
+                        {product.isActive && product.alertStatus && (
                           <Badge
                             variant="destructive"
                             className="bg-orange-100 text-orange-800"
@@ -305,12 +305,19 @@ export default function ProductsPage() {
                         <div className="flex flex-col">
                           <span className="text-gray-500">Stock</span>
                           <span
-                            className={`font-medium ${product.stock <= 5
-                              ? "text-orange-600"
-                              : "text-gray-900"
+                            className={`font-medium ${product.alertStatus === 'LOW'
+                              ? "text-red-600"
+                              : product.stock <= 5
+                                ? "text-orange-600"
+                                : "text-gray-900"
                               }`}
                           >
                             {product.stock} {product.uom}
+                            {product.minStock && product.minStock > 0 && (
+                              <span className="text-gray-400 text-xs ml-1">
+                                (mín: {product.minStock})
+                              </span>
+                            )}
                           </span>
                         </div>
                         <div className="flex flex-col">

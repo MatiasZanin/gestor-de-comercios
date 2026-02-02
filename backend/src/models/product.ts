@@ -20,5 +20,7 @@ export interface Product {
   brand?: string;
   GSI2PK: string;
   GSI2SK: string;
+  minStock?: number; // Stock mínimo para alertas
+  alertStatus?: 'LOW'; // Sparse Index: solo presente cuando stock <= minStock
 }
 

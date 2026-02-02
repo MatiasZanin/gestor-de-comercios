@@ -16,6 +16,8 @@ export interface Product {
   qtyStep: number // Minimum multiple for sales
   category?: string
   brand?: string
+  minStock?: number // Stock mínimo para alertas
+  alertStatus?: 'LOW' // Solo presente cuando stock <= minStock
 }
 
 export interface CreateProductRequest {
@@ -29,6 +31,7 @@ export interface CreateProductRequest {
   isActive?: boolean
   category?: string
   brand?: string
+  minStock?: number
 }
 
 export interface UpdateProductRequest {
@@ -41,6 +44,7 @@ export interface UpdateProductRequest {
   isActive?: boolean
   category?: string
   brand?: string
+  minStock?: number
 }
 
 export interface ProductListResponse {

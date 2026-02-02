@@ -65,6 +65,7 @@ export function ProductForm({ product, products = [], onSuccess, onCancel }: Pro
     notes: product?.notes || "",
     uom: product?.uom || "",
     stock: product?.stock || 0,
+    minStock: product?.minStock || 0,
     isActive: product?.isActive ?? true,
     category: product?.category || "",
     brand: product?.brand || "",
@@ -77,6 +78,9 @@ export function ProductForm({ product, products = [], onSuccess, onCancel }: Pro
   )
   const [stockInput, setStockInput] = useState(
     product?.stock ? product.stock.toString() : ""
+  )
+  const [minStockInput, setMinStockInput] = useState(
+    product?.minStock ? product.minStock.toString() : ""
   )
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
@@ -155,6 +159,7 @@ export function ProductForm({ product, products = [], onSuccess, onCancel }: Pro
           notes: formData.notes,
           uom: formData.uom,
           stock: formData.stock,
+          minStock: formData.minStock || undefined,
           isActive: formData.isActive,
           category: formData.category || undefined,
           brand: formData.brand || undefined,
@@ -170,6 +175,7 @@ export function ProductForm({ product, products = [], onSuccess, onCancel }: Pro
           notes: formData.notes,
           uom: formData.uom,
           stock: formData.stock,
+          minStock: formData.minStock || undefined,
           isActive: formData.isActive,
           category: formData.category || undefined,
           brand: formData.brand || undefined,
@@ -481,6 +487,60 @@ export function ProductForm({ product, products = [], onSuccess, onCancel }: Pro
                   required
                 />
               </div>
+            </div>
+
+            <div className="mt-2">
+              <div className="flex items-center gap-1 mb-2">
+                <Label htmlFor="minStock">
+                  Stock Mínimo (Alerta)
+                </Label>
+                <button
+                  type="button"
+                  onClick={() => { }}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                  aria-label="Ayuda sobre stock mínimo"
+                  title="Si el stock baja de este valor, el producto aparecerá en alertas de stock crítico"
+                >
+                  <HelpCircle className="h-4 w-4" />
+                </button>
+              </div>
+              <Input
+                id="minStock"
+                type="text"
+                value={minStockInput}
+                onChange={(e) => {
+                  const value = e.target.value
+                  if (value === "" || /^\d*$/.test(value)) {
+                    setMinStockInput(value)
+                    if (value !== "") {
+                      const n = Number.parseInt(value, 10)
+                      if (!Number.isNaN(n)) {
+                        setFormData({ ...formData, minStock: n })
+                      }
+                    }
+                  }
+                }}
+                onBlur={(e) => {
+                  const value = e.target.value
+                  if (value === "") {
+                    setMinStockInput("")
+                    setFormData({ ...formData, minStock: 0 })
+                  } else {
+                    const n = Number.parseInt(value, 10)
+                    if (Number.isNaN(n)) {
+                      setMinStockInput("")
+                      setFormData({ ...formData, minStock: 0 })
+                    } else {
+                      setMinStockInput(n.toString())
+                      setFormData({ ...formData, minStock: n })
+                    }
+                  }
+                }}
+                placeholder="0 (sin alerta)"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Dejá en 0 para no recibir alertas de este producto
+              </p>
             </div>
 
             <div className="mt-2">
