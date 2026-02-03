@@ -5,6 +5,7 @@ import {
     APIGatewayProxyResultV2,
 } from 'aws-lambda';
 import { BadRequestError, buildErrorResponse } from '../helpers/errors';
+import { assertCommerceAccess } from '../helpers/assertCommerceAccess';
 
 const dynamoClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(dynamoClient);
@@ -24,6 +25,9 @@ export const handler = async (
         if (!commerceId) {
             throw new BadRequestError('Missing commerceId');
         }
+
+        // Validate user has access to this commerce
+        assertCommerceAccess(event, commerceId);
 
         const pk = `COM#${commerceId}`;
         const sk = 'METADATA#CONFIG';

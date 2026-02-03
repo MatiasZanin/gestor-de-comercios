@@ -10,6 +10,7 @@ import {
     ForbiddenError,
     buildErrorResponse,
 } from '../helpers/errors';
+import { assertCommerceAccess } from '../helpers/assertCommerceAccess';
 import { sanitizeForRole } from '../helpers/sanitizeForRole';
 import { CashClose, CreateCashCloseRequest } from '../models/cashClose';
 import { Sale } from '../models/sale';
@@ -32,6 +33,9 @@ export const handler = async (
         if (!commerceId) {
             throw new BadRequestError('Missing commerceId');
         }
+
+        // Validate user has access to this commerce
+        assertCommerceAccess(event, commerceId);
 
         // Verify permissions: admin or vendedor
         const claims = (event.requestContext.authorizer as any)?.jwt?.claims ?? {};

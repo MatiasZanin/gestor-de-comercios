@@ -10,6 +10,7 @@ import {
     NotFoundError,
     buildErrorResponse,
 } from '../helpers/errors';
+import { assertCommerceAccess } from '../helpers/assertCommerceAccess';
 import { sanitizeForRole } from '../helpers/sanitizeForRole';
 import { CashClose } from '../models/cashClose';
 import { Sale } from '../models/sale';
@@ -37,6 +38,9 @@ export const handler = async (
         if (!closureId) {
             throw new BadRequestError('Missing closureId');
         }
+
+        // Validate user has access to this commerce
+        assertCommerceAccess(event, commerceId);
 
         // Verify permissions: ADMIN ONLY
         const claims = (event.requestContext.authorizer as any)?.jwt?.claims ?? {};

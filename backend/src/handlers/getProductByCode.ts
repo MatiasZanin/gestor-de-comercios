@@ -9,6 +9,7 @@ import {
   NotFoundError,
   buildErrorResponse,
 } from '../helpers/errors';
+import { assertCommerceAccess } from '../helpers/assertCommerceAccess';
 import { sanitizeForRole } from '../helpers/sanitizeForRole';
 
 const dynamoClient = new DynamoDBClient({});
@@ -33,6 +34,9 @@ export const handler = async (
     if (!code) {
       throw new BadRequestError('Missing product code');
     }
+
+    // Validate user has access to this commerce
+    assertCommerceAccess(event, commerceId);
 
     const claims = event.requestContext.authorizer?.jwt?.claims ?? {};
     const role: any = claims['cognito:groups'];

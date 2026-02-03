@@ -9,6 +9,7 @@ import {
   ForbiddenError,
   buildErrorResponse,
 } from '../helpers/errors';
+import { assertCommerceAccess } from '../helpers/assertCommerceAccess';
 import { sanitizeForRole } from '../helpers/sanitizeForRole';
 import { addCategory } from '../helpers/addCategory';
 import { Product } from '../models/product';
@@ -31,6 +32,10 @@ export const handler = async (
     if (!commerceId) {
       throw new BadRequestError('Missing commerceId');
     }
+
+    // Validate user has access to this commerce
+    assertCommerceAccess(event, commerceId);
+
     const claims = event.requestContext.authorizer?.jwt?.claims ?? {};
     const roles: any = claims['cognito:groups'];
     if (!roles?.includes('admin')) {

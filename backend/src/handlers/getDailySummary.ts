@@ -5,6 +5,7 @@ import {
     APIGatewayProxyResultV2,
 } from 'aws-lambda';
 import { BadRequestError, buildErrorResponse } from '../helpers/errors';
+import { assertCommerceAccess } from '../helpers/assertCommerceAccess';
 import { sanitizeForRole } from '../helpers/sanitizeForRole';
 
 const dynamoClient = new DynamoDBClient({});
@@ -48,6 +49,9 @@ export const handler = async (
         if (!commerceId) {
             throw new BadRequestError('Missing commerceId');
         }
+
+        // Validate user has access to this commerce
+        assertCommerceAccess(event, commerceId);
 
         // Obtener claims del JWT para verificación de roles
         const claims = (event.requestContext.authorizer as any)?.jwt?.claims ?? {};

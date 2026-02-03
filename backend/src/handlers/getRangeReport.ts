@@ -5,6 +5,7 @@ import {
   APIGatewayProxyResultV2,
 } from 'aws-lambda';
 import { BadRequestError, buildErrorResponse } from '../helpers/errors';
+import { assertCommerceAccess } from '../helpers/assertCommerceAccess';
 
 const dynamoClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(dynamoClient);
@@ -24,6 +25,10 @@ export const handler = async (
     if (!commerceId || !start || !end) {
       throw new BadRequestError('Missing commerceId, start or end');
     }
+
+    // Validate user has access to this commerce
+    assertCommerceAccess(event, commerceId);
+
     const claims = (event.requestContext.authorizer as any)?.jwt?.claims ?? {};
     const role: string | undefined = claims['cognito:groups'];
     const order = queryParams.orderBy || 'units';

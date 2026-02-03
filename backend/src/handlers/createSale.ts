@@ -15,6 +15,7 @@ import {
   buildErrorResponse,
 } from '../helpers/errors';
 import { sanitizeForRole } from '../helpers/sanitizeForRole';
+import { assertCommerceAccess } from '../helpers/assertCommerceAccess';
 import { updateDailyStats } from '../helpers/updateDailyStats';
 import { updateStock } from '../helpers/updateStock';
 import { Sale, SaleItem } from '../models/sale';
@@ -117,6 +118,10 @@ export const handler = async (
     if (!commerceId) {
       throw new BadRequestError('Missing commerceId');
     }
+
+    // Validate user has access to this commerce
+    assertCommerceAccess(event, commerceId);
+
     const claims = (event.requestContext.authorizer as any)?.jwt?.claims ?? {};
     const roles: string[] | undefined = claims['cognito:groups'];
     if (
