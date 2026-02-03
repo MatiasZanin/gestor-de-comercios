@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/lib/hooks/use-auth"
-import { Store, Package, ShoppingCart, BarChart3, LogOut, Menu, X, User } from "lucide-react"
+import { Store, Package, ShoppingCart, BarChart3, LogOut, Menu, X, User, Banknote } from "lucide-react"
 
 const navigation = [
   {
@@ -27,7 +27,7 @@ const navigation = [
   {
     name: "Cierres",
     href: "/dashboard/cierres", // Updated href to match new route
-    icon: BarChart3,
+    icon: Banknote,
   },
   {
     name: "Reportes",

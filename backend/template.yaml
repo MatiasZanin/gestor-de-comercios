@@ -400,6 +400,20 @@ Resources:
             Path: '/{commerceId}/metadata'
             Method: GET
 
+  GetRestockAlertFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub getRestockAlert-${CommerceStage}
+      CodeUri: ./dist
+      Handler: handlers/getRestockAlert.handler
+      Role: !GetAtt LambdaDynamoRole.Arn
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: '/{commerceId}/products/restock-alert'
+            Method: GET
 
   JwtAuthorizerFunction:
     Type: AWS::Serverless::Function

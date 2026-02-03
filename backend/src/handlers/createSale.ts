@@ -1,5 +1,9 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, PutCommand } from '@aws-sdk/lib-dynamodb';
+import {
+  DynamoDBDocumentClient,
+  PutCommand,
+  UpdateCommand,
+} from '@aws-sdk/lib-dynamodb';
 import {
   APIGatewayProxyEventV2WithJWTAuthorizer,
   APIGatewayProxyResultV2,
@@ -17,6 +21,49 @@ import { Sale, SaleItem } from '../models/sale';
 
 const dynamoClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(dynamoClient);
+
+type PaymentMethod = 'CASH' | 'CARD' | 'TRANSFER' | 'OTHER';
+
+/**
+ * Actualiza atómicamente el registro de resumen diario (SUMMARY#YYYY-MM-DD)
+ * para habilitar reportes instantáneos de "Mapa de Calor" y "Arqueo de Caja".
+ * Usa ADD para operaciones atómicas y concurrentes-safe.
+ */
+async function updateDailySummary(
+  tableName: string,
+  commerceId: string,
+  day: string,
+  createdAt: string,
+  total: number,
+  paymentMethod: PaymentMethod
+): Promise<void> {
+  // Extraer la hora (0-23) del timestamp ISO
+  const hour = new Date(createdAt).getHours();
+  const hourKey = `h${hour}`;
+
+  // Determinar el key del método de pago
+  const methodKey = `method_${paymentMethod}`;
+
+  await docClient.send(
+    new UpdateCommand({
+      TableName: tableName,
+      Key: {
+        PK: `COM#${commerceId}`,
+        SK: `SUMMARY#${day}`,
+      },
+      UpdateExpression: `
+        ADD txCount :one,
+            totalDay :saleTotal,
+            ${methodKey} :saleTotal,
+            ${hourKey} :one
+      `,
+      ExpressionAttributeValues: {
+        ':one': 1,
+        ':saleTotal': total,
+      },
+    })
+  );
+}
 
 export const handler = async (
   event: APIGatewayProxyEventV2WithJWTAuthorizer
@@ -116,6 +163,17 @@ export const handler = async (
         Item: sale,
       })
     );
+
+    // Write-Time Aggregation: Actualizar resumen diario para reportes instantáneos
+    await updateDailySummary(
+      tableName,
+      commerceId,
+      day,
+      createdAt,
+      total,
+      body.paymentMethod as PaymentMethod
+    );
+
     const response = sanitizeForRole(sale, roles);
     return {
       statusCode: 201,
