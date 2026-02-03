@@ -436,6 +436,36 @@ Resources:
             Path: '/{commerceId}/products/restock-alert'
             Method: GET
 
+  GetMonthlyRankingFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub getMonthlyRanking-${CommerceStage}
+      CodeUri: ./dist
+      Handler: handlers/getMonthlyRanking.handler
+      Role: !GetAtt LambdaDynamoRole.Arn
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: '/{commerceId}/reports/monthly-ranking'
+            Method: GET
+
+  GetDailySummaryFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub getDailySummary-${CommerceStage}
+      CodeUri: ./dist
+      Handler: handlers/getDailySummary.handler
+      Role: !GetAtt LambdaDynamoRole.Arn
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: '/{commerceId}/reports/daily-summary'
+            Method: GET
+
   JwtAuthorizerFunction:
     Type: AWS::Serverless::Function
     Properties:
