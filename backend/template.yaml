@@ -56,6 +56,10 @@ Resources:
           AttributeType: S
         - AttributeName: alertStatus
           AttributeType: S
+        - AttributeName: statPK
+          AttributeType: S
+        - AttributeName: monthlyUnits
+          AttributeType: N
       KeySchema:
         - AttributeName: PK
           KeyType: HASH
@@ -94,6 +98,19 @@ Resources:
               - name
               - stock
               - minStock
+        - IndexName: GSI-Ranking-Mensual
+          KeySchema:
+            - AttributeName: statPK
+              KeyType: HASH
+            - AttributeName: monthlyUnits
+              KeyType: RANGE
+          Projection:
+            ProjectionType: INCLUDE
+            NonKeyAttributes:
+              - name
+              - code
+              - uom
+              - priceSale
 
   ## Cognito User Pool y grupos de roles
   UserPool:
@@ -216,6 +233,10 @@ Resources:
                 Action:
                   - dynamodb:Query
                 Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/CommerceData-${CommerceStage}/index/GSI-Stock-Critico
+              - Effect: Allow
+                Action:
+                  - dynamodb:Query
+                Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/CommerceData-${CommerceStage}/index/GSI-Ranking-Mensual
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
 

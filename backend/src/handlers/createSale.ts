@@ -65,6 +65,45 @@ async function updateDailySummary(
   );
 }
 
+/**
+ * Write-Time Aggregation: Actualiza la estadística mensual de cada producto
+ * para habilitar el "Ranking de Rotación Mensual" usando el GSI-Ranking-Mensual.
+ * Crea items temporales con TTL de 365 días para auto-borrado.
+ */
+async function updateMonthlyRanking(
+  tableName: string,
+  commerceId: string,
+  currentMonth: string,
+  item: SaleItem
+): Promise<void> {
+  // TTL: 365 días desde ahora
+  const ttlSeconds = Math.floor(Date.now() / 1000) + 365 * 24 * 60 * 60;
+
+  await docClient.send(
+    new UpdateCommand({
+      TableName: tableName,
+      Key: {
+        PK: `COM#${commerceId}`,
+        SK: `STAT#${currentMonth}#PRODUCT#${item.code}`,
+      },
+      UpdateExpression:
+        'ADD monthlyUnits :qty SET statPK = :statPk, #name = :name, code = :code, uom = :uom, priceSale = :priceSale, ttl = :ttl',
+      ExpressionAttributeNames: {
+        '#name': 'name', // 'name' es palabra reservada en DynamoDB
+      },
+      ExpressionAttributeValues: {
+        ':qty': item.qty,
+        ':statPk': `COM#${commerceId}#${currentMonth}`,
+        ':name': item.name,
+        ':code': item.code,
+        ':uom': item.uom,
+        ':priceSale': item.priceSale,
+        ':ttl': ttlSeconds,
+      },
+    })
+  );
+}
+
 export const handler = async (
   event: APIGatewayProxyEventV2WithJWTAuthorizer
 ): Promise<APIGatewayProxyResultV2> => {
@@ -122,7 +161,10 @@ export const handler = async (
       total += item.priceSale * item.qty;
       profit += (item.priceSale - (item.priceBuy || 0)) * item.qty;
     }
-    // Actualizar stock y stats para cada item
+    // Mes actual para el ranking de rotación mensual
+    const currentMonth = createdAt.slice(0, 7); // "YYYY-MM"
+
+    // Actualizar stock, stats históricas y ranking mensual para cada item
     for (const item of items) {
       await updateStock(commerceId, item.code, item.qty);
       await updateDailyStats(
@@ -133,6 +175,8 @@ export const handler = async (
         item.priceSale,
         item.uom
       );
+      // Write-Time Aggregation: Ranking de rotación mensual
+      await updateMonthlyRanking(tableName, commerceId, currentMonth, item);
     }
     const ttlSeconds =
       Math.floor(Date.now() / 1000) + retentionDays * 24 * 60 * 60;
