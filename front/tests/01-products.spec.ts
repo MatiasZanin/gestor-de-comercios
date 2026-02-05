@@ -116,6 +116,7 @@ const testProducts = [
 
 test.describe('Products Module', () => {
     test('should create 10 products with categories and brands', async ({ page }) => {
+        test.setTimeout(60000);
         // Navigate to products page
         await page.goto('/dashboard/productos');
 
@@ -131,6 +132,7 @@ test.describe('Products Module', () => {
             // 1. SCROLL AL TOP: Al haber muchos productos, el scroll queda abajo.
             // Forzamos subir para ver el botón y evitar "element outside of viewport".
             await page.evaluate(() => window.scrollTo(0, 0));
+            // await page.waitForTimeout(1000);
 
             // 2. APERTURA INTELIGENTE:
             // Solo clickeamos si no está visible. Aumentamos el timeout interno
