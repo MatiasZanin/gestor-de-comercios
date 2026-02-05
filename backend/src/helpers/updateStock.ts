@@ -48,9 +48,9 @@ export async function updateStock(
   const newStock = currentStock - qty;
 
   // Validar que el stock no sea negativo
-  if (newStock < 0) {
-    throw new BadRequestError('Stock would become negative');
-  }
+  // if (newStock < 0) {
+  //   throw new BadRequestError('Stock would become negative');
+  // }
 
   // Determinar si necesitamos agregar o remover alertStatus
   const shouldHaveAlert = minStock > 0 && newStock <= minStock;
