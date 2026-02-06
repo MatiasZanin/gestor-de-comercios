@@ -4,6 +4,22 @@ import { useState, useEffect, useCallback } from "react"
 import { Plus, Receipt, Calendar } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+
+// Componente para celdas truncadas con tooltip
+function TruncatedCell({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  const content = String(children ?? "");
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className={`block truncate ${className}`}>{content}</span>
+      </TooltipTrigger>
+      <TooltipContent>
+        <p>{content}</p>
+      </TooltipContent>
+    </Tooltip>
+  );
+}
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/lib/hooks/use-auth"
@@ -204,29 +220,37 @@ export default function SalesPage() {
                     </div>
 
                     {/* Vista desktop - Tabla */}
-                    <div className="hidden sm:block">
-                      <table className="w-full text-sm text-gray-700">
+                    <div className="hidden sm:block overflow-x-auto">
+                      <table className="w-full text-sm text-gray-700 table-fixed min-w-0">
                         <thead>
                           <tr className="text-left">
-                            <th className="pr-5 py-1 whitespace-nowrap">Nombre</th>
-                            <th className="px-5 py-1 whitespace-nowrap">Código</th>
-                            <th className="px-5 py-1 whitespace-nowrap">Marca</th>
-                            <th className="px-5 py-1 whitespace-nowrap">Categoría</th>
-                            <th className="px-5 py-1 whitespace-nowrap text-left">Cantidad</th>
-                            <th className="px-5 py-1 whitespace-nowrap text-left">Precio</th>
-                            <th className="px-5 py-1 whitespace-nowrap text-left">Total</th>
+                            <th className="pr-3 py-1 w-[18%]">Nombre</th>
+                            <th className="px-3 py-1 w-[15%]">Código</th>
+                            <th className="px-3 py-1 w-[12%]">Marca</th>
+                            <th className="px-3 py-1 w-[12%]">Categoría</th>
+                            <th className="px-3 py-1 w-[12%] text-left">Cantidad</th>
+                            <th className="px-3 py-1 w-[14%] text-left">Precio</th>
+                            <th className="px-3 py-1 w-[14%] text-left">Total</th>
                           </tr>
                         </thead>
                         <tbody>
                           {sale.items.map((item, index) => (
                             <tr key={index} className="hover:bg-gray-50">
-                              <td className="pr-5 py-1 whitespace-nowrap w-0">{item.name}</td>
-                              <td className="px-5 py-1 whitespace-nowrap w-0">{item.code}</td>
-                              <td className="px-5 py-1 whitespace-nowrap w-0 text-left tabular-nums">{item.brand}</td>
-                              <td className="px-5 py-1 whitespace-nowrap w-0 text-left tabular-nums">{item.category}</td>
-                              <td className="px-5 py-1 whitespace-nowrap w-0 text-left tabular-nums">{item.qty} {item.uom}</td>
-                              <td className="px-5 py-1 whitespace-nowrap w-0 text-left tabular-nums">{formatCurrency(item.priceSale)}</td>
-                              <td className="px-5 py-1 whitespace-nowrap w-0 text-left tabular-nums font-medium">
+                              <td className="pr-3 py-1">
+                                <TruncatedCell>{item.name}</TruncatedCell>
+                              </td>
+                              <td className="px-3 py-1">
+                                <TruncatedCell>{item.code}</TruncatedCell>
+                              </td>
+                              <td className="px-3 py-1">
+                                <TruncatedCell>{item.brand}</TruncatedCell>
+                              </td>
+                              <td className="px-3 py-1">
+                                <TruncatedCell>{item.category}</TruncatedCell>
+                              </td>
+                              <td className="px-3 py-1 whitespace-nowrap text-left tabular-nums">{item.qty} {item.uom}</td>
+                              <td className="px-3 py-1 whitespace-nowrap text-left tabular-nums">{formatCurrency(item.priceSale)}</td>
+                              <td className="px-3 py-1 whitespace-nowrap text-left tabular-nums font-medium">
                                 {formatCurrency(item.qty * item.priceSale)}
                               </td>
                             </tr>
@@ -234,7 +258,7 @@ export default function SalesPage() {
                           {/* Fila de Total Principal */}
                           <tr className="border-t-2 border-gray-100">
                             <td colSpan={6} className="pt-4 pb-1 text-right font-bold text-gray-900">Total:</td>
-                            <td className="pt-4 pb-1 px-5 text-left text-lg font-bold text-gray-900 tabular-nums">
+                            <td className="pt-4 pb-1 px-3 text-left text-lg font-bold text-gray-900 tabular-nums">
                               {formatCurrency(sale.total)}
                             </td>
                           </tr>
@@ -242,8 +266,8 @@ export default function SalesPage() {
                           {/* Fila de Ganancias (Independiente) */}
                           {sale.profit !== null && sale.profit !== undefined && (
                             <tr>
-                              <td colSpan={6} className=" pb-1 text-right font-bold text-gray-900">Ganancia:</td>
-                              <td colSpan={6} className=" pb-1 px-5 text-left text-l font-bold  tabular-nums text-emerald-600 ">
+                              <td colSpan={6} className="pb-1 text-right font-bold text-gray-900">Ganancia:</td>
+                              <td className="pb-1 px-3 text-left text-l font-bold tabular-nums text-emerald-600">
                                 {formatCurrency(sale.profit)}
                               </td>
                             </tr>
