@@ -1,29 +1,51 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Calendar, TrendingUp, Package, DollarSign, Loader2 } from "lucide-react";
+import { CalendarIcon, TrendingUp, Package, DollarSign, Loader2 } from "lucide-react";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
+import type { DateRange } from "react-day-picker";
 import { DashboardLayout } from "@/components/dashboard/dashboard-layout";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { SalesTab } from "@/components/reports/SalesTab";
 import { StockTab } from "@/components/reports/StockTab";
 import { FinanceTab } from "@/components/reports/FinanceTab";
 import { apiClient } from "@/lib/api/client";
-// Importamos los tipos desde types.ts (o donde los hayas definido)
 import { DailySummaryItem, RankingItem, RestockAlertItem, CashClosureItem, InventoryValuation } from "@/components/reports/types";
 
 export default function ReportsPage() {
-  // Estado para el rango de fechas
-  const [dateRange, setDateRange] = useState(() => {
-    const end = new Date();
-    const start = new Date();
-    start.setDate(end.getDate() - 30); // Default: Últimos 30 días
+  // Función helper para obtener el rango del mes corriente
+  const getCurrentMonthRange = (): { start: string; end: string } => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
     return {
       start: start.toISOString().split("T")[0],
       end: end.toISOString().split("T")[0],
     };
-  });
+  };
+
+  // Función helper para obtener el rango del mes corriente como DateRange
+  const getCurrentMonthDateRange = (): DateRange => {
+    const now = new Date();
+    return {
+      from: new Date(now.getFullYear(), now.getMonth(), 1),
+      to: new Date(now.getFullYear(), now.getMonth() + 1, 0),
+    };
+  };
+
+  // Estado para el rango de fechas aplicado (usado en las queries)
+  const [dateRange, setDateRange] = useState(getCurrentMonthRange);
+
+  // Estado temporal para el selector de fechas (antes de aplicar)
+  const [tempDateRange, setTempDateRange] = useState<DateRange | undefined>(getCurrentMonthDateRange);
+
+  // Estado del popover
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
   // Estado de Carga y Errores
   const [isLoading, setIsLoading] = useState(false);
@@ -97,24 +119,75 @@ export default function ReportsPage() {
             </p>
           </div>
 
-          <Card className="flex items-center gap-3 px-4 py-2 border-0 shadow-sm bg-white">
-            <Calendar className="h-4 w-4 text-gray-500" />
-            <div className="flex items-center gap-2">
-              <input
-                type="date"
-                value={dateRange.start}
-                onChange={(e) => setDateRange((prev) => ({ ...prev, start: e.target.value }))}
-                className="px-2 py-1 text-sm border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500"
+          <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className="justify-start text-left font-normal gap-2 bg-white border-0 shadow-sm hover:bg-gray-50"
+              >
+                <CalendarIcon className="h-4 w-4 text-gray-500" />
+                <span className="text-sm">
+                  {tempDateRange?.from ? (
+                    tempDateRange.to ? (
+                      <>
+                        {format(tempDateRange.from, "dd MMM yyyy", { locale: es })} —{" "}
+                        {format(tempDateRange.to, "dd MMM yyyy", { locale: es })}
+                      </>
+                    ) : (
+                      format(tempDateRange.from, "dd MMM yyyy", { locale: es })
+                    )
+                  ) : (
+                    "Seleccionar fechas"
+                  )}
+                </span>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="end">
+              <Calendar
+                mode="range"
+                defaultMonth={tempDateRange?.from}
+                selected={tempDateRange}
+                // --- CAMBIO AQUÍ: Lógica personalizada de selección ---
+                onSelect={(newRange, selectedDay) => {
+                  if (tempDateRange?.from && tempDateRange?.to && selectedDay) {
+                    // Si ya hay un rango completo, iniciamos uno nuevo desde el día seleccionado
+                    setTempDateRange({ from: selectedDay, to: undefined });
+                  } else {
+                    // Si no, dejamos que la librería calcule el rango (completar final o seleccionar inicio)
+                    setTempDateRange(newRange);
+                  }
+                }}
+                // ------------------------------------------------------
+                numberOfMonths={1}
+                locale={es}
               />
-              <span className="text-gray-400">—</span>
-              <input
-                type="date"
-                value={dateRange.end}
-                onChange={(e) => setDateRange((prev) => ({ ...prev, end: e.target.value }))}
-                className="px-2 py-1 text-sm border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500"
-              />
-            </div>
-          </Card>
+              <div className="flex items-center justify-end gap-2 p-3 border-t">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsCalendarOpen(false)}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    if (tempDateRange?.from && tempDateRange?.to) {
+                      setDateRange({
+                        start: tempDateRange.from.toISOString().split("T")[0],
+                        end: tempDateRange.to.toISOString().split("T")[0],
+                      });
+                    }
+                    setIsCalendarOpen(false);
+                  }}
+                  disabled={!tempDateRange?.from || !tempDateRange?.to}
+                  className="bg-emerald-500 hover:bg-emerald-600"
+                >
+                  Aplicar
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
 
         {/* Content */}
