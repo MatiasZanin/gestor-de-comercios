@@ -47,10 +47,10 @@ export function useSaleForm({ onSuccess }: UseSaleFormProps) {
         if (!showSuccess) return
         const id = setTimeout(() => {
             setShowSuccess(false)
-            onSuccess()
-        }, 2000)
+            // No llamamos a onSuccess() para que el modal de venta quede abierto
+        }, 5000)
         return () => clearTimeout(id)
-    }, [showSuccess, onSuccess])
+    }, [showSuccess])
 
     // --- Lógica de Items ---
 

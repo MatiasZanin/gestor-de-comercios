@@ -112,7 +112,7 @@ export function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
           </div>
         )}
         {state.showSuccess && (
-          <SuccessModal onClose={() => { actions.setShowSuccess(false); onSuccess() }} />
+          <SuccessModal onClose={() => actions.setShowSuccess(false)} />
         )}
       </Card>
     </div>

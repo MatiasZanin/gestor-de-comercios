@@ -61,7 +61,7 @@ export const handler = async (
             ':salePrefix': 'SALE#'
           },
           ExclusiveStartKey: exclusiveStartKey,
-          Limit: 25,
+          Limit: 10,
           ScanIndexForward: false,
         })
       );
@@ -96,7 +96,7 @@ export const handler = async (
           FilterExpression: filterExpression,
           ExpressionAttributeValues: expressionValues,
           ExclusiveStartKey: exclusiveStartKey,
-          Limit: 25,
+          Limit: 10,
           ScanIndexForward: false,
         })
       );
@@ -112,6 +112,7 @@ export const handler = async (
     return {
       statusCode: 200,
       body: JSON.stringify({ items: sanitized, lastKey: lastKeyBase64 }),
+      headers: { 'Content-Type': 'application/json' },
     };
   } catch (err) {
     return buildErrorResponse(err);

@@ -1,12 +1,17 @@
 import { defineConfig, devices } from '@playwright/test';
+import fs from 'fs';
+import path from 'path';
 
 /**
- * Read environment variables from file.
- * https://github.com/motdotla/dotenv
+ * Definimos la ruta del archivo de autenticación.
  */
-// import dotenv from 'dotenv';
-// import path from 'path';
-// dotenv.config({ path: path.resolve(__dirname, '.env') });
+const authFile = 'tests/.auth/user.json';
+
+/**
+ * Verificamos si el archivo de sesión ya existe en el disco.
+ * Usamos path.resolve para asegurar la ruta correcta desde la raíz.
+ */
+const authFileExists = fs.existsSync(path.resolve(__dirname, authFile));
 
 /**
  * See https://playwright.dev/docs/test-configuration.
@@ -23,32 +28,43 @@ export default defineConfig({
   workers: 1,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: 'html',
-  /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
+
+  /* Shared settings for all the projects below. */
   use: {
     /* Base URL to use in actions like `await page.goto('')`. */
     baseURL: 'http://localhost:3000',
-    viewport: null, // Desactiva el viewport fijo para usar el tamaño real de la pantalla
-    /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
+
+    // Desactiva el viewport fijo para usar el tamaño real de la pantalla
+    viewport: null,
+
+    /* Collect trace when retrying the failed test. */
     trace: 'on-first-retry',
+
+    // Si un click no se puede hacer en 5 segundos, falla el test inmediatamente.
+    actionTimeout: 5000,
   },
 
   /* Configure projects for ordered test execution */
   projects: [
-    // Setup project - runs first, handles authentication
-    {
+    // 1. Setup project (Autenticación)
+    // LÓGICA CONDICIONAL: Solo incluimos este proyecto si el archivo NO existe.
+    ...(!authFileExists ? [{
       name: 'setup',
       testMatch: /.*\.setup\.ts/,
-    },
+    }] : []),
 
-    // Main tests - depend on setup, run in order
+    // 2. Main tests (Chromium)
     {
       name: 'chromium',
       use: {
         ...devices['Desktop Chrome'],
-        // Use saved auth state
-        storageState: 'tests/.auth/user.json',
+        // Usamos el estado guardado (si existe) o el que generará el setup
+        storageState: authFile,
       },
-      dependencies: ['setup'],
+      // LÓGICA CONDICIONAL: Solo depende de 'setup' si el archivo NO existía.
+      // Si ya existe, arranca directo sin esperar nada.
+      dependencies: !authFileExists ? ['setup'] : [],
+
       // Run test files in alphabetical order
       testMatch: /.*\.spec\.ts/,
     },
@@ -58,18 +74,9 @@ export default defineConfig({
     //   name: 'firefox',
     //   use: { 
     //     ...devices['Desktop Firefox'],
-    //     storageState: 'tests/.auth/user.json',
+    //     storageState: authFile,
     //   },
-    //   dependencies: ['setup'],
-    // },
-
-    // {
-    //   name: 'webkit',
-    //   use: { 
-    //     ...devices['Desktop Safari'],
-    //     storageState: 'tests/.auth/user.json',
-    //   },
-    //   dependencies: ['setup'],
+    //   dependencies: !authFileExists ? ['setup'] : [],
     // },
   ],
 

@@ -215,7 +215,6 @@ export default function SalesPage() {
                             <th className="px-5 py-1 whitespace-nowrap text-left">Cantidad</th>
                             <th className="px-5 py-1 whitespace-nowrap text-left">Precio</th>
                             <th className="px-5 py-1 whitespace-nowrap text-left">Total</th>
-                            <th className="px-5 py-1 whitespace-nowrap text-left">Método de Pago</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -230,16 +229,11 @@ export default function SalesPage() {
                               <td className="px-5 py-1 whitespace-nowrap w-0 text-left tabular-nums font-medium">
                                 {formatCurrency(item.qty * item.priceSale)}
                               </td>
-                              {index === 0 && (
-                                <td className="px-5 py-1 whitespace-nowrap w-0 text-left" rowSpan={sale.items.length}>
-                                  {sale.paymentMethod ? PAYMENT_METHOD_LABELS[sale.paymentMethod] : '-'}
-                                </td>
-                              )}
                             </tr>
                           ))}
                           {/* Fila de Total Principal */}
                           <tr className="border-t-2 border-gray-100">
-                            <td colSpan={7} className="pt-4 pb-1 text-right font-bold text-gray-900">Total:</td>
+                            <td colSpan={6} className="pt-4 pb-1 text-right font-bold text-gray-900">Total:</td>
                             <td className="pt-4 pb-1 px-5 text-left text-lg font-bold text-gray-900 tabular-nums">
                               {formatCurrency(sale.total)}
                             </td>
@@ -248,8 +242,8 @@ export default function SalesPage() {
                           {/* Fila de Ganancias (Independiente) */}
                           {sale.profit !== null && sale.profit !== undefined && (
                             <tr>
-                              <td colSpan={7} className=" pb-1 text-right font-bold text-gray-900">Ganancia:</td>
-                              <td colSpan={7} className=" pb-1 px-5 text-left text-l font-bold  tabular-nums text-emerald-600 ">
+                              <td colSpan={6} className=" pb-1 text-right font-bold text-gray-900">Ganancia:</td>
+                              <td colSpan={6} className=" pb-1 px-5 text-left text-l font-bold  tabular-nums text-emerald-600 ">
                                 {formatCurrency(sale.profit)}
                               </td>
                             </tr>
@@ -269,7 +263,7 @@ export default function SalesPage() {
                 ))}
                 {lastKey && (
                   <div className="text-center pt-4">
-                    <Button variant="outline" onClick={() => loadSales(false)} disabled={loading} className="w-full sm:w-auto">
+                    <Button variant="outline" onClick={() => loadSales(false, { day: searchDate })} disabled={loading} className="w-full sm:w-auto">
                       {loading ? "Cargando..." : "Cargar más"}
                     </Button>
                   </div>

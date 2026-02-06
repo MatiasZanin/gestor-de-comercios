@@ -77,7 +77,6 @@ async function updateMonthlyRanking(
   currentMonth: string,
   item: SaleItem
 ): Promise<void> {
-  // TTL: 365 días desde ahora
   const ttlSeconds = Math.floor(Date.now() / 1000) + 365 * 24 * 60 * 60;
 
   await docClient.send(
@@ -87,10 +86,12 @@ async function updateMonthlyRanking(
         PK: `COM#${commerceId}`,
         SK: `STAT#${currentMonth}#PRODUCT#${item.code}`,
       },
+      // 1. Cambiamos 'ttl = :ttl' por '#ttl = :ttl'
       UpdateExpression:
-        'ADD monthlyUnits :qty SET statPK = :statPk, #name = :name, code = :code, uom = :uom, priceSale = :priceSale, ttl = :ttl',
+        'ADD monthlyUnits :qty SET statPK = :statPk, #name = :name, code = :code, uom = :uom, priceSale = :priceSale, #ttl = :ttl',
       ExpressionAttributeNames: {
-        '#name': 'name', // 'name' es palabra reservada en DynamoDB
+        '#name': 'name',
+        '#ttl': 'ttl', // 2. Definimos el alias aquí para evitar el conflicto
       },
       ExpressionAttributeValues: {
         ':qty': item.qty,
