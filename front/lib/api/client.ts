@@ -188,6 +188,14 @@ export class ApiClient {
     return this.makeRequest(`/products/restock-alert?${searchParams.toString()}`)
   }
 
+  async getInventoryValuation(): Promise<{
+    totalCost: number
+    totalRetail: number
+    count: number
+  }> {
+    return this.makeRequest('/reports/inventory-valuation')
+  }
+
   // Metadata endpoints
   async getMetadata(): Promise<any> {
     return this.makeRequest("/metadata")

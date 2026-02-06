@@ -10,7 +10,7 @@ import { StockTab } from "@/components/reports/StockTab";
 import { FinanceTab } from "@/components/reports/FinanceTab";
 import { apiClient } from "@/lib/api/client";
 // Importamos los tipos desde types.ts (o donde los hayas definido)
-import { DailySummaryItem, RankingItem, RestockAlertItem, CashClosureItem } from "@/components/reports/types";
+import { DailySummaryItem, RankingItem, RestockAlertItem, CashClosureItem, InventoryValuation } from "@/components/reports/types";
 
 export default function ReportsPage() {
   // Estado para el rango de fechas
@@ -34,6 +34,7 @@ export default function ReportsPage() {
   const [topProducts, setTopProducts] = useState<RankingItem[]>([]);
   const [restockAlerts, setRestockAlerts] = useState<RestockAlertItem[]>([]);
   const [closures, setClosures] = useState<CashClosureItem[]>([]);
+  const [inventoryValuation, setInventoryValuation] = useState<InventoryValuation>();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -44,7 +45,7 @@ export default function ReportsPage() {
         const endMonth = dateRange.end.slice(0, 7);
 
         // Disparamos las 4 peticiones en paralelo
-        const [summaryRes, rankingRes, alertsRes, closuresRes] = await Promise.all([
+        const [summaryRes, rankingRes, alertsRes, closuresRes, valuationRes] = await Promise.all([
           // 1. Gráficos de Ventas y Pagos
           apiClient.getDailySummary({ start: dateRange.start, end: dateRange.end }),
           // 2. Ranking de Productos
@@ -52,7 +53,9 @@ export default function ReportsPage() {
           // 3. Alertas de Stock (No depende de fecha, es foto actual)
           apiClient.getRestockAlerts({}),
           // 4. Cierres de Caja
-          apiClient.listClosures({ /* Opcional: day: dateRange.end */ })
+          apiClient.listClosures({ /* Opcional: day: dateRange.end */ }),
+          // 5. Valoración de Inventario
+          apiClient.getInventoryValuation(),
         ]);
 
         // Guardamos los resultados en el estado
@@ -66,7 +69,7 @@ export default function ReportsPage() {
 
         setRestockAlerts(alertsRes.items || []);
         setClosures(closuresRes.items || []);
-
+        setInventoryValuation(valuationRes || 0);
       } catch (err: any) {
         console.error("Error fetching report data:", err);
         setError("Error al cargar datos. Verifica tu conexión.");
@@ -146,7 +149,7 @@ export default function ReportsPage() {
 
             <TabsContent value="stock" className="mt-6">
               {/* Aquí pasamos restockAlerts que ahora sí tenemos en el estado */}
-              <StockTab restockAlerts={restockAlerts} />
+              <StockTab restockAlerts={restockAlerts} inventoryValuation={inventoryValuation} />
             </TabsContent>
 
             <TabsContent value="finance" className="mt-6">

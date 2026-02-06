@@ -1,39 +1,81 @@
 "use client";
 
-import { AlertTriangle, Package, TrendingDown, DollarSign } from "lucide-react";
+import { AlertTriangle, Package, TrendingUp, DollarSign } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RestockAlertItem } from "./types";
 
-interface StockTabProps {
-    restockAlerts: RestockAlertItem[];
+interface InventoryValuation {
+    totalCost: number;
+    totalRetail: number;
+    count: number;
 }
 
-export function StockTab({ restockAlerts }: StockTabProps) {
-    // Nota: Estos valores vendrían de un futuro endpoint 'getInventoryValuation'
-    // Por ahora los dejamos en 0 o podrías calcularlos si tuvieras la lista completa de productos.
-    const valuation = { cost: 0, retail: 0 };
-    const profitMargin = 0;
+interface StockTabProps {
+    restockAlerts: RestockAlertItem[];
+    inventoryValuation?: InventoryValuation;
+}
+
+export function StockTab({ restockAlerts, inventoryValuation }: StockTabProps) {
+    const valuation = inventoryValuation ?? { totalCost: 0, totalRetail: 0, count: 0 };
+    const profitMargin = valuation.totalRetail > 0
+        ? ((valuation.totalRetail - valuation.totalCost) / valuation.totalRetail) * 100
+        : 0;
+
+    const formatCurrency = (value: number) =>
+        new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS" }).format(value);
 
     return (
         <div className="space-y-6">
-            {/* Inventory Valuation KPIs (Placeholder para Futura Implementación) */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 opacity-60 grayscale-[0.5]">
-                <Card className="border-0 shadow-sm bg-gray-50">
+            {/* Inventory Valuation KPIs */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <Card className="border-0 shadow-sm bg-gradient-to-br from-blue-50 to-blue-100/50">
                     <CardContent className="pt-4">
                         <div className="flex items-center gap-3">
-                            <div className="p-2 rounded-lg bg-gray-200">
-                                <DollarSign className="h-5 w-5 text-gray-600" />
+                            <div className="p-2 rounded-lg bg-blue-200">
+                                <DollarSign className="h-5 w-5 text-blue-700" />
                             </div>
                             <div>
                                 <p className="text-sm text-gray-600">Costo de Reposición</p>
                                 <p className="text-xl font-bold text-gray-900">
-                                    --
+                                    {formatCurrency(valuation.totalCost)}
                                 </p>
                             </div>
                         </div>
                     </CardContent>
                 </Card>
-                {/* ... (Otras cards de KPI) ... */}
+                <Card className="border-0 shadow-sm bg-gradient-to-br from-green-50 to-green-100/50">
+                    <CardContent className="pt-4">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 rounded-lg bg-green-200">
+                                <TrendingUp className="h-5 w-5 text-green-700" />
+                            </div>
+                            <div>
+                                <p className="text-sm text-gray-600">Valor a Precio de Venta</p>
+                                <p className="text-xl font-bold text-gray-900">
+                                    {formatCurrency(valuation.totalRetail)}
+                                </p>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+                <Card className="border-0 shadow-sm bg-gradient-to-br from-purple-50 to-purple-100/50">
+                    <CardContent className="pt-4">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 rounded-lg bg-purple-200">
+                                <Package className="h-5 w-5 text-purple-700" />
+                            </div>
+                            <div>
+                                <p className="text-sm text-gray-600">Ganancia Potencial</p>
+                                <p className="text-xl font-bold text-gray-900">
+                                    {formatCurrency(valuation.totalRetail - valuation.totalCost)}
+                                    <span className="text-sm font-normal text-gray-500 ml-2">
+                                        ({profitMargin.toFixed(1)}% margen)
+                                    </span>
+                                </p>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
             </div>
 
             {/* Stock Alerts Section (REAL DATA) */}

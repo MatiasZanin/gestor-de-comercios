@@ -466,6 +466,21 @@ Resources:
             Path: '/{commerceId}/reports/daily-summary'
             Method: GET
 
+  GetInventoryValuationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub getInventoryValuation-${CommerceStage}
+      CodeUri: ./dist
+      Handler: handlers/getInventoryValuation.handler
+      Role: !GetAtt LambdaDynamoRole.Arn
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: '/{commerceId}/reports/inventory-valuation'
+            Method: GET
+
   JwtAuthorizerFunction:
     Type: AWS::Serverless::Function
     Properties:
