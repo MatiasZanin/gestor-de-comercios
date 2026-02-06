@@ -178,6 +178,7 @@ export interface CashClose {
   systemTotalCash: number
   systemTotalCard: number
   systemTotalTransfer: number
+  systemTotalOther: number
   declaredCash: number
   expenses: number
   initialFund: number

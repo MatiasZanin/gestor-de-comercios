@@ -133,6 +133,9 @@ export const handler = async (
                 closure: sanitizedClosure,
                 sales: sanitizedSales,
             }),
+            headers: {
+                'Content-Type': 'application/json',
+            },
         };
     } catch (err) {
         return buildErrorResponse(err);

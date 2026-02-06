@@ -103,6 +103,7 @@ export const handler = async (
         let systemTotalCash = 0;
         let systemTotalCard = 0;
         let systemTotalTransfer = 0;
+        let systemTotalOther = 0;
 
         // Iterate through each day in the range
         const currentDate = new Date(openedDate);
@@ -147,6 +148,9 @@ export const handler = async (
                             case 'TRANSFER':
                                 systemTotalTransfer += total;
                                 break;
+                            case 'OTHER':
+                                systemTotalOther += total;
+                                break;
                             // OTHER is ignored for register closing calculations
                         }
                     }
@@ -177,6 +181,7 @@ export const handler = async (
             systemTotalCash,
             systemTotalCard,
             systemTotalTransfer,
+            systemTotalOther,
             declaredCash: body.declaredCash,
             expenses: body.expenses,
             initialFund: body.initialFund,
@@ -196,6 +201,9 @@ export const handler = async (
         return {
             statusCode: 201,
             body: JSON.stringify(response),
+            headers: {
+                'Content-Type': 'application/json',
+            },
         };
     } catch (err) {
         return buildErrorResponse(err);

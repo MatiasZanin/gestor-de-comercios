@@ -200,9 +200,10 @@ export function ClosureHistoryTable({ refreshTrigger }: ClosureHistoryTableProps
                                 <thead>
                                     <tr className="text-left border-b">
                                         <th className="pb-2 pr-4">Hora</th>
-                                        <th className="pb-2 px-4">Efectivo Sistema</th>
+                                        <th className="pb-2 px-4">Efectivo</th>
                                         <th className="pb-2 px-4">Tarjeta</th>
                                         <th className="pb-2 px-4">Transferencia</th>
+                                        <th className="pb-2 px-4">Otros</th>
                                         <th className="pb-2 px-4">Declarado</th>
                                         <th className="pb-2 px-4">Gastos</th>
                                         <th className="pb-2 px-4">Fondo</th>
@@ -225,6 +226,9 @@ export function ClosureHistoryTable({ refreshTrigger }: ClosureHistoryTableProps
                                             </td>
                                             <td className="py-3 px-4 tabular-nums">
                                                 {formatCurrency(closure.systemTotalTransfer)}
+                                            </td>
+                                            <td className="py-3 px-4 tabular-nums">
+                                                {formatCurrency(closure.systemTotalOther)}
                                             </td>
                                             <td className="py-3 px-4 tabular-nums">
                                                 {formatCurrency(closure.declaredCash)}

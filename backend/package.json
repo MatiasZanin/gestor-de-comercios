@@ -12,8 +12,9 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint:fix": "npm run format",
-    "seed": "tsx src/helpers/seed.ts",
-    "clean-db": "tsx src/helpers/db-clean.ts"
+    "seed": "tsx src/helpers/db/seed.ts",
+    "clean-db": "tsx src/helpers/db/commerce-clean.ts",
+    "clean-sales": "tsx src/helpers/db/sales-clean.ts"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.591.0",

@@ -99,6 +99,9 @@ export const handler = async (
         return {
             statusCode: 200,
             body: JSON.stringify({ items: sanitized, lastKey: lastKeyBase64 }),
+            headers: {
+                'Content-Type': 'application/json',
+            },
         };
     } catch (err) {
         return buildErrorResponse(err);

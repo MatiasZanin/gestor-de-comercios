@@ -182,21 +182,36 @@ export default function ClosureDetailPage() {
                 {/* Closure Details */}
                 <Card>
                     <CardHeader>
-                        <CardTitle className="text-lg">Resumen del Cierre</CardTitle>
+                        <CardTitle className="text-lg">Resumen del Cierre
+                            <Badge
+                                className="ml-2"
+                                variant={
+                                    closure.difference === 0 ? "default" :
+                                        closure.difference > 0 ? "secondary" : "destructive"
+                                }
+                            >
+                                {closure.difference === 0 ? "Cuadrado" :
+                                    closure.difference > 0 ? "Sobrante" : "Faltante"}
+                            </Badge>
+                        </CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                             <div>
-                                <p className="text-sm text-gray-500 mb-1">Efectivo Sistema</p>
+                                <p className="text-sm text-gray-500 mb-1">Efectivo</p>
                                 <p className="text-lg font-semibold">{formatCurrency(closure.systemTotalCash)}</p>
                             </div>
                             <div>
-                                <p className="text-sm text-gray-500 mb-1">Tarjeta Sistema</p>
+                                <p className="text-sm text-gray-500 mb-1">Tarjeta</p>
                                 <p className="text-lg font-semibold">{formatCurrency(closure.systemTotalCard)}</p>
                             </div>
                             <div>
-                                <p className="text-sm text-gray-500 mb-1">Transferencia Sistema</p>
+                                <p className="text-sm text-gray-500 mb-1">Transferencia</p>
                                 <p className="text-lg font-semibold">{formatCurrency(closure.systemTotalTransfer)}</p>
+                            </div>
+                            <div>
+                                <p className="text-sm text-gray-500 mb-1">Otros</p>
+                                <p className="text-lg font-semibold">{formatCurrency(closure.systemTotalOther)}</p>
                             </div>
                             <div>
                                 <p className="text-sm text-gray-500 mb-1">Efectivo Declarado</p>
@@ -214,22 +229,7 @@ export default function ClosureDetailPage() {
                                 <p className="text-sm text-gray-500 mb-1">Diferencia</p>
                                 <p className={`text-lg font-semibold ${closure.difference === 0 ? 'text-emerald-600' :
                                     closure.difference > 0 ? 'text-blue-600' : 'text-red-600'
-                                    }`}>
-                                    {formatCurrency(closure.difference)}
-                                    {closure.difference > 0 ? ' (sobrante)' : closure.difference < 0 ? ' (faltante)' : ''}
-                                </p>
-                            </div>
-                            <div>
-                                <p className="text-sm text-gray-500 mb-1">Estado</p>
-                                <Badge
-                                    variant={
-                                        closure.difference === 0 ? "default" :
-                                            closure.difference > 0 ? "secondary" : "destructive"
-                                    }
-                                >
-                                    {closure.difference === 0 ? "Cuadrado" :
-                                        closure.difference > 0 ? "Sobrante" : "Faltante"}
-                                </Badge>
+                                    }`}>{formatCurrency(closure.difference)}</p>
                             </div>
                         </div>
                         {closure.notes && (
