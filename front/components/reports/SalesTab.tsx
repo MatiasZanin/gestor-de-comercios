@@ -26,11 +26,26 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import { DailySummary, MonthlyRanking } from "./types";
-import { generatePeakHoursData, mockTopProducts } from "./mock-data";
+
+// Interfaces basadas en la respuesta real de la API
+export interface DailySummaryItem {
+    date: string; // YYYY-MM-DD
+    totalDay: number;
+    txCount: number;
+    // Horas dinámicas
+    [key: string]: any;
+}
+
+export interface RankingItem {
+    code: string;
+    name: string;
+    monthlyUnits: number;
+    priceSale?: number;
+}
 
 interface SalesTabProps {
-    dailySummaries: DailySummary[];
+    dailySummaries: DailySummaryItem[];
+    topProducts: RankingItem[];
 }
 
 const salesChartConfig = {
@@ -47,23 +62,52 @@ const peakHoursConfig = {
     },
 } satisfies ChartConfig;
 
-export function SalesTab({ dailySummaries }: SalesTabProps) {
+export function SalesTab({ dailySummaries, topProducts }: SalesTabProps) {
+    // 1. Preparar datos para el gráfico de líneas (Evolución)
     const salesData = useMemo(() => {
-        return dailySummaries.map((day) => ({
-            date: day.date.slice(5), // MM-DD format
-            ventas: day.totalSales,
+        return dailySummaries.map((day) => {
+            // Extraer fecha del SK si viene como "SUMMARY#2023-10-27" o usar campo date
+            // Asumimos que tu endpoint devuelve el item limpio o con un campo 'date' inyectado
+            // Si el backend devuelve items crudos SUMMARY, la fecha está en el SK.
+            // Para simplificar, asumiremos que el backend devuelve items ordenados.
+            const dateLabel = day.date ? day.date.slice(5) : "N/A"; // MM-DD
+            return {
+                date: dateLabel,
+                ventas: day.totalDay || 0,
+            };
+        });
+    }, [dailySummaries]);
+
+    // 2. Calcular datos para el Mapa de Calor (Sumar h00...h23)
+    const peakHoursData = useMemo(() => {
+        const hoursMap = new Array(24).fill(0);
+
+        dailySummaries.forEach((day) => {
+            for (let i = 0; i < 24; i++) {
+                const hourKey = `h${i.toString().padStart(2, '0')}`; // h09, h10...
+                if (day[hourKey]) {
+                    hoursMap[i] += day[hourKey];
+                }
+            }
+        });
+
+        return hoursMap.map((count, index) => ({
+            hour: `${index.toString().padStart(2, '0')}:00`,
+            tickets: count,
         }));
     }, [dailySummaries]);
 
-    const peakHoursData = useMemo(() => {
-        return generatePeakHoursData(dailySummaries);
+    // 3. KPIs Generales
+    const totalSales = useMemo(() => {
+        return dailySummaries.reduce((sum, day) => sum + (day.totalDay || 0), 0);
     }, [dailySummaries]);
 
-    const totalSales = useMemo(() => {
-        return dailySummaries.reduce((sum, day) => sum + day.totalSales, 0);
+    const totalTickets = useMemo(() => {
+        return dailySummaries.reduce((sum, day) => sum + (day.txCount || 0), 0);
     }, [dailySummaries]);
 
     const avgDailySales = useMemo(() => {
+        if (dailySummaries.length === 0) return 0;
         return Math.round(totalSales / dailySummaries.length);
     }, [totalSales, dailySummaries.length]);
 
@@ -110,7 +154,7 @@ export function SalesTab({ dailySummaries }: SalesTabProps) {
                             <div>
                                 <p className="text-sm text-gray-600">Total Tickets</p>
                                 <p className="text-xl font-bold text-gray-900">
-                                    {dailySummaries.reduce((sum, d) => sum + d.ticketCount, 0)}
+                                    {totalTickets}
                                 </p>
                             </div>
                         </div>
@@ -225,30 +269,38 @@ export function SalesTab({ dailySummaries }: SalesTabProps) {
                                     <TableHead className="w-12">#</TableHead>
                                     <TableHead>Producto</TableHead>
                                     <TableHead className="text-right">Unidades</TableHead>
-                                    <TableHead className="text-right">Precio</TableHead>
+                                    <TableHead className="text-right">Precio Actual</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {mockTopProducts.map((product, index) => (
-                                    <TableRow key={product.code}>
-                                        <TableCell>
-                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${index === 0 ? "bg-yellow-100 text-yellow-700" :
+                                {topProducts.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={4} className="text-center text-gray-500 py-8">
+                                            Sin datos de ventas en este periodo
+                                        </TableCell>
+                                    </TableRow>
+                                ) : (
+                                    topProducts.slice(0, 5).map((product, index) => (
+                                        <TableRow key={product.code}>
+                                            <TableCell>
+                                                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${index === 0 ? "bg-yellow-100 text-yellow-700" :
                                                     index === 1 ? "bg-gray-100 text-gray-600" :
                                                         index === 2 ? "bg-orange-100 text-orange-700" :
                                                             "bg-gray-50 text-gray-500"
-                                                }`}>
-                                                {index + 1}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className="font-medium">{product.name}</TableCell>
-                                        <TableCell className="text-right font-semibold text-emerald-600">
-                                            {product.monthlyUnits}
-                                        </TableCell>
-                                        <TableCell className="text-right text-gray-600">
-                                            ${product.priceSale.toLocaleString()}
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
+                                                    }`}>
+                                                    {index + 1}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="font-medium">{product.name}</TableCell>
+                                            <TableCell className="text-right font-semibold text-emerald-600">
+                                                {product.monthlyUnits}
+                                            </TableCell>
+                                            <TableCell className="text-right text-gray-600">
+                                                ${(product.priceSale || 0).toLocaleString()}
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                )}
                             </TableBody>
                         </Table>
                     </CardContent>

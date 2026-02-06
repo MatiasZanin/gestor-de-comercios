@@ -1,20 +1,16 @@
-// Types for Reports page based on DynamoDB models
+// types.ts
 
-// Based on SUMMARY#YYYY-MM-DD from createSale write-time aggregation
-export interface DailySummary {
-    date: string;
-    ticketCount: number;
-    totalSales: number;
-    byPaymentMethod: {
-        efectivo: number;
-        tarjeta: number;
-        transferencia: number;
-    };
-    byHour: Record<string, number>; // "00" - "23" -> ticket count
+// Respuesta de getDailySummary
+export interface DailySummaryItem {
+    date: string; // "YYYY-MM-DD" o SK: "SUMMARY#..."
+    totalDay: number; // Facturación total
+    txCount: number;  // Cantidad de tickets
+    // Contadores dinámicos de horas (h00...h23) y métodos de pago
+    [key: string]: any;
 }
 
-// Based on GSI-Stock-Critico (alertStatus = "LOW")
-export interface RestockAlert {
+// Respuesta de getRestockAlerts
+export interface RestockAlertItem {
     code: string;
     name: string;
     stock: number;
@@ -22,44 +18,35 @@ export interface RestockAlert {
     alertStatus: "LOW" | "OK";
 }
 
-// Based on GSI-Ranking-Mensual
-export interface MonthlyRanking {
+// Respuesta de getMonthlyRanking
+export interface RankingItem {
     code: string;
     name: string;
-    uom: string;
-    priceSale: number;
     monthlyUnits: number;
+    priceSale?: number;
+    uom?: string;
 }
 
-// Cash closure record
-export interface CashClosure {
+// Respuesta de listClosures
+export interface CashClosureItem {
+    PK: string;
+    SK: string; // CLOSE#...
     closureId: string;
     closedAt: string;
-    ticketCount: number;
-    totalCash: number;
-    totalCard: number;
-    totalTransfer: number;
-    total: number;
-    closedBy: string;
+    ticketCount: number; // systemTotalCash + Card + Transfer count? 
+    // Nota: Tu lambda closeRegister guarda systemTotalCash/Card/Transfer
+    systemTotalCash: number;
+    systemTotalCard: number;
+    systemTotalTransfer: number;
+    declaredCash: number;
+    difference: number;
+    userId: string;
 }
 
-// Inventory valuation
+// Para el componente StockTab (Valuación)
+// Como aún no tienes endpoint de valuación, lo dejaremos preparado
 export interface InventoryValuation {
-    totalCostPrice: number;
-    totalSalePrice: number;
-}
-
-// Stale product (no movement)
-export interface StaleProduct {
-    code: string;
-    name: string;
-    stock: number;
-    lastSaleDate: string | null;
-    daysWithoutSale: number;
-}
-
-// Date range for filtering
-export interface DateRange {
-    start: string;
-    end: string;
+    totalCost: number;
+    totalRetail: number;
+    count: number;
 }

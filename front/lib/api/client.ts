@@ -23,7 +23,6 @@ export class ApiClient {
     if (this.onUnauthorized) {
       this.onUnauthorized()
     } else {
-      // Fallback para casos donde no se ha establecido el callback
       if (typeof window !== "undefined") {
         authService.logout()
         window.location.href = "/login"
@@ -51,7 +50,6 @@ export class ApiClient {
     })
 
     if (!response.ok) {
-      // Si recibimos un 401, redirigir al login
       if (response.status === 401) {
         this.handleUnauthorized()
         throw new Error("Sesión expirada. Redirigiendo al login...")
@@ -159,6 +157,37 @@ export class ApiClient {
     return this.makeRequest(`/reports/range?${searchParams.toString()}`)
   }
 
+  async getDailySummary(params: any): Promise<any> {
+    const searchParams = new URLSearchParams()
+    searchParams.append("start", params.start)
+    searchParams.append("end", params.end)
+
+    return this.makeRequest(`/reports/daily-summary?${searchParams.toString()}`)
+  }
+
+  // ACTUALIZADO: Ahora soporta startMonth y endMonth
+  async getMonthlyRanking(params: any): Promise<any> {
+    const searchParams = new URLSearchParams()
+    searchParams.append("startMonth", params.startMonth)
+    if (params.endMonth) {
+      searchParams.append("endMonth", params.endMonth)
+    }
+    if (params.orderBy) {
+      searchParams.append("orderBy", params.orderBy)
+    }
+
+    return this.makeRequest(`/reports/monthly-ranking?${searchParams.toString()}`)
+  }
+
+  async getRestockAlerts(params: any): Promise<any> {
+    const searchParams = new URLSearchParams()
+    if (params.orderBy) {
+      searchParams.append("orderBy", params.orderBy)
+    }
+    // CORRECCIÓN: La ruta en template.yaml es /products/restock-alert, no /reports/...
+    return this.makeRequest(`/products/restock-alert?${searchParams.toString()}`)
+  }
+
   // Metadata endpoints
   async getMetadata(): Promise<any> {
     return this.makeRequest("/metadata")
@@ -186,4 +215,3 @@ export class ApiClient {
 }
 
 export const apiClient = ApiClient.getInstance()
-

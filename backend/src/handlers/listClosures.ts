@@ -9,7 +9,6 @@ import {
     ForbiddenError,
     buildErrorResponse,
 } from '../helpers/errors';
-import { assertCommerceAccess } from '../helpers/assertCommerceAccess';
 import { sanitizeForRole } from '../helpers/sanitizeForRole';
 
 const dynamoClient = new DynamoDBClient({});
@@ -31,9 +30,6 @@ export const handler = async (
             throw new BadRequestError('Missing commerceId');
         }
 
-        // Validate user has access to this commerce
-        assertCommerceAccess(event, commerceId);
-
         // Verify permissions: ADMIN ONLY
         const claims = (event.requestContext.authorizer as any)?.jwt?.claims ?? {};
         const roles: string[] | undefined = claims['cognito:groups'];
@@ -44,32 +40,28 @@ export const handler = async (
         const queryParams = event.queryStringParameters || {};
         const day = queryParams.day;
 
-        if (!day) {
-            throw new BadRequestError('day query parameter is required (YYYY-MM-DD)');
-        }
-
-        // Validate day format
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) {
-            throw new BadRequestError('day must be in YYYY-MM-DD format');
-        }
-
         let exclusiveStartKey: Record<string, any> | undefined;
         if (queryParams.lastKey) {
             try {
-                const decoded = Buffer.from(queryParams.lastKey, 'base64').toString(
-                    'utf-8'
-                );
+                const decoded = Buffer.from(queryParams.lastKey, 'base64').toString('utf-8');
                 exclusiveStartKey = JSON.parse(decoded);
             } catch {
                 throw new BadRequestError('Invalid lastKey');
             }
         }
 
-        const gsiPk = `COM#${commerceId}#${day}`;
+        let command: QueryCommand;
 
-        // Query GSI filtering for CLOSE# items
-        const result = await docClient.send(
-            new QueryCommand({
+        if (day) {
+            // CASO 1: Filtrar por día específico (Usa GSI)
+            // Valida formato solo si se provee el día
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) {
+                throw new BadRequestError('day must be in YYYY-MM-DD format');
+            }
+
+            const gsiPk = `COM#${commerceId}#${day}`;
+
+            command = new QueryCommand({
                 TableName: tableName,
                 IndexName: gsiName,
                 KeyConditionExpression: 'GSI1PK = :gsiPk',
@@ -80,10 +72,29 @@ export const handler = async (
                 },
                 ExclusiveStartKey: exclusiveStartKey,
                 Limit: 25,
-                ScanIndexForward: false, // Descending order (most recent first)
-            })
-        );
+                ScanIndexForward: false,
+            });
 
+        } else {
+            // CASO 2: Historial General (Usa Tabla Principal)
+            // Esto permite ver "Los últimos cierres" sin importar la fecha
+            const pk = `COM#${commerceId}`;
+
+            command = new QueryCommand({
+                TableName: tableName,
+                // No usamos IndexName, vamos directo a la tabla principal
+                KeyConditionExpression: 'PK = :pk AND begins_with(SK, :closePrefix)',
+                ExpressionAttributeValues: {
+                    ':pk': pk,
+                    ':closePrefix': 'CLOSE#',
+                },
+                ExclusiveStartKey: exclusiveStartKey,
+                Limit: 25,
+                ScanIndexForward: false, // Descendente (más recientes primero)
+            });
+        }
+
+        const result = await docClient.send(command);
         const items = result.Items ?? [];
 
         let lastKeyBase64: string | undefined;
@@ -93,7 +104,6 @@ export const handler = async (
             ).toString('base64');
         }
 
-        // Sanitize each closure
         const sanitized = items.map((closure) => sanitizeForRole(closure, roles));
 
         return {

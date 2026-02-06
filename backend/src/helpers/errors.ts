@@ -53,10 +53,16 @@ export function buildErrorResponse(err: unknown) {
     return {
       statusCode: err.statusCode,
       body: JSON.stringify({ error: err.message }),
+      headers: {
+        'Content-Type': 'application/json',
+      },
     };
   }
   return {
     statusCode: 500,
     body: JSON.stringify({ error: 'Unexpected error' }),
+    headers: {
+      'Content-Type': 'application/json',
+    },
   };
 }
