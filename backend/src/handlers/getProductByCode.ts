@@ -11,6 +11,7 @@ import {
 } from '../helpers/errors';
 import { assertCommerceAccess } from '../helpers/assertCommerceAccess';
 import { sanitizeForRole } from '../helpers/sanitizeForRole';
+import { formatJSONResponse } from '../utils/api-response';
 
 const dynamoClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(dynamoClient);
@@ -61,10 +62,7 @@ export const handler = async (
     // Sanitizar el producto según el rol del usuario
     const sanitizedProduct = sanitizeForRole(result.Item, role!);
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify(sanitizedProduct),
-    };
+    return formatJSONResponse(sanitizedProduct);
   } catch (err) {
     return buildErrorResponse(err);
   }

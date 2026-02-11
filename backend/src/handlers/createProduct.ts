@@ -13,6 +13,7 @@ import { assertCommerceAccess } from '../helpers/assertCommerceAccess';
 import { sanitizeForRole } from '../helpers/sanitizeForRole';
 import { addCategory } from '../helpers/addCategory';
 import { Product } from '../models/product';
+import { formatJSONResponse } from '../utils/api-response';
 
 const dynamoClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(dynamoClient);
@@ -108,10 +109,7 @@ export const handler = async (
     );
     // Sanitize for seller just in case; but here role is admin
     const responseItem = sanitizeForRole(item, roles);
-    return {
-      statusCode: 201,
-      body: JSON.stringify(responseItem),
-    };
+    return formatJSONResponse(responseItem, 201);
   } catch (err) {
     return buildErrorResponse(err);
   }

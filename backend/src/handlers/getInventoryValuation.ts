@@ -6,6 +6,7 @@ import {
 } from 'aws-lambda';
 import { BadRequestError, buildErrorResponse } from '../helpers/errors';
 import { assertCommerceAccess } from '../helpers/assertCommerceAccess';
+import { formatJSONResponse } from '../utils/api-response';
 
 const dynamoClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(dynamoClient);
@@ -82,15 +83,11 @@ export const handler = async (
             lastEvaluatedKey = result.LastEvaluatedKey;
         } while (lastEvaluatedKey);
 
-        return {
-            statusCode: 200,
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                totalCost,
-                totalRetail,
-                count,
-            }),
-        };
+        return formatJSONResponse({
+            totalCost,
+            totalRetail,
+            count,
+        });
     } catch (err) {
         return buildErrorResponse(err);
     }

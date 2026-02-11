@@ -14,6 +14,7 @@ import { assertCommerceAccess } from '../helpers/assertCommerceAccess';
 import { sanitizeForRole } from '../helpers/sanitizeForRole';
 import { CashClose, CreateCashCloseRequest } from '../models/cashClose';
 import { Sale } from '../models/sale';
+import { formatJSONResponse } from '../utils/api-response';
 
 const dynamoClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(dynamoClient);
@@ -198,13 +199,7 @@ export const handler = async (
 
         const response = sanitizeForRole(cashClose, roles);
 
-        return {
-            statusCode: 201,
-            body: JSON.stringify(response),
-            headers: {
-                'Content-Type': 'application/json',
-            },
-        };
+        return formatJSONResponse(response, 201);
     } catch (err) {
         return buildErrorResponse(err);
     }

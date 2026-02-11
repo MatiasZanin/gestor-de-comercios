@@ -6,6 +6,7 @@ import {
 } from 'aws-lambda';
 import { BadRequestError, buildErrorResponse } from '../helpers/errors';
 import { assertCommerceAccess } from '../helpers/assertCommerceAccess';
+import { formatJSONResponse } from '../utils/api-response';
 
 const dynamoClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(dynamoClient);
@@ -41,24 +42,16 @@ export const handler = async (
 
         // Si no existe el item, retornar valores por defecto
         if (!result.Item) {
-            return {
-                statusCode: 200,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    categories: [],
-                    iva_rates: [],
-                }),
-            };
+            return formatJSONResponse({
+                categories: [],
+                iva_rates: [],
+            });
         }
 
-        return {
-            statusCode: 200,
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                categories: result.Item.categories || [],
-                iva_rates: result.Item.iva_rates || [],
-            }),
-        };
+        return formatJSONResponse({
+            categories: result.Item.categories || [],
+            iva_rates: result.Item.iva_rates || [],
+        });
     } catch (err) {
         return buildErrorResponse(err);
     }

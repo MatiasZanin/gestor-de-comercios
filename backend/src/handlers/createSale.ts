@@ -19,6 +19,7 @@ import { assertCommerceAccess } from '../helpers/assertCommerceAccess';
 import { updateDailyStats } from '../helpers/updateDailyStats';
 import { updateStock } from '../helpers/updateStock';
 import { Sale, SaleItem } from '../models/sale';
+import { formatJSONResponse } from '../utils/api-response';
 
 const dynamoClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(dynamoClient);
@@ -225,10 +226,7 @@ export const handler = async (
     );
 
     const response = sanitizeForRole(sale, roles);
-    return {
-      statusCode: 201,
-      body: JSON.stringify(response),
-    };
+    return formatJSONResponse(response, 201);
   } catch (err) {
     return buildErrorResponse(err);
   }

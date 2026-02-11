@@ -4,6 +4,8 @@
  * construir la respuesta HTTP adecuada.
  */
 
+import { formatJSONResponse } from '../utils/api-response';
+
 export class HttpError extends Error {
   public statusCode: number;
 
@@ -50,19 +52,7 @@ export class InternalServerError extends HttpError {
 export function buildErrorResponse(err: unknown) {
   console.log('🚀 ~ ', err);
   if (err instanceof HttpError) {
-    return {
-      statusCode: err.statusCode,
-      body: JSON.stringify({ error: err.message }),
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    };
+    return formatJSONResponse({ error: err.message }, err.statusCode);
   }
-  return {
-    statusCode: 500,
-    body: JSON.stringify({ error: 'Unexpected error' }),
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  };
+  return formatJSONResponse({ error: 'Unexpected error' }, 500);
 }

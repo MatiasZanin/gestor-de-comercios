@@ -14,6 +14,7 @@ import { assertCommerceAccess } from '../helpers/assertCommerceAccess';
 import { sanitizeForRole } from '../helpers/sanitizeForRole';
 import { CashClose } from '../models/cashClose';
 import { Sale } from '../models/sale';
+import { formatJSONResponse } from '../utils/api-response';
 
 const dynamoClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(dynamoClient);
@@ -127,16 +128,10 @@ export const handler = async (
         const sanitizedClosure = sanitizeForRole(closure, roles);
         const sanitizedSales = allSales.map((sale) => sanitizeForRole(sale, roles));
 
-        return {
-            statusCode: 200,
-            body: JSON.stringify({
-                closure: sanitizedClosure,
-                sales: sanitizedSales,
-            }),
-            headers: {
-                'Content-Type': 'application/json',
-            },
-        };
+        return formatJSONResponse({
+            closure: sanitizedClosure,
+            sales: sanitizedSales,
+        });
     } catch (err) {
         return buildErrorResponse(err);
     }

@@ -13,6 +13,7 @@ import {
 import { assertCommerceAccess } from '../helpers/assertCommerceAccess';
 import { sanitizeForRole } from '../helpers/sanitizeForRole';
 import { addCategory } from '../helpers/addCategory';
+import { formatJSONResponse } from '../utils/api-response';
 
 const dynamoClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(dynamoClient);
@@ -138,10 +139,7 @@ export const handler = async (
     }
     const updatedItem = result.Attributes;
     const responseItem = sanitizeForRole(updatedItem, roles);
-    return {
-      statusCode: 200,
-      body: JSON.stringify(responseItem),
-    };
+    return formatJSONResponse(responseItem);
   } catch (err) {
     return buildErrorResponse(err);
   }

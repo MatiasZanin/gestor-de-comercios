@@ -7,6 +7,7 @@ import {
 import { BadRequestError, buildErrorResponse } from '../helpers/errors';
 import { assertCommerceAccess } from '../helpers/assertCommerceAccess';
 import { sanitizeForRole } from '../helpers/sanitizeForRole';
+import { formatJSONResponse } from '../utils/api-response';
 
 const dynamoClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(dynamoClient);
@@ -76,11 +77,7 @@ export const handler = async (
       order === 'revenue' ? 'revenue' : order === 'profit' ? 'profit' : 'units';
     sanitized.sort((a: any, b: any) => b[sortKey] - a[sortKey]);
 
-    return {
-      statusCode: 200,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ day, results: sanitized }),
-    };
+    return formatJSONResponse({ day, results: sanitized });
   } catch (err) {
     return buildErrorResponse(err);
   }

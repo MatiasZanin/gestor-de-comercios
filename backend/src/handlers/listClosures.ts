@@ -10,6 +10,7 @@ import {
     buildErrorResponse,
 } from '../helpers/errors';
 import { sanitizeForRole } from '../helpers/sanitizeForRole';
+import { formatJSONResponse } from '../utils/api-response';
 
 const dynamoClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(dynamoClient);
@@ -106,13 +107,7 @@ export const handler = async (
 
         const sanitized = items.map((closure) => sanitizeForRole(closure, roles));
 
-        return {
-            statusCode: 200,
-            body: JSON.stringify({ items: sanitized, lastKey: lastKeyBase64 }),
-            headers: {
-                'Content-Type': 'application/json',
-            },
-        };
+        return formatJSONResponse({ items: sanitized, lastKey: lastKeyBase64 });
     } catch (err) {
         return buildErrorResponse(err);
     }
