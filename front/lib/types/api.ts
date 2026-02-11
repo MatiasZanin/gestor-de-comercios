@@ -207,3 +207,46 @@ export interface CashCloseDetailResponse {
   closure: CashClose
   sales: Sale[]
 }
+
+// Audit Log Models
+export type AuditAction = 'PRODUCT_CREATE' | 'PRODUCT_UPDATE' | 'SALE_CREATE' | 'REGISTER_CLOSE'
+
+export const ACTION_LABELS: Record<AuditAction, string> = {
+  PRODUCT_CREATE: 'Producto creado',
+  PRODUCT_UPDATE: 'Producto actualizado',
+  SALE_CREATE: 'Venta registrada',
+  REGISTER_CLOSE: 'Cierre de caja',
+}
+
+export const DETAIL_FIELD_LABELS: Record<string, string> = {
+  code: 'Código',
+  name: 'Nombre',
+  total: 'Total',
+  paymentMethod: 'Método de pago',
+  saleId: 'ID de venta',
+  difference: 'Diferencia de caja',
+  declaredCash: 'Efectivo declarado',
+  priceBuy: 'Precio de compra',
+  priceSale: 'Precio de venta',
+  stock: 'Stock',
+  minStock: 'Stock mínimo',
+  uom: 'Unidad de medida',
+  isActive: 'Activo',
+  notes: 'Notas',
+  category: 'Categoría',
+  brand: 'Marca',
+  qtyStep: 'Paso de cantidad',
+}
+
+export interface AuditLog {
+  action: AuditAction
+  userId: string
+  userEmail: string
+  details: Record<string, any>
+  createdAt: string
+}
+
+export interface AuditLogListResponse {
+  items: AuditLog[]
+  lastKey?: string
+}

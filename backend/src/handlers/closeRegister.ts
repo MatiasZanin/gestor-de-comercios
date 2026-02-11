@@ -12,6 +12,7 @@ import {
 } from '../helpers/errors';
 import { assertCommerceAccess } from '../helpers/assertCommerceAccess';
 import { sanitizeForRole } from '../helpers/sanitizeForRole';
+import { logAudit } from '../helpers/auditLogger';
 import { CashClose, CreateCashCloseRequest } from '../models/cashClose';
 import { Sale } from '../models/sale';
 import { formatJSONResponse } from '../utils/api-response';
@@ -196,6 +197,12 @@ export const handler = async (
                 Item: cashClose,
             })
         );
+
+        const userId = claims.sub as string;
+        const userEmail = (claims.email as string) || '';
+        await logAudit(tableName, commerceId, userId, userEmail, 'REGISTER_CLOSE', {
+            difference, declaredCash: body.declaredCash,
+        });
 
         const response = sanitizeForRole(cashClose, roles);
 

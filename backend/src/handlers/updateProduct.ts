@@ -13,6 +13,7 @@ import {
 import { assertCommerceAccess } from '../helpers/assertCommerceAccess';
 import { sanitizeForRole } from '../helpers/sanitizeForRole';
 import { addCategory } from '../helpers/addCategory';
+import { logAudit } from '../helpers/auditLogger';
 import { formatJSONResponse } from '../utils/api-response';
 
 const dynamoClient = new DynamoDBClient({});
@@ -138,6 +139,11 @@ export const handler = async (
       throw new NotFoundError('Product not found');
     }
     const updatedItem = result.Attributes;
+
+    const userId = claims.sub as string;
+    const userEmail = (claims.email as string) || '';
+    await logAudit(tableName, commerceId, userId, userEmail, 'PRODUCT_UPDATE', body);
+
     const responseItem = sanitizeForRole(updatedItem, roles);
     return formatJSONResponse(responseItem);
   } catch (err) {

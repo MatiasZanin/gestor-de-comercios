@@ -111,6 +111,17 @@ const testProducts = [
         minStock: "15",
         category: "Golosinas",
         brand: "Milka"
+    },
+    {
+        code: "-1",
+        name: "Otros",
+        priceBuy: "0",
+        priceSale: "0",
+        uom: "Unidad (u)",
+        stock: "0",
+        minStock: "0",
+        category: "Otros",
+        brand: "Otros"
     }
 ];
 

@@ -12,6 +12,7 @@ import {
 import { assertCommerceAccess } from '../helpers/assertCommerceAccess';
 import { sanitizeForRole } from '../helpers/sanitizeForRole';
 import { addCategory } from '../helpers/addCategory';
+import { logAudit } from '../helpers/auditLogger';
 import { Product } from '../models/product';
 import { formatJSONResponse } from '../utils/api-response';
 
@@ -107,6 +108,11 @@ export const handler = async (
           'attribute_not_exists(PK) AND attribute_not_exists(SK)',
       })
     );
+
+    const userId = claims.sub as string;
+    const userEmail = (claims.email as string) || '';
+    await logAudit(tableName, commerceId, userId, userEmail, 'PRODUCT_CREATE', { code, name });
+
     // Sanitize for seller just in case; but here role is admin
     const responseItem = sanitizeForRole(item, roles);
     return formatJSONResponse(responseItem, 201);

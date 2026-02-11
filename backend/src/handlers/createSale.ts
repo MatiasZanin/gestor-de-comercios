@@ -18,6 +18,7 @@ import { sanitizeForRole } from '../helpers/sanitizeForRole';
 import { assertCommerceAccess } from '../helpers/assertCommerceAccess';
 import { updateDailyStats } from '../helpers/updateDailyStats';
 import { updateStock } from '../helpers/updateStock';
+import { logAudit } from '../helpers/auditLogger';
 import { Sale, SaleItem } from '../models/sale';
 import { formatJSONResponse } from '../utils/api-response';
 
@@ -224,6 +225,12 @@ export const handler = async (
       total,
       body.paymentMethod as PaymentMethod
     );
+
+    const userId = claims.sub as string;
+    const userEmail = (claims.email as string) || '';
+    await logAudit(tableName, commerceId, userId, userEmail, 'SALE_CREATE', {
+      saleId, total, paymentMethod: body.paymentMethod,
+    });
 
     const response = sanitizeForRole(sale, roles);
     return formatJSONResponse(response, 201);
