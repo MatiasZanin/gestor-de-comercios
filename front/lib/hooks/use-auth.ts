@@ -29,7 +29,7 @@ export function useAuth() {
         setError("Debes cambiar tu contraseña temporal")
         throw err
       }
-      
+
       const errorMessage = err.message || "Error al iniciar sesión"
       setError(errorMessage)
       throw new Error(errorMessage)

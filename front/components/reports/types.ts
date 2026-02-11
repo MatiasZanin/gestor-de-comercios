@@ -50,3 +50,25 @@ export interface InventoryValuation {
     totalRetail: number;
     count: number;
 }
+
+// Respuesta de getStaleProducts
+export interface DeadStockItem {
+    code: string;
+    name: string;
+    stock: number;
+    lastSaleDate: string | null;
+}
+
+export interface OverstockItem {
+    code: string;
+    name: string;
+    stock: number;
+    lastSaleDate: string | null;
+    monthlySales: number;
+    coverageMonths: number;
+}
+
+export interface StaleProductsResponse {
+    deadStock: DeadStockItem[];
+    overstock: OverstockItem[];
+}

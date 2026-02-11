@@ -63,6 +63,15 @@ const peakHoursConfig = {
 } satisfies ChartConfig;
 
 export function SalesTab({ dailySummaries, topProducts }: SalesTabProps) {
+    const formatDateLabel = (dateStr: string) => {
+        const date = new Date(dateStr + "T12:00:00")
+        return date.toLocaleDateString("es-ES", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+        });
+    }
+
     // 1. Preparar datos para el gráfico de líneas (Evolución)
     const salesData = useMemo(() => {
         return dailySummaries.map((day) => {
@@ -70,13 +79,16 @@ export function SalesTab({ dailySummaries, topProducts }: SalesTabProps) {
             // Asumimos que tu endpoint devuelve el item limpio o con un campo 'date' inyectado
             // Si el backend devuelve items crudos SUMMARY, la fecha está en el SK.
             // Para simplificar, asumiremos que el backend devuelve items ordenados.
-            const dateLabel = day.date ? day.date.slice(5) : "N/A"; // MM-DD
+            let dateLabel = day.SK?.replace("SUMMARY#", "") || day.date;
+            dateLabel = formatDateLabel(dateLabel);
+
             return {
                 date: dateLabel,
                 ventas: day.totalDay || 0,
             };
         });
     }, [dailySummaries]);
+
 
     // 2. Calcular datos para el Mapa de Calor (Sumar h00...h23)
     const peakHoursData = useMemo(() => {

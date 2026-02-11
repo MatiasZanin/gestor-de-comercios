@@ -1,8 +1,16 @@
 "use client";
 
-import { AlertTriangle, Package, TrendingUp, DollarSign } from "lucide-react";
+import { AlertTriangle, Package, TrendingUp, DollarSign, Turtle, Skull } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { RestockAlertItem } from "./types";
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table";
+import { RestockAlertItem, StaleProductsResponse } from "./types";
 
 interface InventoryValuation {
     totalCost: number;
@@ -13,9 +21,10 @@ interface InventoryValuation {
 interface StockTabProps {
     restockAlerts: RestockAlertItem[];
     inventoryValuation?: InventoryValuation;
+    staleProducts?: StaleProductsResponse;
 }
 
-export function StockTab({ restockAlerts, inventoryValuation }: StockTabProps) {
+export function StockTab({ restockAlerts, inventoryValuation, staleProducts }: StockTabProps) {
     const valuation = inventoryValuation ?? { totalCost: 0, totalRetail: 0, count: 0 };
     const profitMargin = valuation.totalRetail > 0
         ? ((valuation.totalRetail - valuation.totalCost) / valuation.totalRetail) * 100
@@ -23,6 +32,18 @@ export function StockTab({ restockAlerts, inventoryValuation }: StockTabProps) {
 
     const formatCurrency = (value: number) =>
         new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS" }).format(value);
+
+    const deadStock = staleProducts?.deadStock || [];
+    const overstock = staleProducts?.overstock || [];
+
+    const formatDate = (date: string | null) => {
+        if (!date) return "Nunca";
+        return new Date(date + "T00:00:00").toLocaleDateString("es-AR", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+        });
+    };
 
     return (
         <div className="space-y-6">
@@ -78,7 +99,7 @@ export function StockTab({ restockAlerts, inventoryValuation }: StockTabProps) {
                 </Card>
             </div>
 
-            {/* Stock Alerts Section (REAL DATA) */}
+            {/* Stock Alerts Table */}
             <Card className="border-0 shadow-sm">
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-lg font-semibold">
@@ -98,55 +119,164 @@ export function StockTab({ restockAlerts, inventoryValuation }: StockTabProps) {
                             <p>¡Todo en orden! No hay productos con stock crítico.</p>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {restockAlerts.map((alert) => {
-                                const stockPercentage = alert.minStock > 0
-                                    ? (alert.stock / alert.minStock) * 100
-                                    : 0;
-                                const isCritical = alert.stock <= 0;
-
-                                return (
-                                    <div
-                                        key={alert.code}
-                                        className={`p-4 rounded-xl border-2 ${isCritical
-                                            ? "border-red-200 bg-red-50"
-                                            : "border-orange-200 bg-orange-50"
-                                            }`}
-                                    >
-                                        <div className="flex items-start justify-between mb-2">
-                                            <span
-                                                className={`px-2 py-1 text-xs font-semibold rounded ${isCritical
-                                                    ? "bg-red-200 text-red-800"
-                                                    : "bg-orange-200 text-orange-800"
-                                                    }`}
-                                            >
-                                                {isCritical ? "AGOTADO" : "BAJO"}
-                                            </span>
-                                            <AlertTriangle
-                                                className={`h-5 w-5 ${isCritical ? "text-red-500" : "text-orange-500"
-                                                    }`}
-                                            />
-                                        </div>
-                                        <h4 className="font-semibold text-gray-900 mb-1 line-clamp-1">
-                                            {alert.name}
-                                        </h4>
-                                        <p className="text-xs text-gray-500 mb-3 font-mono">
-                                            {alert.code}
-                                        </p>
-                                        <div className="flex items-end justify-between">
-                                            <div>
-                                                <span className="text-2xl font-bold text-gray-900">
+                        <div className="overflow-x-auto">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Producto</TableHead>
+                                        <TableHead className="text-right">Stock Actual</TableHead>
+                                        <TableHead className="text-right">Stock Mínimo</TableHead>
+                                        <TableHead className="text-center">Estado</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {restockAlerts.map((alert) => {
+                                        const isCritical = alert.stock <= 0;
+                                        return (
+                                            <TableRow key={alert.code}>
+                                                <TableCell>
+                                                    <div>
+                                                        <p className="font-medium text-gray-900">{alert.name}</p>
+                                                        <p className="text-xs text-gray-500 font-mono">{alert.code}</p>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="text-right font-semibold">
                                                     {alert.stock}
-                                                </span>
-                                                <span className="text-sm text-gray-500 ml-1">
-                                                    / {alert.minStock} min
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            })}
+                                                </TableCell>
+                                                <TableCell className="text-right text-gray-600">
+                                                    {alert.minStock}
+                                                </TableCell>
+                                                <TableCell className="text-center">
+                                                    <span
+                                                        className={`px-2 py-1 text-xs font-semibold rounded ${isCritical
+                                                            ? "bg-red-200 text-red-800"
+                                                            : "bg-orange-200 text-orange-800"
+                                                            }`}
+                                                    >
+                                                        {isCritical ? "AGOTADO" : "BAJO"}
+                                                    </span>
+                                                </TableCell>
+                                            </TableRow>
+                                        );
+                                    })}
+                                </TableBody>
+                            </Table>
                         </div>
+                    )}
+                </CardContent>
+            </Card>
+
+            {/* Stale Products Section */}
+            <Card className="border-0 shadow-sm">
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+                        <Turtle className="h-5 w-5 text-amber-600" />
+                        Productos de Baja Rotación
+                        {(deadStock.length + overstock.length) > 0 && (
+                            <span className="ml-2 px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-700 rounded-full">
+                                {deadStock.length + overstock.length} productos
+                            </span>
+                        )}
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                    {(deadStock.length === 0 && overstock.length === 0) ? (
+                        <div className="text-center py-8 text-gray-500 flex flex-col items-center">
+                            <TrendingUp className="h-10 w-10 mb-2 opacity-20" />
+                            <p>¡Excelente! Todos los productos tienen buena rotación.</p>
+                        </div>
+                    ) : (
+                        <>
+                            {/* Dead Stock Table */}
+                            {deadStock.length > 0 && (
+                                <div>
+                                    <h4 className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-3">
+                                        <Skull className="h-4 w-4 text-gray-600" />
+                                        Stock Muerto
+                                        <span className="text-xs font-normal text-gray-500">
+                                            (Sin ventas en +90 días)
+                                        </span>
+                                    </h4>
+                                    <div className="overflow-x-auto rounded-lg border border-gray-200">
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow className="bg-gray-50">
+                                                    <TableHead>Producto</TableHead>
+                                                    <TableHead className="text-right">Stock</TableHead>
+                                                    <TableHead className="text-right">Última Venta</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {deadStock.map((item) => (
+                                                    <TableRow key={item.code}>
+                                                        <TableCell>
+                                                            <div>
+                                                                <p className="font-medium text-gray-900">{item.name}</p>
+                                                                <p className="text-xs text-gray-500 font-mono">{item.code}</p>
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell className="text-right font-semibold">
+                                                            {item.stock}
+                                                        </TableCell>
+                                                        <TableCell className="text-right text-gray-600">
+                                                            {formatDate(item.lastSaleDate)}
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Overstock Table */}
+                            {overstock.length > 0 && (
+                                <div>
+                                    <h4 className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-3">
+                                        <Turtle className="h-4 w-4 text-amber-600" />
+                                        Sobrestock / Rotación Lenta
+                                        <span className="text-xs font-normal text-gray-500">
+                                            (Cobertura &gt; 6 meses)
+                                        </span>
+                                    </h4>
+                                    <div className="overflow-x-auto rounded-lg border border-gray-200">
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow className="bg-gray-50">
+                                                    <TableHead>Producto</TableHead>
+                                                    <TableHead className="text-right">Stock</TableHead>
+                                                    <TableHead className="text-right">Ventas/Mes</TableHead>
+                                                    <TableHead className="text-right">Cobertura</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {overstock.map((item) => (
+                                                    <TableRow key={item.code}>
+                                                        <TableCell>
+                                                            <div>
+                                                                <p className="font-medium text-gray-900">{item.name}</p>
+                                                                <p className="text-xs text-gray-500 font-mono">{item.code}</p>
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell className="text-right font-semibold">
+                                                            {item.stock}
+                                                        </TableCell>
+                                                        <TableCell className="text-right text-gray-600">
+                                                            {item.monthlySales}
+                                                        </TableCell>
+                                                        <TableCell className="text-right">
+                                                            <span className="px-2 py-1 text-xs font-semibold bg-amber-100 text-amber-800 rounded">
+                                                                {item.coverageMonths} meses
+                                                            </span>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                </div>
+                            )}
+                        </>
                     )}
                 </CardContent>
             </Card>

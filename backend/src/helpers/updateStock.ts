@@ -29,6 +29,7 @@ export async function updateStock(
   const pk = `COM#${commerceId}`;
   const sk = `PRODUCT#${code}`;
   const now = new Date().toISOString();
+  const today = now.split('T')[0]; // YYYY-MM-DD para lastSaleDate
 
   // Primero obtenemos el producto para conocer minStock y el stock actual
   const getResult = await docClient.send(
@@ -61,18 +62,19 @@ export async function updateStock(
     const expressionValues: Record<string, any> = {
       ':newStock': newStock,
       ':now': now,
+      ':lastSaleDate': today,
     };
 
     if (shouldHaveAlert && !currentlyHasAlert) {
       // CASO A: Stock baja del mínimo - agregar alertStatus
-      updateExpression = 'SET stock = :newStock, updatedAt = :now, alertStatus = :status';
+      updateExpression = 'SET stock = :newStock, updatedAt = :now, alertStatus = :status, lastSaleDate = :lastSaleDate';
       expressionValues[':status'] = 'LOW';
     } else if (!shouldHaveAlert && currentlyHasAlert) {
       // CASO B: Stock se recupera - remover alertStatus (Sparse Index)
-      updateExpression = 'SET stock = :newStock, updatedAt = :now REMOVE alertStatus';
+      updateExpression = 'SET stock = :newStock, updatedAt = :now, lastSaleDate = :lastSaleDate REMOVE alertStatus';
     } else {
       // No hay cambio en el estado de alerta
-      updateExpression = 'SET stock = :newStock, updatedAt = :now';
+      updateExpression = 'SET stock = :newStock, updatedAt = :now, lastSaleDate = :lastSaleDate';
     }
 
     const result = await docClient.send(

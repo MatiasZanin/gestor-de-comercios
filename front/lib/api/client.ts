@@ -196,6 +196,13 @@ export class ApiClient {
     return this.makeRequest('/reports/inventory-valuation')
   }
 
+  async getStaleProducts(): Promise<{
+    deadStock: any[]
+    overstock: any[]
+  }> {
+    return this.makeRequest('/reports/stale-products')
+  }
+
   // Metadata endpoints
   async getMetadata(): Promise<any> {
     return this.makeRequest("/metadata")

@@ -83,6 +83,7 @@ export const handler = async (
       profit: 0,
       createdAt: now,
       updatedAt: now,
+      lastSaleDate: now,
       uom,
       isActive: activeFlag,
       qtyStep: body.qtyStep || 1, // Default to 1 if not provided

@@ -14,7 +14,8 @@
     "lint:fix": "npm run format",
     "seed": "tsx src/helpers/db/seed.ts",
     "clean-db": "tsx src/helpers/db/commerce-clean.ts",
-    "clean-sales": "tsx src/helpers/db/sales-clean.ts"
+    "clean-sales": "tsx src/helpers/db/sales-clean.ts",
+    "seed-complete": "tsx src/helpers/db/seed-complete/01-init.ts && tsx src/helpers/db/seed-complete/02-sales.ts && tsx src/helpers/db/seed-complete/03-sales-reports.ts && tsx src/helpers/db/seed-complete/04-cierres-caja.ts"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.591.0",

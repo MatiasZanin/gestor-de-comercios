@@ -3,15 +3,38 @@
 import { useState, useEffect, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { DashboardLayout } from "@/components/dashboard/dashboard-layout"
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
+import { Progress } from "@/components/ui/progress"
+import { Button } from "@/components/ui/button"
 import { apiClient } from "@/lib/api/client"
 import { useAuth } from "@/lib/hooks/use-auth"
-import { Package, ShoppingCart, TrendingUp, DollarSign } from "lucide-react"
+import { Package, ShoppingCart, DollarSign, AlertTriangle, TrendingUp, Trophy } from "lucide-react"
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts"
 
 interface DashboardStats {
   totalProducts: number
   activeProducts: number
   todaySales: number
   todayRevenue: number
+}
+
+interface DailySummaryItem {
+  date: string
+  ticketCount: number
+  totalRevenue: number
+}
+
+interface TopProductItem {
+  productCode: string
+  productName: string
+  monthlyUnits: number
+}
+
+interface RestockAlertItem {
+  productCode: string
+  productName: string
+  stock: number
+  minStock: number
 }
 
 export default function DashboardPage() {
@@ -22,6 +45,9 @@ export default function DashboardPage() {
     todayRevenue: 0,
   })
   const [loading, setLoading] = useState(true)
+  const [dailySalesData, setDailySalesData] = useState<DailySummaryItem[]>([])
+  const [topProducts, setTopProducts] = useState<TopProductItem[]>([])
+  const [restockAlerts, setRestockAlerts] = useState<RestockAlertItem[]>([])
   const [count, setCount] = useState(0)
   const { user } = useAuth()
   const hasLoadedRef = useRef(false)
@@ -46,7 +72,6 @@ export default function DashboardPage() {
     try {
       setLoading(true)
 
-
       // Load products
       const productsResponse = await apiClient.listProducts()
       const totalProducts = productsResponse.items.length
@@ -65,6 +90,61 @@ export default function DashboardPage() {
         todaySales,
         todayRevenue,
       })
+
+      // Load daily summary for last 7 days
+      const endDate = new Date()
+      const startDate = new Date()
+      startDate.setDate(startDate.getDate() - 6)
+
+      try {
+        const dailySummary = await apiClient.getDailySummary({
+          start: startDate.toISOString().split("T")[0],
+          end: endDate.toISOString().split("T")[0],
+        })
+
+        // Transform data for chart - backend returns totalDay and txCount
+        const chartData = (dailySummary.items || []).map((item: any) => ({
+          date: item.SK?.replace("SUMMARY#", "") || item.date,
+          ticketCount: item.txCount || 0,
+          totalRevenue: item.totalDay || 0,
+        }))
+        setDailySalesData(chartData)
+      } catch (error) {
+        console.error("Error loading daily summary:", error)
+      }
+
+      // Load monthly ranking (top products)
+      const currentMonth = new Date().toISOString().slice(0, 7) // YYYY-MM
+      try {
+        const monthlyRanking = await apiClient.getMonthlyRanking({
+          startMonth: currentMonth,
+        })
+
+        // Backend returns { rankings: [{ month, items }] }
+        const currentMonthData = monthlyRanking.rankings?.find((r: any) => r.month === currentMonth)
+        const products = (currentMonthData?.items || []).slice(0, 5).map((item: any) => ({
+          productCode: item.code,
+          productName: item.name || "Producto",
+          monthlyUnits: item.monthlyUnits || 0,
+        }))
+        setTopProducts(products)
+      } catch (error) {
+        console.error("Error loading monthly ranking:", error)
+      }
+
+      // Load restock alerts
+      try {
+        const alerts = await apiClient.getRestockAlerts({})
+        const alertItems = (alerts.items || []).slice(0, 5).map((item: any) => ({
+          productCode: item.code || item.productCode || "",
+          productName: item.name || item.productName || "Producto",
+          stock: item.stock || 0,
+          minStock: item.minStock || 0,
+        }))
+        setRestockAlerts(alertItems)
+      } catch (error) {
+        console.error("Error loading restock alerts:", error)
+      }
     } catch (error) {
       console.error("Error loading dashboard data:", error)
       setStats({
@@ -76,6 +156,11 @@ export default function DashboardPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleReponer = (productCode: string) => {
+    // Navigate to products page with the product code
+    window.location.href = `/dashboard/productos?code=${productCode}`
   }
 
   if (!user) {
@@ -113,6 +198,23 @@ export default function DashboardPage() {
     },
   ]
 
+  // Calculate max units for progress bar scaling
+  const maxUnits = topProducts.length > 0 ? Math.max(...topProducts.map(p => p.monthlyUnits)) : 100
+
+  // Chart config
+  const chartConfig = {
+    totalRevenue: {
+      label: "Ventas ($)",
+      color: "#10b981",
+    },
+  }
+
+  // Format date for chart labels
+  const formatDateLabel = (dateStr: string) => {
+    const date = new Date(dateStr + "T12:00:00")
+    return date.toLocaleDateString("es-AR", { weekday: "short", day: "numeric" })
+  }
+
   return (
     <DashboardLayout>
       <div className="space-y-8">
@@ -120,9 +222,9 @@ export default function DashboardPage() {
           <h1 className="text-3xl font-bold bg-gradient-to-r from-emerald-600 to-orange-500 bg-clip-text text-transparent">
             Dashboard
           </h1>
-          <p className="text-gray-600 mt-2">Resumen general de tu negocio</p>
         </div>
 
+        {/* Stat Cards Row */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {statCards.map((stat, index) => {
             if (stat.show === false) return null
@@ -132,66 +234,176 @@ export default function DashboardPage() {
                 key={index}
                 className="border-0 shadow-lg hover:shadow-xl transition-all duration-200 bg-white/80 backdrop-blur-sm"
               >
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-gray-600">{stat.title}</CardTitle>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0">
                   <div className={`p-2 rounded-lg ${stat.bgColor}`}>
                     <stat.icon className={`w-4 h-4 ${stat.color}`} />
                   </div>
-                </CardHeader>
-                <CardContent>
+                  <CardTitle className="text-sm font-medium text-gray-600">{stat.title}</CardTitle>
                   <div className="text-2xl font-bold text-gray-900">{loading ? "..." : stat.value}</div>
-                </CardContent>
+                </CardHeader>
               </Card>
             )
           })}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="text-lg font-semibold text-gray-900">Acciones Rápidas</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <a
-                  href="/dashboard/productos"
-                  className="p-4 border border-gray-200 rounded-lg hover:bg-gradient-to-r hover:from-emerald-50 hover:to-orange-50 transition-all duration-200 hover:shadow-md"
-                >
-                  <Package className="w-6 h-6 text-emerald-600 mb-2" />
-                  <h3 className="font-medium text-gray-900">Gestionar Productos</h3>
-                  <p className="text-sm text-gray-600">Crear y editar productos</p>
-                </a>
-                <a
-                  href="/dashboard/ventas"
-                  className="p-4 border border-gray-200 rounded-lg hover:bg-gradient-to-r hover:from-emerald-50 hover:to-orange-50 transition-all duration-200 hover:shadow-md"
-                >
-                  <ShoppingCart className="w-6 h-6 text-orange-600 mb-2" />
-                  <h3 className="font-medium text-gray-900">Nueva Venta</h3>
-                  <p className="text-sm text-gray-600">Registrar una venta</p>
-                </a>
+        {/* Chart - Full Width */}
+        <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
+          <CardHeader className="flex flex-row items-center gap-2">
+            <TrendingUp className="w-5 h-5 text-emerald-600" />
+            <CardTitle className="text-lg font-semibold text-gray-900">Ventas de los últimos 7 días</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="h-[300px] flex items-center justify-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
               </div>
+            ) : dailySalesData.length > 0 ? (
+              <ChartContainer config={chartConfig} className="h-[200px] w-full">
+                <LineChart data={dailySalesData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis
+                    dataKey="date"
+                    tickFormatter={formatDateLabel}
+                    tick={{ fill: '#6b7280', fontSize: 12 }}
+                    axisLine={{ stroke: '#e5e7eb' }}
+                  />
+                  <YAxis
+                    tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
+                    tick={{ fill: '#6b7280', fontSize: 12 }}
+                    axisLine={{ stroke: '#e5e7eb' }}
+                  />
+                  <ChartTooltip
+                    content={
+                      <ChartTooltipContent
+                        labelFormatter={(value) => {
+                          const date = new Date(value + "T12:00:00")
+                          return date.toLocaleDateString("es-AR", {
+                            weekday: "long",
+                            day: "numeric",
+                            month: "long"
+                          })
+                        }}
+                      />
+                    }
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="totalRevenue"
+                    stroke="#10b981"
+                    strokeWidth={3}
+                    dot={{ fill: "#10b981", strokeWidth: 2, r: 4 }}
+                    activeDot={{ r: 6, fill: "#059669" }}
+                  />
+                </LineChart>
+              </ChartContainer>
+            ) : (
+              <div className="h-[300px] flex items-center justify-center text-gray-500">
+                No hay datos disponibles
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Bottom Row - Top Products + Stock Alerts side by side */}
+        <div className="flex flex-col lg:flex-row gap-6">
+          {/* Top Products */}
+          <Card className="flex-1 border-0 shadow-lg bg-white/80 backdrop-blur-sm">
+            <CardHeader className="flex flex-row items-center gap-2">
+              <Trophy className="w-5 h-5 text-orange-500" />
+              <CardTitle className="text-lg font-semibold text-gray-900">Top Productos del Mes</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="h-[300px] flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+                </div>
+              ) : topProducts.length > 0 ? (
+                <div className="space-y-4">
+                  {topProducts.map((product, index) => (
+                    <div key={product.productCode} className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${index === 0 ? "bg-yellow-100 text-yellow-700" :
+                            index === 1 ? "bg-gray-100 text-gray-600" :
+                              index === 2 ? "bg-orange-100 text-orange-700" :
+                                "bg-gray-50 text-gray-500"
+                            }`}>
+                            {index + 1}
+                          </span>
+                          <span className="text-sm font-medium text-gray-900 truncate max-w-[140px]" title={product.productName}>
+                            {product.productName}
+                          </span>
+                        </div>
+                        <span className="text-sm font-semibold text-gray-700">
+                          {product.monthlyUnits} uds
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="h-[300px] flex items-center justify-center text-gray-500">
+                  No hay datos disponibles
+                </div>
+              )}
             </CardContent>
           </Card>
 
-          <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="text-lg font-semibold text-gray-900">Información del Sistema</CardTitle>
+          {/* Stock Alerts */}
+          <Card className="flex-1 border-0 shadow-lg bg-white/80 backdrop-blur-sm">
+            <CardHeader className="flex flex-row items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-red-500" />
+              <CardTitle className="text-lg font-semibold text-gray-900">Alerta de Stock Bajo</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="text-sm text-gray-600">
-                <p>
-                  <strong>Usuario:</strong> {user.username}
-                </p>
-                <p>
-                  <strong>Rol:</strong> <span className="capitalize">{user.role}</span>
-                </p>
-                <p>
-                  <strong>Comercio:</strong> {user.commerceId}
-                </p>
-                <p>
-                  <strong>Última actualización:</strong> {new Date().toLocaleString()}
-                </p>
-              </div>
+            <CardContent>
+              {loading ? (
+                <div className="h-32 flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500"></div>
+                </div>
+              ) : restockAlerts.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-gray-200">
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Código</th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Nombre</th>
+                        <th className="text-center py-3 px-4 text-sm font-semibold text-gray-600">Stock Actual</th>
+                        <th className="text-center py-3 px-4 text-sm font-semibold text-gray-600">Stock Mínimo</th>
+                        <th className="text-center py-3 px-4 text-sm font-semibold text-gray-600">Estado</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {restockAlerts.map((item) => (
+                        <tr key={item.productCode} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                          <td className="py-3 px-4">
+                            <span className="text-sm text-gray-600">{item.productCode}</span>
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className="text-sm font-medium text-gray-900">{item.productName}</span>
+                          </td>
+                          <td className="text-center py-3 px-4">
+                            <span className="text-sm font-bold text-red-600">{item.stock}</span>
+                          </td>
+                          <td className="text-center py-3 px-4">
+                            <span className="text-sm text-gray-600">{item.minStock}</span>
+                          </td>
+                          <td className="text-center py-3 px-4">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                              <AlertTriangle className="w-3 h-3 mr-1" />
+                              Crítico
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="h-32 flex flex-col items-center justify-center text-gray-500">
+                  <Package className="w-10 h-10 text-gray-300 mb-2" />
+                  <p>No hay productos con stock bajo</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

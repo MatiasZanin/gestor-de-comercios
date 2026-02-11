@@ -1,0 +1,211 @@
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import {
+    DynamoDBDocumentClient,
+    BatchWriteCommand,
+    QueryCommand,
+    QueryCommandOutput,
+} from '@aws-sdk/lib-dynamodb';
+import { randomUUID } from 'crypto';
+
+// --- CONFIGURACIÓN ---
+const TABLE_NAME = process.env.TABLE_NAME || 'CommerceData-dev';
+const COMMERCE_ID = 'gs';
+const REGION = process.env.AWS_REGION || 'us-east-1';
+
+const client = new DynamoDBClient({ region: REGION });
+const docClient = DynamoDBDocumentClient.from(client);
+
+// --- UTILIDADES ---
+const chunkArray = <T>(arr: T[], size: number): T[][] =>
+    Array.from({ length: Math.ceil(arr.length / size) }, (_, i) =>
+        arr.slice(i * size, i * size + size)
+    );
+
+const randomDateLast30Days = () => {
+    const end = new Date();
+    end.setDate(end.getDate() - 1); // Ayer
+    end.setHours(23, 59, 59, 999);
+
+    const start = new Date(end);
+    start.setDate(end.getDate() - 30);
+
+    return new Date(
+        start.getTime() + Math.random() * (end.getTime() - start.getTime())
+    ).toISOString();
+};
+
+// Alineado con PaymentMethod en createSale.ts
+const paymentMethods = ['CASH', 'CARD', 'TRANSFER', 'OTHER'];
+
+// --- FUNCIONES ---
+
+const cleanExistingSales = async () => {
+    console.log('🧹 Limpiando ventas antiguas...');
+    let itemsToDelete: any[] = [];
+    let lastEvaluatedKey: Record<string, any> | undefined = undefined;
+
+    do {
+        const command = new QueryCommand({
+            TableName: TABLE_NAME,
+            KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk)',
+            ExpressionAttributeValues: {
+                ':pk': `COM#${COMMERCE_ID}`,
+                ':sk': 'SALE#',
+            },
+            ExclusiveStartKey: lastEvaluatedKey,
+        });
+
+        const response = (await docClient.send(command)) as QueryCommandOutput;
+        if (response.Items) itemsToDelete.push(...response.Items);
+        lastEvaluatedKey = response.LastEvaluatedKey;
+    } while (lastEvaluatedKey);
+
+    if (itemsToDelete.length > 0) {
+        const batches = chunkArray(itemsToDelete, 25);
+        for (const batch of batches) {
+            const deleteRequests = batch.map((item) => ({
+                DeleteRequest: { Key: { PK: item.PK, SK: item.SK } },
+            }));
+            await docClient.send(
+                new BatchWriteCommand({ RequestItems: { [TABLE_NAME]: deleteRequests } })
+            );
+        }
+        console.log(`🗑️ Se eliminaron ${itemsToDelete.length} ventas anteriores.`);
+    } else {
+        console.log('✅ No había ventas anteriores para borrar.');
+    }
+};
+
+const fetchProducts = async () => {
+    console.log('📥 Obteniendo productos existentes...');
+    const command = new QueryCommand({
+        TableName: TABLE_NAME,
+        KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk)',
+        ExpressionAttributeValues: {
+            ':pk': `COM#${COMMERCE_ID}`,
+            ':sk': 'PRODUCT#',
+        },
+    });
+    // @ts-ignore
+    const response = await docClient.send(command);
+
+    if (!response.Items || response.Items.length < 5) {
+        throw new Error(
+            '❌ No hay suficientes productos. Ejecuta primero el seed de productos.'
+        );
+    }
+    return response.Items;
+};
+
+const createSaleItem = (
+    allProducts: any[],
+    itemCount: number,
+    isFixed20: boolean = false
+) => {
+    const saleId = randomUUID();
+    const createdAt = randomDateLast30Days();
+    const day = createdAt.slice(0, 10); // YYYY-MM-DD
+
+    const shuffled = [...allProducts].sort(() => 0.5 - Math.random());
+    const selectedProducts = shuffled.slice(0, itemCount);
+
+    let total = 0;
+    let profit = 0;
+
+    const items = selectedProducts.map((p) => {
+        const qty = isFixed20 ? 1 : Math.floor(Math.random() * 5) + 1;
+
+        // Asegurar priceBuy (Costo) para calcular profit. 
+        // Si el producto no tiene costo, asumimos un margen del 30%.
+        const priceSale = Number(p.priceSale) || 0;
+        const priceBuy = Number(p.priceBuy || p.cost || priceSale * 0.7);
+        const uom = p.uom || 'un';
+
+        total += priceSale * qty;
+        profit += (priceSale - priceBuy) * qty;
+
+        return {
+            code: p.code,
+            name: p.name,
+            priceSale: priceSale, // createSale usa priceSale, no price
+            priceBuy: priceBuy,   // Requerido por createSale
+            qty,
+            uom,                  // Requerido por createSale
+        };
+    });
+
+    const ttlSeconds = Math.floor(Date.now() / 1000) + 90 * 24 * 60 * 60;
+
+    return {
+        PK: `COM#${COMMERCE_ID}`,
+        SK: `SALE#${createdAt}#${saleId}`,
+        saleId,
+        commerceId: COMMERCE_ID,
+        sellerId: 'seed-script', // Valor por defecto
+        createdAt,
+        day,
+        ttl: ttlSeconds,
+        items,
+        total: Math.round(total * 100) / 100, // Redondeo a 2 decimales
+        profit: Math.round(profit * 100) / 100,
+        notes: 'Generated by seed',
+        paymentMethod:
+            paymentMethods[Math.floor(Math.random() * paymentMethods.length)],
+        // Claves GSI idénticas a createSale.ts
+        GSI1PK: `COM#${COMMERCE_ID}#${day}`,
+        GSI1SK: createdAt,
+    };
+};
+
+const seedSales = async () => {
+    try {
+        await cleanExistingSales();
+
+        const products = await fetchProducts();
+        const salesToWrite = [];
+
+        console.log('🏗️ Construyendo ventas (hasta ayer)...');
+
+        // A. Venta masiva (Ticket largo)
+        salesToWrite.push({
+            PutRequest: { Item: createSaleItem(products, 15, true) },
+        });
+
+        // B. Ventas simples
+        for (let i = 0; i < 15; i++) {
+            salesToWrite.push({
+                PutRequest: { Item: createSaleItem(products, 1) },
+            });
+        }
+
+        // C. Ventas variadas
+        for (let i = 0; i < 50; i++) {
+            const randomItemCount = Math.floor(Math.random() * 4) + 1;
+            salesToWrite.push({
+                PutRequest: { Item: createSaleItem(products, randomItemCount) },
+            });
+        }
+
+        const batches = chunkArray(salesToWrite, 25);
+        let count = 0;
+        for (const batch of batches) {
+            await docClient.send(
+                new BatchWriteCommand({
+                    RequestItems: {
+                        [TABLE_NAME]: batch,
+                    },
+                })
+            );
+            count += batch.length;
+        }
+
+        console.log(`✅ Seed de ventas finalizado. ${count} ventas insertadas.`);
+        console.log(
+            '⚠️ IMPORTANTE: Ejecuta el script de reportes (03) para regenerar estadísticas diarias y mensuales.'
+        );
+    } catch (err) {
+        console.error('❌ Error:', err);
+    }
+};
+
+seedSales();
