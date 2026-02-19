@@ -1,10 +1,13 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { Plus, Receipt, Calendar } from "lucide-react"
+import { Plus, Receipt, CalendarIcon, Search, ChevronLeft, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { Calendar } from "@/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import type { DateRange } from "react-day-picker"
 
 // Componente para celdas truncadas con tooltip
 function TruncatedCell({ children, className = "" }: { children: React.ReactNode; className?: string }) {
@@ -36,57 +39,144 @@ export default function SalesPage() {
   const [sales, setSales] = useState<Sale[]>([])
   const [loading, setLoading] = useState(true)
   const [isFiltering, setIsFiltering] = useState(false)
-  const [searchDate, setSearchDate] = useState("")
+  const [searchSaleId, setSearchSaleId] = useState("")
   const [showForm, setShowForm] = useState(false)
-  const [lastKey, setLastKey] = useState<string | undefined>()
   const [isInitialized, setIsInitialized] = useState(false)
 
+  // Date range state (applied)
+  const [startDate, setStartDate] = useState("")
+  const [endDate, setEndDate] = useState("")
+
+  // Temp date range for the calendar picker (before applying)
+  const [tempDateRange, setTempDateRange] = useState<DateRange | undefined>(undefined)
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false)
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageKeys, setPageKeys] = useState<Record<number, string | undefined>>({ 1: undefined })
+  const [hasNextPage, setHasNextPage] = useState(false)
+
   const isAdmin = user?.role === "admin"
+
+  // Helper: get today as DateRange
+  const getTodayRange = (): { start: string; end: string; dateRange: DateRange } => {
+    const today = new Date()
+    const todayStr = today.toISOString().split("T")[0]
+    return {
+      start: todayStr,
+      end: todayStr,
+      dateRange: { from: today, to: today },
+    }
+  }
 
   // Set initial date on client side only to avoid hydration mismatch
   useEffect(() => {
     if (!isInitialized) {
-      const today = new Date().toISOString().split("T")[0]
-      setSearchDate(today)
+      const { start, end, dateRange } = getTodayRange()
+      setStartDate(start)
+      setEndDate(end)
+      setTempDateRange(dateRange)
       setIsInitialized(true)
     }
   }, [isInitialized])
 
-  const loadSales = async (reset = false, params?: any) => {
+  const buildQueryParams = useCallback(() => {
+    if (searchSaleId.trim()) {
+      return { saleId: searchSaleId.trim() }
+    }
+    const params: any = {}
+    if (startDate && endDate && startDate === endDate) {
+      // Si ambas fechas son iguales, usar el filtro por día (GSI)
+      params.day = startDate
+    } else {
+      if (startDate) params.start = startDate
+      if (endDate) params.end = endDate
+    }
+    return params
+  }, [searchSaleId, startDate, endDate])
+
+  const loadPage = useCallback(async (page: number, cursorKey?: string) => {
     try {
       setLoading(true)
-      const response: SaleListResponse = await apiClient.listSales({
-        ...params,
-        lastKey: reset ? undefined : lastKey,
-      })
-
-      if (reset) {
-        setSales(response.items)
-      } else {
-        setSales((prev) => [...prev, ...response.items])
+      const params = {
+        ...buildQueryParams(),
+        lastKey: cursorKey,
       }
+      const response: SaleListResponse = await apiClient.listSales(params)
 
-      setLastKey(response.lastKey)
+      setSales(response.items)
+      setCurrentPage(page)
+
+      if (response.lastKey) {
+        setHasNextPage(true)
+        setPageKeys((prev) => ({ ...prev, [page + 1]: response.lastKey }))
+      } else {
+        setHasNextPage(false)
+      }
     } catch (error) {
       console.error("Error loading sales:", error)
     } finally {
       setLoading(false)
       setIsFiltering(false)
     }
-  }
+  }, [buildQueryParams])
 
   useEffect(() => {
     if (isInitialized && sales.length === 0) {
-      loadSales(true, { day: searchDate })
+      loadPage(1, undefined)
     }
   }, [isInitialized])
 
-  const handleDateFilter = () => {
+  const handleFilter = () => {
     setIsFiltering(true)
-    if (searchDate) {
-      loadSales(true, { day: searchDate })
-    } else {
-      loadSales(true)
+    setCurrentPage(1)
+    setPageKeys({ 1: undefined })
+    setHasNextPage(false)
+    loadPage(1, undefined)
+  }
+
+  const handleClearFilters = () => {
+    const { start, end, dateRange } = getTodayRange()
+    setStartDate(start)
+    setEndDate(end)
+    setTempDateRange(dateRange)
+    setSearchSaleId("")
+    setIsFiltering(true)
+    setCurrentPage(1)
+    setPageKeys({ 1: undefined })
+    setHasNextPage(false)
+    // Load today's sales
+    setLoading(true)
+    apiClient.listSales({ day: start }).then((response: SaleListResponse) => {
+      setSales(response.items)
+      if (response.lastKey) {
+        setHasNextPage(true)
+        setPageKeys({ 1: undefined, 2: response.lastKey })
+      }
+    }).catch((error) => {
+      console.error("Error loading sales:", error)
+    }).finally(() => {
+      setLoading(false)
+      setIsFiltering(false)
+    })
+  }
+
+  const handleNextPage = () => {
+    const nextPage = currentPage + 1
+    const nextKey = pageKeys[nextPage]
+    loadPage(nextPage, nextKey)
+  }
+
+  const handlePrevPage = () => {
+    if (currentPage <= 1) return
+    const prevPage = currentPage - 1
+    const prevKey = pageKeys[prevPage]
+    loadPage(prevPage, prevKey)
+  }
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleFilter()
     }
   }
 
@@ -95,9 +185,9 @@ export default function SalesPage() {
   }
 
   const handleFormSuccess = (newSale: Sale) => {
-    // Auto-append only if we're viewing today's sales
+    // Auto-append only if we're viewing today's sales on page 1
     const today = new Date().toISOString().split("T")[0]
-    if (!searchDate || searchDate === today) {
+    if (currentPage === 1 && (!startDate || startDate === today)) {
       setSales((prev) => [newSale, ...prev])
     }
   }
@@ -132,39 +222,126 @@ export default function SalesPage() {
         </div>
         <Card>
           <CardHeader>
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex flex-col gap-4">
               <CardTitle className="flex items-center gap-2">
                 <Receipt className="w-5 h-5" />
                 Lista de Ventas
               </CardTitle>
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+              {/* Filtros */}
+              <div className="flex flex-col gap-3">
+                {/* Buscador por ID */}
                 <div className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                  <Search className="w-4 h-4 text-gray-400 flex-shrink-0" />
                   <Input
-                    type="date"
-                    value={searchDate}
-                    onChange={(e) => setSearchDate(e.target.value)}
-                    className="flex-1 sm:w-40"
+                    type="text"
+                    placeholder="Buscar por ID de venta..."
+                    value={searchSaleId}
+                    onChange={(e) => setSearchSaleId(e.target.value)}
+                    onKeyDown={handleSearchKeyDown}
+                    className="flex-1 sm:max-w-xs"
                   />
                 </div>
-                <div className="flex gap-2">
-                  <Button onClick={handleDateFilter} size="sm" className="flex-1 sm:flex-initial">
-                    Filtrar
-                  </Button>
-                  {searchDate && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setSearchDate("")
-                        setIsFiltering(true)
-                        loadSales(true)
-                      }}
-                      className="flex-1 sm:flex-initial"
-                    >
-                      Limpiar
+                {/* Date range picker */}
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                  <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="justify-start text-left font-normal gap-2 bg-white border shadow-sm hover:bg-gray-50 w-full sm:w-auto"
+                      >
+                        <CalendarIcon className="h-4 w-4 text-gray-500" />
+                        <span className="text-sm">
+                          {tempDateRange?.from ? (
+                            tempDateRange.to ? (
+                              <>
+                                {format(tempDateRange.from, "dd MMM yyyy", { locale: es })} —{" "}
+                                {format(tempDateRange.to, "dd MMM yyyy", { locale: es })}
+                              </>
+                            ) : (
+                              format(tempDateRange.from, "dd MMM yyyy", { locale: es })
+                            )
+                          ) : (
+                            "Seleccionar fechas"
+                          )}
+                        </span>
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="range"
+                        defaultMonth={tempDateRange?.from}
+                        selected={tempDateRange}
+                        onSelect={(newRange, selectedDay) => {
+                          if (tempDateRange?.from && tempDateRange?.to && selectedDay) {
+                            setTempDateRange({ from: selectedDay, to: undefined });
+                          } else {
+                            setTempDateRange(newRange);
+                          }
+                        }}
+                        numberOfMonths={1}
+                        locale={es}
+                      />
+                      <div className="flex items-center justify-end gap-2 p-3 border-t">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setIsCalendarOpen(false)}
+                        >
+                          Cancelar
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            if (tempDateRange?.from && tempDateRange?.to) {
+                              const newStart = tempDateRange.from.toISOString().split("T")[0]
+                              const newEnd = tempDateRange.to.toISOString().split("T")[0]
+                              setStartDate(newStart)
+                              setEndDate(newEnd)
+                              setIsCalendarOpen(false)
+                              // Directly load with the new date range
+                              setCurrentPage(1)
+                              setPageKeys({ 1: undefined })
+                              setHasNextPage(false)
+                              setLoading(true)
+                              const params: any = newStart === newEnd
+                                ? { day: newStart }
+                                : { start: newStart, end: newEnd }
+                              apiClient.listSales(params).then((response: SaleListResponse) => {
+                                setSales(response.items)
+                                if (response.lastKey) {
+                                  setHasNextPage(true)
+                                  setPageKeys({ 1: undefined, 2: response.lastKey })
+                                }
+                              }).catch((error) => {
+                                console.error("Error loading sales:", error)
+                              }).finally(() => {
+                                setLoading(false)
+                              })
+                            }
+                          }}
+                          disabled={!tempDateRange?.from || !tempDateRange?.to}
+                          className="bg-orange-600 hover:bg-orange-700"
+                        >
+                          Aplicar
+                        </Button>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                  <div className="flex gap-2">
+                    <Button onClick={handleFilter} size="sm" className="flex-1 sm:flex-initial">
+                      Filtrar
                     </Button>
-                  )}
+                    {searchSaleId && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleClearFilters}
+                        className="flex-1 sm:flex-initial"
+                      >
+                        Limpiar
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -172,146 +349,174 @@ export default function SalesPage() {
           <CardContent>
             {!loading || (loading && sales.length > 0) ? (
               <div className="space-y-4">
-                {sales.map((sale) => (
-                  <div key={sale.saleId} className="p-3 sm:p-4 border rounded-lg hover:bg-gray-50">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 gap-2">
-                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
-                        <h3 className="font-semibold text-gray-900 text-sm sm:text-base">Venta #{sale.saleId.slice(-8)}</h3>
-                        <Badge variant="outline" className="w-fit text-xs">
-                          {format(new Date(sale.createdAt), "dd/MM/yyyy HH:mm", { locale: es })}
-                        </Badge>
-                        {sale.paymentMethod && (
-                          <Badge variant="secondary" className="w-fit text-xs">
-                            {PAYMENT_METHOD_LABELS[sale.paymentMethod]}
+                {sales.length === 0 && !loading ? (
+                  <div className="text-center py-8">
+                    <p className="text-gray-500">No se encontraron ventas.</p>
+                  </div>
+                ) : (
+                  sales.map((sale) => (
+                    <div key={sale.saleId} className="p-3 sm:p-4 border rounded-lg hover:bg-gray-50">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 gap-2">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+                          <h3 className="font-semibold text-gray-900 text-sm sm:text-base">Venta #{sale.saleId.slice(-8)}</h3>
+                          <Badge variant="outline" className="w-fit text-xs">
+                            {format(new Date(sale.createdAt), "dd/MM/yyyy HH:mm", { locale: es })}
                           </Badge>
-                        )}
+                          {sale.paymentMethod && (
+                            <Badge variant="secondary" className="w-fit text-xs">
+                              {PAYMENT_METHOD_LABELS[sale.paymentMethod]}
+                            </Badge>
+                          )}
+                        </div>
                       </div>
-                    </div>
 
-                    {/* Vista mobile - Cards */}
-                    <div className="sm:hidden space-y-3">
-                      {sale.items.map((item, index) => {
-                        const isReturn = item.qty < 0
-                        return (
-                          <div key={index} className={`p-3 rounded-lg space-y-1.5 ${isReturn ? "bg-red-50 border border-red-200" : "bg-gray-50"}`}>
-                            <div className="flex justify-between items-start">
-                              <div className="flex items-center gap-2">
-                                <div className={`font-medium text-sm ${isReturn ? "text-red-600" : "text-gray-900"}`}>{item.name}</div>
-                                {isReturn && (
-                                  <span className="text-[10px] font-semibold uppercase tracking-wider text-red-500 bg-red-100 px-1.5 py-0.5 rounded shrink-0">
-                                    Devolución
-                                  </span>
-                                )}
+                      {/* Vista mobile - Cards */}
+                      <div className="sm:hidden space-y-3">
+                        {sale.items.map((item, index) => {
+                          const isReturn = item.qty < 0
+                          return (
+                            <div key={index} className={`p-3 rounded-lg space-y-1.5 ${isReturn ? "bg-red-50 border border-red-200" : "bg-gray-50"}`}>
+                              <div className="flex justify-between items-start">
+                                <div className="flex items-center gap-2">
+                                  <div className={`font-medium text-sm ${isReturn ? "text-red-600" : "text-gray-900"}`}>{item.name}</div>
+                                  {isReturn && (
+                                    <span className="text-[10px] font-semibold uppercase tracking-wider text-red-500 bg-red-100 px-1.5 py-0.5 rounded shrink-0">
+                                      Devolución
+                                    </span>
+                                  )}
+                                </div>
+                                <div className={`font-bold text-sm tabular-nums ${isReturn ? "text-red-600" : "text-gray-900"}`}>
+                                  {formatCurrency(item.qty * item.priceSale)}
+                                </div>
                               </div>
-                              <div className={`font-bold text-sm tabular-nums ${isReturn ? "text-red-600" : "text-gray-900"}`}>
-                                {formatCurrency(item.qty * item.priceSale)}
+                              <div className="text-xs text-gray-600 space-y-0.5">
+                                <div>Código: {item.code}</div>
+                                <div className="flex justify-between">
+                                  <span>Cantidad: {Math.abs(item.qty)} {item.uom}</span>
+                                  <span>Precio: {formatCurrency(item.priceSale)}</span>
+                                </div>
                               </div>
                             </div>
-                            <div className="text-xs text-gray-600 space-y-0.5">
-                              <div>Código: {item.code}</div>
-                              <div className="flex justify-between">
-                                <span>Cantidad: {Math.abs(item.qty)} {item.uom}</span>
-                                <span>Precio: {formatCurrency(item.priceSale)}</span>
-                              </div>
+                          )
+                        })}
+                        <div className="border-t-2 pt-3 mt-3">
+                          <div className="flex justify-between items-center">
+                            <span className="text-base font-bold text-gray-900">Total</span>
+                            <div className="text-right">
+                              <div className="text-base font-bold text-gray-900">{formatCurrency(sale.total)}</div>
+                              {sale.profit !== null && sale.profit !== undefined && (
+                                <div className="text-xs text-emerald-600">
+                                  Ganancia: {formatCurrency(sale.profit)}
+                                </div>
+                              )}
                             </div>
-                          </div>
-                        )
-                      })}
-                      <div className="border-t-2 pt-3 mt-3">
-                        <div className="flex justify-between items-center">
-                          <span className="text-base font-bold text-gray-900">Total</span>
-                          <div className="text-right">
-                            <div className="text-base font-bold text-gray-900">{formatCurrency(sale.total)}</div>
-                            {sale.profit !== null && sale.profit !== undefined && (
-                              <div className="text-xs text-emerald-600">
-                                Ganancia: {formatCurrency(sale.profit)}
-                              </div>
-                            )}
                           </div>
                         </div>
                       </div>
-                    </div>
 
-                    {/* Vista desktop - Tabla */}
-                    <div className="hidden sm:block overflow-x-auto">
-                      <table className="w-full text-sm text-gray-700 table-fixed min-w-0">
-                        <thead>
-                          <tr className="text-left">
-                            <th className="pr-3 py-1 w-[18%]">Nombre</th>
-                            <th className="px-3 py-1 w-[15%]">Código</th>
-                            <th className="px-3 py-1 w-[12%]">Marca</th>
-                            <th className="px-3 py-1 w-[12%]">Categoría</th>
-                            <th className="px-3 py-1 w-[12%] text-left">Cantidad</th>
-                            <th className="px-3 py-1 w-[14%] text-left">Precio</th>
-                            <th className="px-3 py-1 w-[14%] text-left">Total</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {sale.items.map((item, index) => {
-                            const isReturn = item.qty < 0
-                            return (
-                              <tr key={index} className={isReturn ? "bg-red-50" : "hover:bg-gray-50"}>
-                                <td className="pr-3 py-1">
-                                  <div className="flex items-center gap-1.5">
-                                    <TruncatedCell className={isReturn ? "text-red-600" : ""}>{item.name}</TruncatedCell>
-                                    {isReturn && (
-                                      <span className="text-[10px] font-semibold uppercase tracking-wider text-red-500 bg-red-100 px-1 py-0.5 rounded shrink-0">
-                                        Dev.
-                                      </span>
-                                    )}
-                                  </div>
-                                </td>
-                                <td className="px-3 py-1">
-                                  <TruncatedCell>{item.code}</TruncatedCell>
-                                </td>
-                                <td className="px-3 py-1">
-                                  <TruncatedCell>{item.brand}</TruncatedCell>
-                                </td>
-                                <td className="px-3 py-1">
-                                  <TruncatedCell>{item.category}</TruncatedCell>
-                                </td>
-                                <td className={`px-3 py-1 whitespace-nowrap text-left tabular-nums ${isReturn ? "text-red-600" : ""}`}>{Math.abs(item.qty)} {item.uom}</td>
-                                <td className="px-3 py-1 whitespace-nowrap text-left tabular-nums">{formatCurrency(item.priceSale)}</td>
-                                <td className={`px-3 py-1 whitespace-nowrap text-left tabular-nums font-medium ${isReturn ? "text-red-600" : ""}`}>
-                                  {formatCurrency(item.qty * item.priceSale)}
-                                </td>
-                              </tr>
-                            )
-                          })}
-                          {/* Fila de Total Principal */}
-                          <tr className="border-t-2 border-gray-100">
-                            <td colSpan={6} className="pt-4 pb-1 text-right font-bold text-gray-900">Total:</td>
-                            <td className="pt-4 pb-1 px-3 text-left text-lg font-bold text-gray-900 tabular-nums">
-                              {formatCurrency(sale.total)}
-                            </td>
-                          </tr>
-
-                          {/* Fila de Ganancias (Independiente) */}
-                          {sale.profit !== null && sale.profit !== undefined && (
-                            <tr>
-                              <td colSpan={6} className="pb-1 text-right font-bold text-gray-900">Ganancia:</td>
-                              <td className="pb-1 px-3 text-left text-l font-bold tabular-nums text-emerald-600">
-                                {formatCurrency(sale.profit)}
+                      {/* Vista desktop - Tabla */}
+                      <div className="hidden sm:block overflow-x-auto">
+                        <table className="w-full text-sm text-gray-700 table-fixed min-w-0">
+                          <thead>
+                            <tr className="text-left">
+                              <th className="pr-3 py-1 w-[18%]">Nombre</th>
+                              <th className="px-3 py-1 w-[15%]">Código</th>
+                              <th className="px-3 py-1 w-[12%]">Marca</th>
+                              <th className="px-3 py-1 w-[12%]">Categoría</th>
+                              <th className="px-3 py-1 w-[12%] text-left">Cantidad</th>
+                              <th className="px-3 py-1 w-[14%] text-left">Precio</th>
+                              <th className="px-3 py-1 w-[14%] text-left">Total</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {sale.items.map((item, index) => {
+                              const isReturn = item.qty < 0
+                              return (
+                                <tr key={index} className={isReturn ? "bg-red-50" : "hover:bg-gray-50"}>
+                                  <td className="pr-3 py-1">
+                                    <div className="flex items-center gap-1.5">
+                                      <TruncatedCell className={isReturn ? "text-red-600" : ""}>{item.name}</TruncatedCell>
+                                      {isReturn && (
+                                        <span className="text-[10px] font-semibold uppercase tracking-wider text-red-500 bg-red-100 px-1 py-0.5 rounded shrink-0">
+                                          Dev.
+                                        </span>
+                                      )}
+                                    </div>
+                                  </td>
+                                  <td className="px-3 py-1">
+                                    <TruncatedCell>{item.code}</TruncatedCell>
+                                  </td>
+                                  <td className="px-3 py-1">
+                                    <TruncatedCell>{item.brand}</TruncatedCell>
+                                  </td>
+                                  <td className="px-3 py-1">
+                                    <TruncatedCell>{item.category}</TruncatedCell>
+                                  </td>
+                                  <td className={`px-3 py-1 whitespace-nowrap text-left tabular-nums ${isReturn ? "text-red-600" : ""}`}>{Math.abs(item.qty)} {item.uom}</td>
+                                  <td className="px-3 py-1 whitespace-nowrap text-left tabular-nums">{formatCurrency(item.priceSale)}</td>
+                                  <td className={`px-3 py-1 whitespace-nowrap text-left tabular-nums font-medium ${isReturn ? "text-red-600" : ""}`}>
+                                    {formatCurrency(item.qty * item.priceSale)}
+                                  </td>
+                                </tr>
+                              )
+                            })}
+                            {/* Fila de Total Principal */}
+                            <tr className="border-t-2 border-gray-100">
+                              <td colSpan={6} className="pt-4 pb-1 text-right font-bold text-gray-900">Total:</td>
+                              <td className="pt-4 pb-1 px-3 text-left text-lg font-bold text-gray-900 tabular-nums">
+                                {formatCurrency(sale.total)}
                               </td>
                             </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
 
-                    {sale.notes && (
-                      <div className="mt-3 pt-3 border-t">
-                        <p className="text-xs sm:text-sm text-gray-600">
-                          <strong>Notas:</strong> {sale.notes}
-                        </p>
+                            {/* Fila de Ganancias (Independiente) */}
+                            {sale.profit !== null && sale.profit !== undefined && (
+                              <tr>
+                                <td colSpan={6} className="pb-1 text-right font-bold text-gray-900">Ganancia:</td>
+                                <td className="pb-1 px-3 text-left text-l font-bold tabular-nums text-emerald-600">
+                                  {formatCurrency(sale.profit)}
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
                       </div>
-                    )}
-                  </div>
-                ))}
-                {lastKey && (
-                  <div className="text-center pt-4">
-                    <Button variant="outline" onClick={() => loadSales(false, { day: searchDate })} disabled={loading} className="w-full sm:w-auto">
-                      {loading ? "Cargando..." : "Cargar más"}
+
+                      {sale.notes && (
+                        <div className="mt-3 pt-3 border-t">
+                          <p className="text-xs sm:text-sm text-gray-600">
+                            <strong>Notas:</strong> {sale.notes}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  ))
+                )}
+
+                {/* Paginación */}
+                {sales.length > 0 && (
+                  <div className="flex items-center justify-center gap-4 pt-4 border-t">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handlePrevPage}
+                      disabled={currentPage <= 1 || loading}
+                      className="flex items-center gap-1"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                      Anterior
+                    </Button>
+                    <span className="text-sm text-gray-600 font-medium">
+                      Página {currentPage}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleNextPage}
+                      disabled={!hasNextPage || loading}
+                      className="flex items-center gap-1"
+                    >
+                      Siguiente
+                      <ChevronRight className="w-4 h-4" />
                     </Button>
                   </div>
                 )}

@@ -118,6 +118,9 @@ export class ApiClient {
 
   async listSales(params?: any): Promise<any> {
     const searchParams = new URLSearchParams()
+    if (params?.saleId) {
+      searchParams.append("saleId", params.saleId)
+    }
     if (params?.day) {
       searchParams.append("day", params.day)
     }
