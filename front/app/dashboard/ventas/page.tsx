@@ -534,7 +534,7 @@ export default function SalesPage() {
 
                 {/* Paginación */}
                 {sales.length > 0 && (
-                  <div className="flex items-center justify-center gap-4 pt-4 border-t">
+                  <div className="flex items-center justify-end gap-4 pt-4 border-t">
                     <Button
                       variant="outline"
                       size="sm"

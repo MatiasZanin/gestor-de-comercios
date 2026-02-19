@@ -20,7 +20,6 @@ import type { Product, CreateProductRequest, UpdateProductRequest } from "@/lib/
 import CreatableSelect from "react-select/creatable"
 import ReactSelect from "react-select"
 
-// Estilos para scrollbar (por si acaso sigue siendo necesario en pantallas muy chicas)
 const scrollbarStyles = {
   scrollbarWidth: 'thin',
   scrollbarColor: '#cbd5e1 #f1f1f1'
@@ -69,7 +68,6 @@ export function ProductForm({ product, products = [], onSuccess, onCancel }: Pro
     brand: product?.brand || "",
   })
 
-  // Estados para inputs numéricos (manejo de decimales)
   const [priceBuyInput, setPriceBuyInput] = useState(product?.priceBuy ? product.priceBuy.toString() : "")
   const [priceSaleInput, setPriceSaleInput] = useState(product?.priceSale ? product.priceSale.toString() : "")
   const [stockInput, setStockInput] = useState(product?.stock ? product.stock.toString() : "")
@@ -121,7 +119,6 @@ export function ProductForm({ product, products = [], onSuccess, onCancel }: Pro
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // Normalizaciones finales antes de enviar
     if (priceBuyInput !== "" && !priceBuyInput.endsWith(".")) {
       const n = Number.parseFloat(priceBuyInput)
       if (!Number.isNaN(n)) setPriceBuyInput(n.toFixed(2))
@@ -154,8 +151,8 @@ export function ProductForm({ product, products = [], onSuccess, onCancel }: Pro
         await apiClient.createProduct({ ...payload, code: formData.code } as CreateProductRequest)
       }
       onSuccess()
-    } catch (error) {
-      setError(error instanceof Error ? error.message : "Error al guardar producto")
+    } catch (err: any) {
+      setError(err?.response?.data?.message || err?.message || "Error al guardar producto")
     } finally {
       setLoading(false)
     }
@@ -163,26 +160,25 @@ export function ProductForm({ product, products = [], onSuccess, onCancel }: Pro
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      {/* CAMBIO PRINCIPAL: max-w-2xl 
-         Esto hace el modal mucho más ancho, permitiendo 2 columnas reales.
-      */}
-      <Card className="w-full max-w-2xl max-h-[95vh] flex flex-col bg-white shadow-2xl">
+      <Card className="w-full max-w-2xl max-h-[95vh] flex flex-col bg-white shadow-2xl gap-0">
 
         <CardHeader className="border-b bg-gray-50/50 rounded-t-xl shrink-0 py-4">
           <CardTitle className="text-xl">
             {product ? "Editar Producto" : "Nuevo Producto"}
           </CardTitle>
+          {error && (
+            <div className="mt-3 p-3 bg-red-100 border border-red-200 text-red-700 rounded-md text-sm font-medium">
+              {error}
+            </div>
+          )}
         </CardHeader>
 
         <CardContent
           className="overflow-y-auto flex-1 p-6 scrollbar-visible"
           style={scrollbarStyles}
         >
-          {/* GRID PRINCIPAL: 2 columnas en pantallas medianas (md:grid-cols-2) */}
           <form id="product-form" onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-            {/* --- FILA 1: CÓDIGO y ESTADO --- */}
-            {/* El código ocupa su espacio, el switch de activo lo ponemos a la derecha para verlo SIEMPRE */}
             <div className="space-y-2">
               {!product ? (
                 <>
@@ -213,7 +209,6 @@ export function ProductForm({ product, products = [], onSuccess, onCancel }: Pro
               )}
             </div>
 
-            {/* Switch de ACTIVO movido aquí arriba para visibilidad total */}
             <div className="flex items-end justify-start md:justify-end h-full pt-4 md:pt-0">
               <div className="flex items-center space-x-3">
                 <Switch
@@ -222,13 +217,12 @@ export function ProductForm({ product, products = [], onSuccess, onCancel }: Pro
                   onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })}
                 />
                 <div className="flex flex-col">
-                  <Label htmlFor="isActive" className="font-medium cursor-pointer">Producto `Activo`</Label>
+                  <Label htmlFor="isActive" className="font-medium cursor-pointer">Producto Activo</Label>
                   <span className="text-xs text-gray-500">Visible en ventas</span>
                 </div>
               </div>
             </div>
 
-            {/* --- FILA 2: NOMBRE (Ocupa las 2 columnas) --- */}
             <div className="md:col-span-2 space-y-2">
               <Label htmlFor="name">Nombre del Producto *</Label>
               <Input
@@ -241,7 +235,6 @@ export function ProductForm({ product, products = [], onSuccess, onCancel }: Pro
               />
             </div>
 
-            {/* --- FILA 3: CATEGORÍA y MARCA --- */}
             <div className="space-y-2">
               <Label htmlFor="category">Categoría</Label>
               <CreatableSelect
@@ -277,19 +270,17 @@ export function ProductForm({ product, products = [], onSuccess, onCancel }: Pro
               />
             </div>
 
-            {/* --- FILA 4: PRECIOS --- */}
             <div className="space-y-2">
               <Label htmlFor="priceBuy">Precio Compra ($) *</Label>
               <Input
                 id="priceBuy"
-                type="text" // Usamos text para mejor control manual de decimales
+                type="text"
                 value={priceBuyInput}
                 onChange={(e) => {
                   const v = e.target.value;
                   if (v === "" || /^\d*\.?\d{0,2}$/.test(v)) setPriceBuyInput(v);
                 }}
                 onBlur={() => {
-                  // Lógica de guardado en número al salir del campo
                   const n = parseFloat(priceBuyInput);
                   if (!isNaN(n)) setFormData(prev => ({ ...prev, priceBuy: n }));
                 }}
@@ -316,8 +307,6 @@ export function ProductForm({ product, products = [], onSuccess, onCancel }: Pro
               />
             </div>
 
-            {/* --- FILA 5: STOCK y UNIDAD --- */}
-            {/* Aquí agrupamos Stock y Unidad en la izquierda, y Min Stock a la derecha */}
             <div className="flex gap-4">
               <div className="w-1/2 space-y-2">
                 <Label htmlFor="stock">Stock *</Label>
@@ -345,6 +334,7 @@ export function ProductForm({ product, products = [], onSuccess, onCancel }: Pro
                 <ReactSelect
                   id="uom"
                   options={UOM_OPTIONS}
+                  required
                   value={UOM_OPTIONS.find(opt => opt.value === formData.uom) || null}
                   onChange={(opt) => setFormData({ ...formData, uom: opt?.value || "" })}
                   placeholder="u, kg..."
@@ -373,7 +363,6 @@ export function ProductForm({ product, products = [], onSuccess, onCancel }: Pro
               <p className="text-xs text-gray-500">Cantidad mínima antes de avisar.</p>
             </div>
 
-            {/* --- FILA 6: NOTAS (Full width) --- */}
             <div className="md:col-span-2 space-y-2">
               <Label htmlFor="notes">Notas / Descripción adicional</Label>
               <Textarea
@@ -385,16 +374,11 @@ export function ProductForm({ product, products = [], onSuccess, onCancel }: Pro
               />
             </div>
 
-            {/* Mensaje de error si existe */}
-            {error && <div className="md:col-span-2 text-red-600 text-sm font-medium">{error}</div>}
-
-            {/* Espacio extra al final (por si acaso) */}
             <div className="pb-4 md:hidden"></div>
           </form>
         </CardContent>
 
-        {/* FOOTER FIJO */}
-        <div className="p-4 border-t rounded-b-xl flex justify-between items-center shrink-0">
+        <div className="p-4 border-t rounded-b-xl flex justify-between items-center shrink-0 bg-white z-10">
           <span className="text-xs text-gray-400 hidden sm:inline-block">
             * Campos requeridos para el sistema
           </span>
@@ -415,7 +399,6 @@ export function ProductForm({ product, products = [], onSuccess, onCancel }: Pro
 
       </Card>
 
-      {/* --- MODALES DE AYUDA (Se mantienen igual, resumidos aquí) --- */}
       <Dialog open={showUomHelp} onOpenChange={setShowUomHelp}>
         <DialogContent>
           <DialogHeader><DialogTitle>Unidades de Medida</DialogTitle></DialogHeader>

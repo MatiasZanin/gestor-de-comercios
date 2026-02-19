@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 // --- Imports Modificados ---
 import {
   Plus,
@@ -8,9 +8,11 @@ import {
   Edit,
   Trash2,
   Package,
-  ArrowDownUp, // Icono para el botón del Select
-  ArrowUp,     // Icono para ascendente
-  ArrowDown,   // Icono para descendente
+  ArrowDownUp,
+  ArrowUp,
+  ArrowDown,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react"
 // -------------------------
 
@@ -42,7 +44,8 @@ import { DashboardLayout } from "../../../components/dashboard/dashboard-layout"
 // --- Nuevo Tipo ---
 // Tipo para las claves de ordenamiento
 type SortKey = "name_asc" | "name_desc" | "stock_asc" | "stock_desc"
-// ------------------
+
+const ITEMS_PER_PAGE = 10
 
 export default function ProductsPage() {
   const { user } = useAuth()
@@ -52,8 +55,8 @@ export default function ProductsPage() {
   const [showActiveOnly, setShowActiveOnly] = useState(true)
 
   // --- Nuevo Estado ---
-  const [sortOrder, setSortOrder] = useState<SortKey>("name_asc") // Por defecto: Nombre (A-Z)
-  // --------------------
+  const [sortOrder, setSortOrder] = useState<SortKey>("name_asc")
+  const [currentPage, setCurrentPage] = useState(1)
 
   const [showForm, setShowForm] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
@@ -113,29 +116,40 @@ export default function ProductsPage() {
     loadProducts(true)
   }
 
-  // --- LÓGICA DE FILTRADO Y ORDEN MODIFICADA ---
-  const filteredProducts = products
-    .filter(
-      (product) =>
-        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        product.code.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-    .sort((a, b) => {
-      // Aplicamos el ordenamiento basado en sortOrder
-      switch (sortOrder) {
-        case "name_asc":
-          return a.name.localeCompare(b.name) // Compara strings alfabéticamente
-        case "name_desc":
-          return b.name.localeCompare(a.name)
-        case "stock_asc":
-          return a.stock - b.stock // Compara números
-        case "stock_desc":
-          return b.stock - a.stock
-        default:
-          return 0
-      }
-    })
-  // ---------------------------------------------
+  const filteredProducts = useMemo(() =>
+    products
+      .filter(
+        (product) =>
+          product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          product.code.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+      .sort((a, b) => {
+        switch (sortOrder) {
+          case "name_asc":
+            return a.name.localeCompare(b.name)
+          case "name_desc":
+            return b.name.localeCompare(a.name)
+          case "stock_asc":
+            return a.stock - b.stock
+          case "stock_desc":
+            return b.stock - a.stock
+          default:
+            return 0
+        }
+      }),
+    [products, searchTerm, sortOrder]
+  )
+
+  const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE)
+  const paginatedProducts = filteredProducts.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  )
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm, sortOrder, showActiveOnly])
 
   return (
     <DashboardLayout>
@@ -253,8 +267,7 @@ export default function ProductsPage() {
               </div>
             ) : (
               <div className="space-y-3">
-                {/* AHORA .map() USA LA LISTA YA ORDENADA */}
-                {filteredProducts.map((product) => (
+                {paginatedProducts.map((product) => (
                   <div
                     key={product.code}
                     className="flex items-center justify-between p-4 border border-gray-100 rounded-xl hover:bg-gray-50 transition-all duration-200 "
@@ -363,8 +376,72 @@ export default function ProductsPage() {
                     )}
                   </div>
                 ))}
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between pt-6 border-t border-gray-100">
+                    <span className="text-sm text-gray-500">
+                      Mostrando {(currentPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, filteredProducts.length)} de {filteredProducts.length} productos
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                        disabled={currentPage <= 1}
+                        className="hover:bg-emerald-50 hover:border-emerald-300"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </Button>
+                      {Array.from({ length: totalPages }, (_, i) => i + 1)
+                        .filter((page) => {
+                          // Show first, last, current, and neighbors
+                          if (page === 1 || page === totalPages) return true
+                          if (Math.abs(page - currentPage) <= 1) return true
+                          return false
+                        })
+                        .reduce<(number | string)[]>((acc, page, idx, arr) => {
+                          if (idx > 0 && page - (arr[idx - 1] as number) > 1) {
+                            acc.push("...")
+                          }
+                          acc.push(page)
+                          return acc
+                        }, [])
+                        .map((item, idx) =>
+                          typeof item === "string" ? (
+                            <span key={`ellipsis-${idx}`} className="px-2 text-gray-400 text-sm">
+                              {item}
+                            </span>
+                          ) : (
+                            <Button
+                              key={item}
+                              variant={item === currentPage ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => setCurrentPage(item)}
+                              className={item === currentPage
+                                ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                                : "hover:bg-emerald-50 hover:border-emerald-300"
+                              }
+                            >
+                              {item}
+                            </Button>
+                          )
+                        )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                        disabled={currentPage >= totalPages}
+                        className="hover:bg-emerald-50 hover:border-emerald-300"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
                 {lastKey && (
-                  <div className="text-center pt-6">
+                  <div className="text-center pt-4">
                     <Button
                       variant="outline"
                       onClick={() => loadProducts(false)}
