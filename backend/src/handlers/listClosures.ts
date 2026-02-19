@@ -51,11 +51,13 @@ export const handler = async (
             }
         }
 
+        const start = queryParams.start;
+        const end = queryParams.end;
+
         let command: QueryCommand;
 
         if (day) {
             // CASO 1: Filtrar por día específico (Usa GSI)
-            // Valida formato solo si se provee el día
             if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) {
                 throw new BadRequestError('day must be in YYYY-MM-DD format');
             }
@@ -76,14 +78,37 @@ export const handler = async (
                 ScanIndexForward: false,
             });
 
+        } else if (start || end) {
+            // CASO 2: Filtrar por rango de fechas (Usa SK range en Tabla Principal)
+            const pk = `COM#${commerceId}`;
+
+            // Corrección: Los límites deben incluir el prefijo para que BETWEEN funcione correctamente con strings
+            // skStart: Si hay 'start', usamos 'CLOSE#2026-02-01', si no, el mínimo posible 'CLOSE#'
+            const skStart = start ? `CLOSE#${start}` : 'CLOSE#';
+
+            // skEnd: Si hay 'end', usamos 'CLOSE#2026-02-19\uffff' para incluir todo ese día.
+            // Si no hay 'end', usamos el prefijo con el carácter máximo para cerrar el rango.
+            const skEnd = end ? `CLOSE#${end}\uffff` : 'CLOSE#\uffff';
+
+            command = new QueryCommand({
+                TableName: tableName,
+                KeyConditionExpression: 'PK = :pk AND SK BETWEEN :skStart AND :skEnd',
+                ExpressionAttributeValues: {
+                    ':pk': pk,
+                    ':skStart': skStart,
+                    ':skEnd': skEnd,
+                },
+                ExclusiveStartKey: exclusiveStartKey,
+                Limit: 25,
+                ScanIndexForward: false,
+            });
+
         } else {
-            // CASO 2: Historial General (Usa Tabla Principal)
-            // Esto permite ver "Los últimos cierres" sin importar la fecha
+            // CASO 3: Historial General (Usa Tabla Principal)
             const pk = `COM#${commerceId}`;
 
             command = new QueryCommand({
                 TableName: tableName,
-                // No usamos IndexName, vamos directo a la tabla principal
                 KeyConditionExpression: 'PK = :pk AND begins_with(SK, :closePrefix)',
                 ExpressionAttributeValues: {
                     ':pk': pk,
@@ -91,7 +116,7 @@ export const handler = async (
                 },
                 ExclusiveStartKey: exclusiveStartKey,
                 Limit: 25,
-                ScanIndexForward: false, // Descendente (más recientes primero)
+                ScanIndexForward: false,
             });
         }
 

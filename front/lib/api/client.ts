@@ -219,9 +219,11 @@ export class ApiClient {
     })
   }
 
-  async listClosures(params?: { day?: string; lastKey?: string }): Promise<any> {
+  async listClosures(params?: { day?: string; start?: string; end?: string; lastKey?: string }): Promise<any> {
     const searchParams = new URLSearchParams()
     if (params?.day) searchParams.append("day", params.day)
+    if (params?.start) searchParams.append("start", params.start)
+    if (params?.end) searchParams.append("end", params.end)
     if (params?.lastKey) searchParams.append("lastKey", params.lastKey)
     const query = searchParams.toString()
     return this.makeRequest(`/closures${query ? `?${query}` : ""}`)

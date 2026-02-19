@@ -4,9 +4,8 @@ import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Calendar, History, Loader2, Eye } from "lucide-react"
+import { History, Loader2, Eye } from "lucide-react"
 import { apiClient } from "@/lib/api/client"
 import type { CashClose, CashCloseListResponse } from "@/lib/types/api"
 import { format } from "date-fns"
@@ -14,14 +13,15 @@ import { es } from "date-fns/locale"
 
 interface ClosureHistoryTableProps {
     refreshTrigger?: number
+    startDate?: string
+    endDate?: string
 }
 
-export function ClosureHistoryTable({ refreshTrigger }: ClosureHistoryTableProps) {
+export function ClosureHistoryTable({ refreshTrigger, startDate, endDate }: ClosureHistoryTableProps) {
     const router = useRouter()
     const [closures, setClosures] = useState<CashClose[]>([])
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState("")
-    const [searchDate, setSearchDate] = useState(new Date().toISOString().split("T")[0])
     const [lastKey, setLastKey] = useState<string | undefined>()
 
     const formatCurrency = (amount: number) => {
@@ -36,10 +36,19 @@ export function ClosureHistoryTable({ refreshTrigger }: ClosureHistoryTableProps
             setLoading(true)
             setError("")
 
-            const response: CashCloseListResponse = await apiClient.listClosures({
-                day: searchDate,
+            const params: Record<string, string | undefined> = {
                 lastKey: reset ? undefined : lastKey,
-            })
+            }
+
+            // Build query params based on date range
+            if (startDate && endDate && startDate === endDate) {
+                params.day = startDate
+            } else {
+                if (startDate) params.start = startDate
+                if (endDate) params.end = endDate
+            }
+
+            const response: CashCloseListResponse = await apiClient.listClosures(params)
 
             if (reset) {
                 setClosures(response.items)
@@ -58,21 +67,19 @@ export function ClosureHistoryTable({ refreshTrigger }: ClosureHistoryTableProps
         } finally {
             setLoading(false)
         }
-    }, [searchDate, lastKey])
+    }, [startDate, endDate, lastKey])
 
     useEffect(() => {
-        loadClosures(true)
-    }, [searchDate])
+        if (startDate && endDate) {
+            loadClosures(true)
+        }
+    }, [startDate, endDate])
 
     useEffect(() => {
         if (refreshTrigger && refreshTrigger > 0) {
             loadClosures(true)
         }
     }, [refreshTrigger])
-
-    const handleDateFilter = () => {
-        loadClosures(true)
-    }
 
     if (error && error.includes("administradores")) {
         return null // Don't show the component at all if user is not admin
@@ -81,26 +88,10 @@ export function ClosureHistoryTable({ refreshTrigger }: ClosureHistoryTableProps
     return (
         <Card>
             <CardHeader>
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                    <CardTitle className="flex items-center gap-2 text-xl">
-                        <History className="w-5 h-5" />
-                        Historial de Cierres
-                    </CardTitle>
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
-                        <div className="flex items-center gap-2">
-                            <Calendar className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                            <Input
-                                type="date"
-                                value={searchDate}
-                                onChange={(e) => setSearchDate(e.target.value)}
-                                className="flex-1 sm:w-40"
-                            />
-                        </div>
-                        <Button onClick={handleDateFilter} size="sm" disabled={loading}>
-                            Filtrar
-                        </Button>
-                    </div>
-                </div>
+                <CardTitle className="flex items-center gap-2 text-xl">
+                    <History className="w-5 h-5" />
+                    Historial de Cierres
+                </CardTitle>
             </CardHeader>
             <CardContent>
                 {error && !error.includes("administradores") && (
@@ -199,7 +190,8 @@ export function ClosureHistoryTable({ refreshTrigger }: ClosureHistoryTableProps
                             <table className="w-full text-sm">
                                 <thead>
                                     <tr className="text-left border-b">
-                                        <th className="pb-2 pr-4">Hora</th>
+                                        <th className="pb-2 pr-4">Fecha</th>
+                                        <th className="pb-2 px-4">Hora</th>
                                         <th className="pb-2 px-4">Efectivo</th>
                                         <th className="pb-2 px-4">Tarjeta</th>
                                         <th className="pb-2 px-4">Transferencia</th>
@@ -216,6 +208,9 @@ export function ClosureHistoryTable({ refreshTrigger }: ClosureHistoryTableProps
                                     {closures.map((closure) => (
                                         <tr key={closure.closureId} className="border-b hover:bg-gray-50">
                                             <td className="py-3 pr-4">
+                                                {format(new Date(closure.closedAt), "dd/MM/yyyy", { locale: es })}
+                                            </td>
+                                            <td className="py-3 px-4">
                                                 {format(new Date(closure.closedAt), "HH:mm", { locale: es })}
                                             </td>
                                             <td className="py-3 px-4 tabular-nums">
