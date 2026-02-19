@@ -52,30 +52,64 @@ export const handler = async (
         }
 
         const pk = `COM#${commerceId}`;
+        const { start, end } = queryParams;
 
-        const command = new QueryCommand({
-            TableName: tableName,
-            KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
-            ExpressionAttributeValues: {
-                ':pk': pk,
-                ':prefix': 'AUDIT#',
-            },
-            ExclusiveStartKey: exclusiveStartKey,
-            Limit: 50,
-            ScanIndexForward: false, // Más recientes primero
-        });
+        // Build KeyConditionExpression based on date filters
+        let keyCondition: string;
+        const expressionValues: Record<string, any> = { ':pk': pk };
 
-        const result = await docClient.send(command);
-        const items = result.Items ?? [];
+        if (start && end) {
+            keyCondition = 'PK = :pk AND SK BETWEEN :skStart AND :skEnd';
+            expressionValues[':skStart'] = `AUDIT#${start}T00:00:00.000Z`;
+            expressionValues[':skEnd'] = `AUDIT#${end}T23:59:59.999Z~`;
+        } else if (start) {
+            keyCondition = 'PK = :pk AND SK >= :skStart';
+            expressionValues[':skStart'] = `AUDIT#${start}T00:00:00.000Z`;
+        } else if (end) {
+            keyCondition = 'PK = :pk AND SK BETWEEN :skStart AND :skEnd';
+            expressionValues[':skStart'] = 'AUDIT#';
+            expressionValues[':skEnd'] = `AUDIT#${end}T23:59:59.999Z~`;
+        } else {
+            keyCondition = 'PK = :pk AND begins_with(SK, :prefix)';
+            expressionValues[':prefix'] = 'AUDIT#';
+        }
+
+        const PAGE_SIZE = 20;
+        let items: any[] = [];
+        let currentKey = exclusiveStartKey;
+
+        // Loop to fill page when using date filters (FilterExpression may skip items)
+        while (items.length < PAGE_SIZE) {
+            const command = new QueryCommand({
+                TableName: tableName,
+                KeyConditionExpression: keyCondition,
+                ExpressionAttributeValues: expressionValues,
+                ExclusiveStartKey: currentKey,
+                Limit: PAGE_SIZE,
+                ScanIndexForward: false,
+            });
+
+            const result = await docClient.send(command);
+            items.push(...(result.Items ?? []));
+
+            if (!result.LastEvaluatedKey) {
+                currentKey = undefined;
+                break;
+            }
+            currentKey = result.LastEvaluatedKey;
+        }
+
+        const paginatedItems = items.slice(0, PAGE_SIZE);
+        const nextKey = (currentKey && items.length >= PAGE_SIZE) ? currentKey : undefined;
 
         let lastKeyBase64: string | undefined;
-        if (result.LastEvaluatedKey) {
+        if (nextKey) {
             lastKeyBase64 = Buffer.from(
-                JSON.stringify(result.LastEvaluatedKey)
+                JSON.stringify(nextKey)
             ).toString('base64');
         }
 
-        return formatJSONResponse({ items, lastKey: lastKeyBase64 });
+        return formatJSONResponse({ items: paginatedItems, lastKey: lastKeyBase64 });
     } catch (err) {
         return buildErrorResponse(err);
     }

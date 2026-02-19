@@ -233,9 +233,11 @@ export class ApiClient {
     return this.makeRequest(`/closures/${encodeURIComponent(closureId)}`)
   }
 
-  async listAuditLogs(params?: { lastKey?: string }): Promise<any> {
+  async listAuditLogs(params?: { lastKey?: string; start?: string; end?: string }): Promise<any> {
     const searchParams = new URLSearchParams()
     if (params?.lastKey) searchParams.append("lastKey", params.lastKey)
+    if (params?.start) searchParams.append("start", params.start)
+    if (params?.end) searchParams.append("end", params.end)
     const query = searchParams.toString()
     return this.makeRequest(`/audit-logs${query ? `?${query}` : ""}`)
   }
