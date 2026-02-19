@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
-import { Plus, Receipt, CalendarIcon, Search, ChevronLeft, ChevronRight } from "lucide-react"
+import { useState, useEffect, useCallback, useMemo } from "react"
+import { Plus, Receipt, CalendarIcon, Search, ChevronLeft, ChevronRight, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -30,7 +30,7 @@ import { apiClient } from "@/lib/api/client"
 import type { Sale, SaleListResponse } from "@/lib/types/api"
 import { PAYMENT_METHOD_LABELS } from "@/lib/types/api"
 import { SaleForm } from "@/components/sales/sale-form"
-import { format } from "date-fns"
+import { format, startOfMonth, subDays } from "date-fns"
 import { es } from "date-fns/locale"
 import { DashboardLayout } from "../../../components/dashboard/dashboard-layout"
 
@@ -67,6 +67,70 @@ export default function SalesPage() {
       end: todayStr,
       dateRange: { from: today, to: today },
     }
+  }
+
+  // Helper: determine if any filter is active (differs from default "today" view)
+  const hasActiveFilters = useMemo(() => {
+    if (searchSaleId.trim()) return true
+    const { start: todayStr } = getTodayRange()
+    if (startDate && startDate !== todayStr) return true
+    if (endDate && endDate !== todayStr) return true
+    return false
+  }, [searchSaleId, startDate, endDate])
+
+  // Helper: apply a date range, update state, and load sales
+  const applyDateRange = useCallback((newStart: string, newEnd: string, dateRange: DateRange) => {
+    setStartDate(newStart)
+    setEndDate(newEnd)
+    setTempDateRange(dateRange)
+    setSearchSaleId("")
+    setIsCalendarOpen(false)
+    setCurrentPage(1)
+    setPageKeys({ 1: undefined })
+    setHasNextPage(false)
+    setLoading(true)
+    const params: Record<string, string> = newStart === newEnd
+      ? { day: newStart }
+      : { start: newStart, end: newEnd }
+    apiClient.listSales(params).then((response: SaleListResponse) => {
+      setSales(response.items)
+      if (response.lastKey) {
+        setHasNextPage(true)
+        setPageKeys({ 1: undefined, 2: response.lastKey })
+      }
+    }).catch((error) => {
+      console.error("Error loading sales:", error)
+    }).finally(() => {
+      setLoading(false)
+      setIsFiltering(false)
+    })
+  }, [])
+
+  // Date preset handlers
+  const handlePresetToday = () => {
+    const today = new Date()
+    const todayStr = today.toISOString().split("T")[0]
+    applyDateRange(todayStr, todayStr, { from: today, to: today })
+  }
+
+  const handlePresetLast7Days = () => {
+    const today = new Date()
+    const from = subDays(today, 6)
+    applyDateRange(
+      from.toISOString().split("T")[0],
+      today.toISOString().split("T")[0],
+      { from, to: today }
+    )
+  }
+
+  const handlePresetThisMonth = () => {
+    const today = new Date()
+    const from = startOfMonth(today)
+    applyDateRange(
+      from.toISOString().split("T")[0],
+      today.toISOString().split("T")[0],
+      { from, to: today }
+    )
   }
 
   // Set initial date on client side only to avoid hydration mismatch
@@ -137,28 +201,7 @@ export default function SalesPage() {
 
   const handleClearFilters = () => {
     const { start, end, dateRange } = getTodayRange()
-    setStartDate(start)
-    setEndDate(end)
-    setTempDateRange(dateRange)
-    setSearchSaleId("")
-    setIsFiltering(true)
-    setCurrentPage(1)
-    setPageKeys({ 1: undefined })
-    setHasNextPage(false)
-    // Load today's sales
-    setLoading(true)
-    apiClient.listSales({ day: start }).then((response: SaleListResponse) => {
-      setSales(response.items)
-      if (response.lastKey) {
-        setHasNextPage(true)
-        setPageKeys({ 1: undefined, 2: response.lastKey })
-      }
-    }).catch((error) => {
-      console.error("Error loading sales:", error)
-    }).finally(() => {
-      setLoading(false)
-      setIsFiltering(false)
-    })
+    applyDateRange(start, end, dateRange)
   }
 
   const handleNextPage = () => {
@@ -221,129 +264,126 @@ export default function SalesPage() {
           </Button>
         </div>
         <Card>
-          <CardHeader>
-            <div className="flex flex-col gap-4">
-              <CardTitle className="flex items-center gap-2">
-                <Receipt className="w-5 h-5" />
-                Lista de Ventas
-              </CardTitle>
-              {/* Filtros */}
-              <div className="flex flex-col gap-3">
-                {/* Buscador por ID */}
-                <div className="flex items-center gap-2">
-                  <Search className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                  <Input
-                    type="text"
-                    placeholder="Buscar por ID de venta..."
-                    value={searchSaleId}
-                    onChange={(e) => setSearchSaleId(e.target.value)}
-                    onKeyDown={handleSearchKeyDown}
-                    className="flex-1 sm:max-w-xs"
-                  />
-                </div>
-                {/* Date range picker */}
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                  <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className="justify-start text-left font-normal gap-2 bg-white border shadow-sm hover:bg-gray-50 w-full sm:w-auto"
-                      >
-                        <CalendarIcon className="h-4 w-4 text-gray-500" />
-                        <span className="text-sm">
-                          {tempDateRange?.from ? (
-                            tempDateRange.to ? (
-                              <>
-                                {format(tempDateRange.from, "dd MMM yyyy", { locale: es })} —{" "}
-                                {format(tempDateRange.to, "dd MMM yyyy", { locale: es })}
-                              </>
-                            ) : (
-                              format(tempDateRange.from, "dd MMM yyyy", { locale: es })
-                            )
-                          ) : (
-                            "Seleccionar fechas"
-                          )}
-                        </span>
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="range"
-                        defaultMonth={tempDateRange?.from}
-                        selected={tempDateRange}
-                        onSelect={(newRange, selectedDay) => {
-                          if (tempDateRange?.from && tempDateRange?.to && selectedDay) {
-                            setTempDateRange({ from: selectedDay, to: undefined });
-                          } else {
-                            setTempDateRange(newRange);
-                          }
-                        }}
-                        numberOfMonths={1}
-                        locale={es}
-                      />
-                      <div className="flex items-center justify-end gap-2 p-3 border-t">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setIsCalendarOpen(false)}
-                        >
-                          Cancelar
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={() => {
-                            if (tempDateRange?.from && tempDateRange?.to) {
-                              const newStart = tempDateRange.from.toISOString().split("T")[0]
-                              const newEnd = tempDateRange.to.toISOString().split("T")[0]
-                              setStartDate(newStart)
-                              setEndDate(newEnd)
-                              setIsCalendarOpen(false)
-                              // Directly load with the new date range
-                              setCurrentPage(1)
-                              setPageKeys({ 1: undefined })
-                              setHasNextPage(false)
-                              setLoading(true)
-                              const params: any = newStart === newEnd
-                                ? { day: newStart }
-                                : { start: newStart, end: newEnd }
-                              apiClient.listSales(params).then((response: SaleListResponse) => {
-                                setSales(response.items)
-                                if (response.lastKey) {
-                                  setHasNextPage(true)
-                                  setPageKeys({ 1: undefined, 2: response.lastKey })
-                                }
-                              }).catch((error) => {
-                                console.error("Error loading sales:", error)
-                              }).finally(() => {
-                                setLoading(false)
-                              })
-                            }
-                          }}
-                          disabled={!tempDateRange?.from || !tempDateRange?.to}
-                          className="bg-orange-600 hover:bg-orange-700"
-                        >
-                          Aplicar
-                        </Button>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                  <div className="flex gap-2">
-                    <Button onClick={handleFilter} size="sm" className="flex-1 sm:flex-initial">
-                      Filtrar
-                    </Button>
-                    {searchSaleId && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleClearFilters}
-                        className="flex-1 sm:flex-initial"
-                      >
-                        Limpiar
-                      </Button>
-                    )}
-                  </div>
-                </div>
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-2 mb-4">
+              <Receipt className="w-5 h-5" />
+              Lista de Ventas
+            </CardTitle>
+
+            {/* ═══ Toolbar de Filtros ═══ */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              {/* Buscador por ID */}
+              <div className="relative flex-1 sm:max-w-xs">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Input
+                  type="text"
+                  placeholder="Buscar por N° de venta..."
+                  value={searchSaleId}
+                  onChange={(e) => setSearchSaleId(e.target.value)}
+                  onKeyDown={handleSearchKeyDown}
+                  className="pl-9"
+                />
               </div>
+
+              {/* Date Range Picker */}
+              <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="justify-start text-left font-normal gap-2 bg-white border shadow-sm hover:bg-gray-50 w-full sm:w-auto"
+                  >
+                    <CalendarIcon className="h-4 w-4 text-orange-500" />
+                    <span className="text-sm truncate">
+                      {tempDateRange?.from ? (
+                        tempDateRange.to ? (
+                          <>
+                            {format(tempDateRange.from, "dd MMM yyyy", { locale: es })} —{" "}
+                            {format(tempDateRange.to, "dd MMM yyyy", { locale: es })}
+                          </>
+                        ) : (
+                          format(tempDateRange.from, "dd MMM yyyy", { locale: es })
+                        )
+                      ) : (
+                        "Seleccionar fechas"
+                      )}
+                    </span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  {/* Presets de fecha */}
+                  <div className="flex flex-wrap gap-1.5 p-3 border-b">
+                    <Button variant="outline" size="sm" className="text-xs h-7" onClick={handlePresetToday}>
+                      Hoy
+                    </Button>
+                    <Button variant="outline" size="sm" className="text-xs h-7" onClick={handlePresetLast7Days}>
+                      Últimos 7 días
+                    </Button>
+                    <Button variant="outline" size="sm" className="text-xs h-7" onClick={handlePresetThisMonth}>
+                      Este mes
+                    </Button>
+                  </div>
+                  <Calendar
+                    mode="range"
+                    defaultMonth={tempDateRange?.from}
+                    selected={tempDateRange}
+                    onSelect={(newRange, selectedDay) => {
+                      if (tempDateRange?.from && tempDateRange?.to && selectedDay) {
+                        setTempDateRange({ from: selectedDay, to: undefined });
+                      } else {
+                        setTempDateRange(newRange);
+                      }
+                    }}
+                    numberOfMonths={1}
+                    locale={es}
+                  />
+                  <div className="flex items-center justify-end gap-2 p-3 border-t">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setIsCalendarOpen(false)}
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        if (tempDateRange?.from && tempDateRange?.to) {
+                          const newStart = tempDateRange.from.toISOString().split("T")[0]
+                          const newEnd = tempDateRange.to.toISOString().split("T")[0]
+                          applyDateRange(newStart, newEnd, tempDateRange)
+                        }
+                      }}
+                      disabled={!tempDateRange?.from || !tempDateRange?.to}
+                      className="bg-orange-600 hover:bg-orange-700"
+                    >
+                      Aplicar
+                    </Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
+
+              {/* Botón Buscar */}
+              <Button
+                onClick={handleFilter}
+                size="sm"
+                className="bg-orange-600 hover:bg-orange-700 w-full sm:w-auto"
+              >
+                <Search className="w-4 h-4 mr-1.5" />
+                Buscar
+              </Button>
+
+              {/* Limpiar Filtros — visible siempre que haya un filtro activo */}
+              {hasActiveFilters && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleClearFilters}
+                  className="text-gray-500 hover:text-gray-700 w-full sm:w-auto"
+                >
+                  <X className="w-4 h-4 mr-1.5" />
+                  Limpiar filtros
+                </Button>
+              )}
             </div>
           </CardHeader>
           <CardContent>
