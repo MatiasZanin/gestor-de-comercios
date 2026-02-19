@@ -131,6 +131,39 @@ export function FinanceTab({ dailySummaries, closures }: FinanceTabProps) {
                         </Card>
                     );
                 })}
+                <Card
+                    key={"total"}
+                    className="border-0 shadow-sm"
+                    style={{
+                        background: `linear-gradient(to bottom right, #0f172a10, white)`, // Slate-900 al 10%
+                    }}
+                >
+                    <CardContent className="pt-4">
+                        <div className="flex items-center gap-3">
+                            <div
+                                className="p-2 rounded-lg"
+                                style={{ backgroundColor: `#0f172a20` }} // Slate-900 al 20%
+                            >
+                                <Wallet className="h-5 w-5" style={{ color: "#0f172a" }} />
+                            </div>
+                            <div className="flex-1">
+                                <p className="text-sm text-gray-600">Total</p>
+                                <p className="text-xl font-bold text-slate-900">
+                                    ${totalIncome.toLocaleString()}
+                                </p>
+                            </div>
+                            <div
+                                className="px-2 py-1 rounded-full text-xs font-semibold"
+                                style={{
+                                    backgroundColor: `#0f172a20`,
+                                    color: "#0f172a",
+                                }}
+                            >
+                                100%
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -283,8 +316,8 @@ export function FinanceTab({ dailySummaries, closures }: FinanceTabProps) {
                                                     </TableCell>
                                                     <TableCell className="text-right">
                                                         <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${closure.difference === 0
-                                                                ? "bg-green-100 text-green-700"
-                                                                : "bg-red-100 text-red-700"
+                                                            ? "bg-green-100 text-green-700"
+                                                            : "bg-red-100 text-red-700"
                                                             }`}>
                                                             {closure.difference > 0 ? "+" : ""}
                                                             ${closure.difference.toLocaleString()}
