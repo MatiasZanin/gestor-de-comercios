@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { Plus, Minus, X } from "lucide-react"
+import { Plus, Minus, X, RotateCcw } from "lucide-react"
 import { formatCurrency } from "@/lib/utils/sales-utils"
 import type { SaleItem } from "@/lib/types/api"
 
@@ -12,10 +12,11 @@ interface SaleCartProps {
     onUpdateQty: (code: string, qty: number) => void
     onUpdateQtyInput: (code: string, val: string) => void
     onRemove: (code: string) => void
+    onToggleReturn: (code: string) => void
     total: number
 }
 
-export function SaleCart({ items, qtyInputs, onUpdateQty, onUpdateQtyInput, onRemove, total }: SaleCartProps) {
+export function SaleCart({ items, qtyInputs, onUpdateQty, onUpdateQtyInput, onRemove, onToggleReturn, total }: SaleCartProps) {
 
     const handleInputChange = (code: string, value: string) => {
         if (value === "" || /^\d*\.?\d{0,2}$/.test(value)) {
@@ -61,11 +62,26 @@ export function SaleCart({ items, qtyInputs, onUpdateQty, onUpdateQtyInput, onRe
                         {/* Lista Scrollable */}
                         <div className="flex-1 overflow-y-auto p-2 space-y-2 min-h-0" style={{ scrollbarGutter: "stable" }}>
                             {items.map((item) => {
-                                const qtyInput = qtyInputs[item.code] ?? item.qty.toString()
+                                const isReturn = item.qty < 0
+                                const absQty = Math.abs(item.qty)
+                                const qtyInput = qtyInputs[item.code] ?? absQty.toFixed(2)
                                 return (
-                                    <div key={item.code} className="flex items-center justify-between p-3 bg-white rounded-lg shadow-sm border">
+                                    <div
+                                        key={item.code}
+                                        className={`flex items-center justify-between p-3 rounded-lg shadow-sm border transition-colors ${isReturn
+                                                ? "bg-red-50 border-red-200"
+                                                : "bg-white border-gray-200"
+                                            }`}
+                                    >
                                         <div className="flex-1 min-w-0 mr-2">
-                                            <h4 className="font-medium truncate text-sm">{item.name}</h4>
+                                            <div className="flex items-center gap-2">
+                                                <h4 className={`font-medium truncate text-sm ${isReturn ? "text-red-600" : ""}`}>{item.name}</h4>
+                                                {isReturn && (
+                                                    <span className="text-[10px] font-semibold uppercase tracking-wider text-red-500 bg-red-100 px-1.5 py-0.5 rounded shrink-0">
+                                                        Devolución
+                                                    </span>
+                                                )}
+                                            </div>
                                             <div className="flex items-center text-xs text-gray-500 gap-2">
                                                 <span className="truncate max-w-[100px]">{item.code}</span>
                                                 {item.brand && <span className="truncate max-w-[100px] hidden sm:inline">• {item.brand}</span>}
@@ -73,12 +89,30 @@ export function SaleCart({ items, qtyInputs, onUpdateQty, onUpdateQtyInput, onRe
                                         </div>
 
                                         <div className="flex items-center gap-1 shrink-0">
+                                            {/* Toggle return mode */}
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <Button
+                                                        type="button"
+                                                        size="icon"
+                                                        variant={isReturn ? "default" : "outline"}
+                                                        className={`h-7 w-7 ${isReturn ? "bg-red-500 hover:bg-red-600 text-white" : "hover:bg-red-50 hover:text-red-600 hover:border-red-300"}`}
+                                                        onClick={() => onToggleReturn(item.code)}
+                                                    >
+                                                        <RotateCcw className="w-3 h-3" />
+                                                    </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                    {isReturn ? "Quitar devolución" : "Marcar como devolución"}
+                                                </TooltipContent>
+                                            </Tooltip>
+
                                             <Button
                                                 type="button" size="icon" variant="outline" className="h-7 w-7"
                                                 onClick={() => {
-                                                    const newQty = Math.max(0, item.qty - 1)
-                                                    onUpdateQty(item.code, newQty)
-                                                    onUpdateQtyInput(item.code, newQty.toFixed(2))
+                                                    const newAbsQty = Math.max(0, absQty - 1)
+                                                    onUpdateQty(item.code, newAbsQty)
+                                                    onUpdateQtyInput(item.code, newAbsQty.toFixed(2))
                                                 }}
                                             >
                                                 <Minus className="w-3 h-3" />
@@ -96,15 +130,15 @@ export function SaleCart({ items, qtyInputs, onUpdateQty, onUpdateQtyInput, onRe
                                             <Button
                                                 type="button" size="icon" variant="outline" className="h-7 w-7"
                                                 onClick={() => {
-                                                    const newQty = item.qty + 1
-                                                    onUpdateQty(item.code, newQty)
-                                                    onUpdateQtyInput(item.code, newQty.toFixed(2))
+                                                    const newAbsQty = absQty + 1
+                                                    onUpdateQty(item.code, newAbsQty)
+                                                    onUpdateQtyInput(item.code, newAbsQty.toFixed(2))
                                                 }}
                                             >
                                                 <Plus className="w-3 h-3" />
                                             </Button>
 
-                                            <div className="w-20 text-right font-medium text-sm mx-1">
+                                            <div className={`w-20 text-right font-medium text-sm mx-1 ${isReturn ? "text-red-600" : ""}`}>
                                                 {formatCurrency(item.qty * item.priceSale)}
                                             </div>
 
@@ -124,7 +158,7 @@ export function SaleCart({ items, qtyInputs, onUpdateQty, onUpdateQtyInput, onRe
                         <div className="p-4 bg-white border-t mt-auto shadow-sm z-10">
                             <div className="flex justify-between items-center">
                                 <span className="text-gray-600 font-medium">Subtotal Items: {items.length}</span>
-                                <div className="text-xl font-bold text-gray-900">
+                                <div className={`text-xl font-bold ${total < 0 ? "text-red-600" : "text-gray-900"}`}>
                                     Total: {formatCurrency(total)}
                                 </div>
                             </div>

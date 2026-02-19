@@ -148,11 +148,12 @@ export const handler = async (
         !item.code ||
         !item.name ||
         typeof item.qty !== 'number' ||
+        item.qty === 0 ||
         item.priceSale === undefined ||
         !item.uom
       ) {
         throw new BadRequestError(
-          'Each item must include code, name, qty, priceSale and uom'
+          'Each item must include code, name, qty (non-zero), priceSale and uom'
         );
       }
       if (item.priceBuy === undefined) {

@@ -8,11 +8,12 @@ import { OtherPriceModal } from "./other-price-modal"
 import { ProductList } from "./product-list"
 import { SaleCart } from "./sale-cart"
 import { SuccessModal } from "./success-modal"
+import type { Sale } from "@/lib/types/api"
 import { formatCurrency } from "@/lib/utils/sales-utils"
 import { CheckoutModal } from "./checkout-modal"
 
 interface SaleFormProps {
-  onSuccess: () => void
+  onSuccess: (sale: Sale) => void
   onCancel: () => void
 }
 
@@ -22,7 +23,7 @@ export function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       {/* CAMBIO: h-[95vh] y flex-col para forzar la altura completa */}
-      <Card className="w-full max-w-7xl h-[95vh] flex flex-col overflow-hidden">
+      <Card className="w-full max-w-7xl h-[95vh] flex flex-col overflow-hidden gap-0">
 
         <CardHeader className="flex flex-row items-center justify-between py-4 border-b shrink-0">
           <CardTitle>Nueva Venta</CardTitle>
@@ -55,6 +56,7 @@ export function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
                 onUpdateQty={actions.updateItemQty}
                 onUpdateQtyInput={actions.updateQtyInput}
                 onRemove={actions.removeItem}
+                onToggleReturn={actions.toggleReturnMode}
                 total={actions.calculateTotal()}
               />
             </div>
@@ -78,7 +80,11 @@ export function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
               className="bg-orange-600 hover:bg-orange-700 px-8"
               onClick={() => actions.setShowCheckoutModal(true)}
             >
-              Continuar al Cobro
+              {actions.calculateTotal() > 0
+                ? "Cobrar"
+                : actions.calculateTotal() === 0
+                  ? "Confirmar Cambio"
+                  : "Emitir Reembolso"}
             </Button>
           </div>
 

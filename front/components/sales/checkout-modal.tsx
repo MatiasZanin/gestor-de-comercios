@@ -30,10 +30,16 @@ export function CheckoutModal({
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[65]">
             <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden">
                 <div className="p-6 border-b bg-gray-50">
-                    <h3 className="text-xl font-bold text-center">Finalizar Venta</h3>
+                    <h3 className="text-xl font-bold text-center">
+                        {total > 0 ? "Finalizar Venta" : total === 0 ? "Confirmar Cambio" : "Emitir Reembolso"}
+                    </h3>
                     <div className="mt-4 text-center">
-                        <span className="text-sm text-gray-500 uppercase tracking-wide">Total a Cobrar</span>
-                        <div className="text-4xl font-black text-orange-600">{formatCurrency(total)}</div>
+                        <span className="text-sm text-gray-500 uppercase tracking-wide">
+                            {total > 0 ? "Total a Cobrar" : total === 0 ? "Saldo del Cambio" : "Total a Reembolsar"}
+                        </span>
+                        <div className={`text-4xl font-black ${total > 0 ? "text-orange-600" : total === 0 ? "text-gray-600" : "text-red-600"}`}>
+                            {formatCurrency(Math.abs(total))}
+                        </div>
                     </div>
                 </div>
 
@@ -90,9 +96,18 @@ export function CheckoutModal({
                         <Button
                             type="submit"
                             disabled={loading}
-                            className="w-full bg-orange-600 hover:bg-orange-700 h-12 text-lg font-bold"
+                            className={`w-full h-12 text-lg font-bold ${total < 0
+                                    ? "bg-red-600 hover:bg-red-700"
+                                    : "bg-orange-600 hover:bg-orange-700"
+                                }`}
                         >
-                            {loading ? "Procesando..." : "Confirmar Venta"}
+                            {loading
+                                ? "Procesando..."
+                                : total > 0
+                                    ? "Confirmar Venta"
+                                    : total === 0
+                                        ? "Confirmar Cambio"
+                                        : "Confirmar Reembolso"}
                         </Button>
                         <Button type="button" variant="ghost" onClick={onClose} disabled={loading}>
                             Volver al carrito

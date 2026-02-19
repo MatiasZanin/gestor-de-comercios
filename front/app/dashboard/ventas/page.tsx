@@ -94,9 +94,12 @@ export default function SalesPage() {
     setShowForm(true)
   }
 
-  const handleFormSuccess = () => {
-    // setShowForm(false)
-    // loadSales(true)
+  const handleFormSuccess = (newSale: Sale) => {
+    // Auto-append only if we're viewing today's sales
+    const today = new Date().toISOString().split("T")[0]
+    if (!searchDate || searchDate === today) {
+      setSales((prev) => [newSale, ...prev])
+    }
   }
 
   const formatCurrency = (amount: number) => {
@@ -187,23 +190,33 @@ export default function SalesPage() {
 
                     {/* Vista mobile - Cards */}
                     <div className="sm:hidden space-y-3">
-                      {sale.items.map((item, index) => (
-                        <div key={index} className="bg-gray-50 p-3 rounded-lg space-y-1.5">
-                          <div className="flex justify-between items-start">
-                            <div className="font-medium text-gray-900 text-sm">{item.name}</div>
-                            <div className="font-bold text-gray-900 text-sm tabular-nums">
-                              {formatCurrency(item.qty * item.priceSale)}
+                      {sale.items.map((item, index) => {
+                        const isReturn = item.qty < 0
+                        return (
+                          <div key={index} className={`p-3 rounded-lg space-y-1.5 ${isReturn ? "bg-red-50 border border-red-200" : "bg-gray-50"}`}>
+                            <div className="flex justify-between items-start">
+                              <div className="flex items-center gap-2">
+                                <div className={`font-medium text-sm ${isReturn ? "text-red-600" : "text-gray-900"}`}>{item.name}</div>
+                                {isReturn && (
+                                  <span className="text-[10px] font-semibold uppercase tracking-wider text-red-500 bg-red-100 px-1.5 py-0.5 rounded shrink-0">
+                                    Devolución
+                                  </span>
+                                )}
+                              </div>
+                              <div className={`font-bold text-sm tabular-nums ${isReturn ? "text-red-600" : "text-gray-900"}`}>
+                                {formatCurrency(item.qty * item.priceSale)}
+                              </div>
+                            </div>
+                            <div className="text-xs text-gray-600 space-y-0.5">
+                              <div>Código: {item.code}</div>
+                              <div className="flex justify-between">
+                                <span>Cantidad: {Math.abs(item.qty)} {item.uom}</span>
+                                <span>Precio: {formatCurrency(item.priceSale)}</span>
+                              </div>
                             </div>
                           </div>
-                          <div className="text-xs text-gray-600 space-y-0.5">
-                            <div>Código: {item.code}</div>
-                            <div className="flex justify-between">
-                              <span>Cantidad: {item.qty} {item.uom}</span>
-                              <span>Precio: {formatCurrency(item.priceSale)}</span>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
+                        )
+                      })}
                       <div className="border-t-2 pt-3 mt-3">
                         <div className="flex justify-between items-center">
                           <span className="text-base font-bold text-gray-900">Total</span>
@@ -234,27 +247,37 @@ export default function SalesPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {sale.items.map((item, index) => (
-                            <tr key={index} className="hover:bg-gray-50">
-                              <td className="pr-3 py-1">
-                                <TruncatedCell>{item.name}</TruncatedCell>
-                              </td>
-                              <td className="px-3 py-1">
-                                <TruncatedCell>{item.code}</TruncatedCell>
-                              </td>
-                              <td className="px-3 py-1">
-                                <TruncatedCell>{item.brand}</TruncatedCell>
-                              </td>
-                              <td className="px-3 py-1">
-                                <TruncatedCell>{item.category}</TruncatedCell>
-                              </td>
-                              <td className="px-3 py-1 whitespace-nowrap text-left tabular-nums">{item.qty} {item.uom}</td>
-                              <td className="px-3 py-1 whitespace-nowrap text-left tabular-nums">{formatCurrency(item.priceSale)}</td>
-                              <td className="px-3 py-1 whitespace-nowrap text-left tabular-nums font-medium">
-                                {formatCurrency(item.qty * item.priceSale)}
-                              </td>
-                            </tr>
-                          ))}
+                          {sale.items.map((item, index) => {
+                            const isReturn = item.qty < 0
+                            return (
+                              <tr key={index} className={isReturn ? "bg-red-50" : "hover:bg-gray-50"}>
+                                <td className="pr-3 py-1">
+                                  <div className="flex items-center gap-1.5">
+                                    <TruncatedCell className={isReturn ? "text-red-600" : ""}>{item.name}</TruncatedCell>
+                                    {isReturn && (
+                                      <span className="text-[10px] font-semibold uppercase tracking-wider text-red-500 bg-red-100 px-1 py-0.5 rounded shrink-0">
+                                        Dev.
+                                      </span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="px-3 py-1">
+                                  <TruncatedCell>{item.code}</TruncatedCell>
+                                </td>
+                                <td className="px-3 py-1">
+                                  <TruncatedCell>{item.brand}</TruncatedCell>
+                                </td>
+                                <td className="px-3 py-1">
+                                  <TruncatedCell>{item.category}</TruncatedCell>
+                                </td>
+                                <td className={`px-3 py-1 whitespace-nowrap text-left tabular-nums ${isReturn ? "text-red-600" : ""}`}>{Math.abs(item.qty)} {item.uom}</td>
+                                <td className="px-3 py-1 whitespace-nowrap text-left tabular-nums">{formatCurrency(item.priceSale)}</td>
+                                <td className={`px-3 py-1 whitespace-nowrap text-left tabular-nums font-medium ${isReturn ? "text-red-600" : ""}`}>
+                                  {formatCurrency(item.qty * item.priceSale)}
+                                </td>
+                              </tr>
+                            )
+                          })}
                           {/* Fila de Total Principal */}
                           <tr className="border-t-2 border-gray-100">
                             <td colSpan={6} className="pt-4 pb-1 text-right font-bold text-gray-900">Total:</td>

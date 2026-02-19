@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from "react"
 import { apiClient } from "@/lib/api/client"
-import type { Product, CreateSaleRequest, SaleItem, PaymentMethod } from "@/lib/types/api"
+import type { Product, CreateSaleRequest, Sale, SaleItem, PaymentMethod } from "@/lib/types/api"
 import { parseVariableWeightEAN13 } from "@/lib/utils/sales-utils"
 
 interface UseSaleFormProps {
-    onSuccess: () => void
+    onSuccess: (sale: Sale) => void
 }
 
 export function useSaleForm({ onSuccess }: UseSaleFormProps) {
@@ -56,10 +56,29 @@ export function useSaleForm({ onSuccess }: UseSaleFormProps) {
 
     const updateItemQty = (code: string, qty: number) => {
         if (isNaN(qty)) return
-        const safeQty = qty < 0 ? 0 : qty
+        // Preserve the sign: if item is in return mode (negative), keep it negative
         setSelectedItems((items) =>
-            items.map((item) => (item.code === code ? { ...item, qty: safeQty } : item))
+            items.map((item) => {
+                if (item.code !== code) return item
+                const absQty = Math.abs(qty)
+                const sign = item.qty < 0 ? -1 : 1
+                return { ...item, qty: sign * absQty }
+            })
         )
+    }
+
+    const toggleReturnMode = (code: string) => {
+        setSelectedItems((items) =>
+            items.map((item) =>
+                item.code === code ? { ...item, qty: -item.qty } : item
+            )
+        )
+        // Update the qty input display to match the absolute value
+        setQtyInputs((prev) => {
+            const current = prev[code]
+            if (!current) return prev
+            return { ...prev, [code]: current }
+        })
     }
 
     const updateQtyInput = (code: string, val: string) => {
@@ -195,7 +214,7 @@ export function useSaleForm({ onSuccess }: UseSaleFormProps) {
                 paymentMethod,
             }
 
-            await apiClient.createSale(saleData)
+            const response: Sale = await apiClient.createSale(saleData)
             await loadProducts()
 
             setSelectedItems([])
@@ -203,6 +222,7 @@ export function useSaleForm({ onSuccess }: UseSaleFormProps) {
             setNotes("")
             setShowCheckoutModal(false) // Cerramos el modal de cobro
             setShowSuccess(true)
+            onSuccess(response)
         } catch (error) {
             setError(error instanceof Error ? error.message : "Error al registrar venta")
         } finally {
@@ -236,6 +256,7 @@ export function useSaleForm({ onSuccess }: UseSaleFormProps) {
             removeItem,
             updateItemQty,
             updateQtyInput,
+            toggleReturnMode,
             handleSearchKeyDown,
             handleSubmit,
             filteredProducts,

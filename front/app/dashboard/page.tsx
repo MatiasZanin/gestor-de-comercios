@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { DashboardLayout } from "@/components/dashboard/dashboard-layout"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import { Progress } from "@/components/ui/progress"
@@ -405,6 +405,15 @@ export default function DashboardPage() {
                 </div>
               )}
             </CardContent>
+            <CardFooter>
+              <Button
+                variant="outline"
+                className="w-full"
+
+              >
+                Ver todos los productos
+              </Button>
+            </CardFooter>
           </Card>
         </div>
       </div>
