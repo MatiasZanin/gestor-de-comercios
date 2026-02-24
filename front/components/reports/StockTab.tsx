@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, Package, TrendingUp, DollarSign, Turtle, Skull, Info, X } from "lucide-react";
+import { AlertTriangle, Package, TrendingUp, DollarSign, Turtle, Skull, Info, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import {
     Table,
@@ -39,6 +39,18 @@ export function StockTab({ restockAlerts, inventoryValuation, staleProducts }: S
     const overstock = staleProducts?.overstock || [];
 
     const [showInfo, setShowInfo] = useState<Record<string, boolean>>({});
+
+    const ITEMS_PER_PAGE = 10;
+    const [criticalPage, setCriticalPage] = useState(1);
+    const [deadPage, setDeadPage] = useState(1);
+    const [slowPage, setSlowPage] = useState(1);
+
+    const paginate = <T,>(items: T[], page: number) => {
+        const start = (page - 1) * ITEMS_PER_PAGE;
+        return items.slice(start, start + ITEMS_PER_PAGE);
+    };
+
+    const totalPages = (total: number) => Math.ceil(total / ITEMS_PER_PAGE);
 
     const formatDate = (date: string | null) => {
         if (!date) return "Nunca";
@@ -169,49 +181,77 @@ export function StockTab({ restockAlerts, inventoryValuation, staleProducts }: S
                                     <p>¡Todo en orden! No hay productos con stock crítico.</p>
                                 </div>
                             ) : (
-                                <div className="overflow-x-auto">
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead>Producto</TableHead>
-                                                <TableHead className="text-right">Stock Actual</TableHead>
-                                                <TableHead className="text-right">Stock Mínimo</TableHead>
-                                                <TableHead className="text-center">Estado</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {restockAlerts.map((alert) => {
-                                                const isCritical = alert.stock <= 0;
-                                                return (
-                                                    <TableRow key={alert.code}>
-                                                        <TableCell>
-                                                            <div>
-                                                                <p className="font-medium text-gray-900">{alert.name}</p>
-                                                                <p className="text-xs text-gray-500 font-mono">{alert.code}</p>
-                                                            </div>
-                                                        </TableCell>
-                                                        <TableCell className="text-right font-semibold">
-                                                            {alert.stock}
-                                                        </TableCell>
-                                                        <TableCell className="text-right text-gray-600">
-                                                            {alert.minStock}
-                                                        </TableCell>
-                                                        <TableCell className="text-center">
-                                                            <span
-                                                                className={`px-2 py-1 text-xs font-semibold rounded ${isCritical
-                                                                    ? "bg-red-200 text-red-800"
-                                                                    : "bg-orange-200 text-orange-800"
-                                                                    }`}
-                                                            >
-                                                                {isCritical ? "AGOTADO" : "BAJO"}
-                                                            </span>
-                                                        </TableCell>
-                                                    </TableRow>
-                                                );
-                                            })}
-                                        </TableBody>
-                                    </Table>
-                                </div>
+                                <>
+                                    <div className="overflow-x-auto">
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead>Producto</TableHead>
+                                                    <TableHead className="text-right">Stock Actual</TableHead>
+                                                    <TableHead className="text-right">Stock Mínimo</TableHead>
+                                                    <TableHead className="text-center">Estado</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {paginate(restockAlerts, criticalPage).map((alert) => {
+                                                    const isCritical = alert.stock <= 0;
+                                                    return (
+                                                        <TableRow key={alert.code}>
+                                                            <TableCell>
+                                                                <div>
+                                                                    <p className="font-medium text-gray-900">{alert.name}</p>
+                                                                    <p className="text-xs text-gray-500 font-mono">{alert.code}</p>
+                                                                </div>
+                                                            </TableCell>
+                                                            <TableCell className="text-right font-semibold">
+                                                                {alert.stock}
+                                                            </TableCell>
+                                                            <TableCell className="text-right text-gray-600">
+                                                                {alert.minStock}
+                                                            </TableCell>
+                                                            <TableCell className="text-center">
+                                                                <span
+                                                                    className={`px-2 py-1 text-xs font-semibold rounded ${isCritical
+                                                                        ? "bg-red-200 text-red-800"
+                                                                        : "bg-orange-200 text-orange-800"
+                                                                        }`}
+                                                                >
+                                                                    {isCritical ? "AGOTADO" : "BAJO"}
+                                                                </span>
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    );
+                                                })}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                    {totalPages(restockAlerts.length) > 1 && (
+                                        <div className="flex items-center justify-between pt-3 border-t mt-3">
+                                            <p className="text-xs text-gray-500">
+                                                Mostrando {(criticalPage - 1) * ITEMS_PER_PAGE + 1}-{Math.min(criticalPage * ITEMS_PER_PAGE, restockAlerts.length)} de {restockAlerts.length}
+                                            </p>
+                                            <div className="flex items-center gap-1">
+                                                <button
+                                                    onClick={() => setCriticalPage(p => Math.max(1, p - 1))}
+                                                    disabled={criticalPage === 1}
+                                                    className="p-1.5 rounded-md hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                                                >
+                                                    <ChevronLeft className="h-4 w-4" />
+                                                </button>
+                                                <span className="text-xs text-gray-600 px-2">
+                                                    {criticalPage} / {totalPages(restockAlerts.length)}
+                                                </span>
+                                                <button
+                                                    onClick={() => setCriticalPage(p => Math.min(totalPages(restockAlerts.length), p + 1))}
+                                                    disabled={criticalPage === totalPages(restockAlerts.length)}
+                                                    className="p-1.5 rounded-md hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                                                >
+                                                    <ChevronRight className="h-4 w-4" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </>
                             )}
                         </TabsContent>
 
@@ -247,35 +287,63 @@ export function StockTab({ restockAlerts, inventoryValuation, staleProducts }: S
                                     <p>¡Excelente! No hay productos con stock muerto.</p>
                                 </div>
                             ) : (
-                                <div className="overflow-x-auto">
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead>Producto</TableHead>
-                                                <TableHead className="text-right">Stock</TableHead>
-                                                <TableHead className="text-right">Última Venta</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {deadStock.map((item) => (
-                                                <TableRow key={item.code}>
-                                                    <TableCell>
-                                                        <div>
-                                                            <p className="font-medium text-gray-900">{item.name}</p>
-                                                            <p className="text-xs text-gray-500 font-mono">{item.code}</p>
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell className="text-right font-semibold">
-                                                        {item.stock}
-                                                    </TableCell>
-                                                    <TableCell className="text-right text-gray-600">
-                                                        {formatDate(item.lastSaleDate)}
-                                                    </TableCell>
+                                <>
+                                    <div className="overflow-x-auto">
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead>Producto</TableHead>
+                                                    <TableHead className="text-right">Stock</TableHead>
+                                                    <TableHead className="text-right">Última Venta</TableHead>
                                                 </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                </div>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {paginate(deadStock, deadPage).map((item) => (
+                                                    <TableRow key={item.code}>
+                                                        <TableCell>
+                                                            <div>
+                                                                <p className="font-medium text-gray-900">{item.name}</p>
+                                                                <p className="text-xs text-gray-500 font-mono">{item.code}</p>
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell className="text-right font-semibold">
+                                                            {item.stock}
+                                                        </TableCell>
+                                                        <TableCell className="text-right text-gray-600">
+                                                            {formatDate(item.lastSaleDate)}
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                    {totalPages(deadStock.length) > 1 && (
+                                        <div className="flex items-center justify-between pt-3 border-t mt-3">
+                                            <p className="text-xs text-gray-500">
+                                                Mostrando {(deadPage - 1) * ITEMS_PER_PAGE + 1}-{Math.min(deadPage * ITEMS_PER_PAGE, deadStock.length)} de {deadStock.length}
+                                            </p>
+                                            <div className="flex items-center gap-1">
+                                                <button
+                                                    onClick={() => setDeadPage(p => Math.max(1, p - 1))}
+                                                    disabled={deadPage === 1}
+                                                    className="p-1.5 rounded-md hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                                                >
+                                                    <ChevronLeft className="h-4 w-4" />
+                                                </button>
+                                                <span className="text-xs text-gray-600 px-2">
+                                                    {deadPage} / {totalPages(deadStock.length)}
+                                                </span>
+                                                <button
+                                                    onClick={() => setDeadPage(p => Math.min(totalPages(deadStock.length), p + 1))}
+                                                    disabled={deadPage === totalPages(deadStock.length)}
+                                                    className="p-1.5 rounded-md hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                                                >
+                                                    <ChevronRight className="h-4 w-4" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </>
                             )}
                         </TabsContent>
 
@@ -311,41 +379,69 @@ export function StockTab({ restockAlerts, inventoryValuation, staleProducts }: S
                                     <p>¡Excelente! Todos los productos tienen buena rotación.</p>
                                 </div>
                             ) : (
-                                <div className="overflow-x-auto">
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead>Producto</TableHead>
-                                                <TableHead className="text-right">Stock</TableHead>
-                                                <TableHead className="text-right">Ventas/Mes</TableHead>
-                                                <TableHead className="text-right">Cobertura</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {overstock.map((item) => (
-                                                <TableRow key={item.code}>
-                                                    <TableCell>
-                                                        <div>
-                                                            <p className="font-medium text-gray-900">{item.name}</p>
-                                                            <p className="text-xs text-gray-500 font-mono">{item.code}</p>
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell className="text-right font-semibold">
-                                                        {item.stock}
-                                                    </TableCell>
-                                                    <TableCell className="text-right text-gray-600">
-                                                        {item.monthlySales}
-                                                    </TableCell>
-                                                    <TableCell className="text-right">
-                                                        <span className="px-2 py-1 text-xs font-semibold bg-amber-100 text-amber-800 rounded">
-                                                            {item.coverageMonths} meses
-                                                        </span>
-                                                    </TableCell>
+                                <>
+                                    <div className="overflow-x-auto">
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead>Producto</TableHead>
+                                                    <TableHead className="text-right">Stock</TableHead>
+                                                    <TableHead className="text-right">Ventas/Mes</TableHead>
+                                                    <TableHead className="text-right">Cobertura</TableHead>
                                                 </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                </div>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {paginate(overstock, slowPage).map((item) => (
+                                                    <TableRow key={item.code}>
+                                                        <TableCell>
+                                                            <div>
+                                                                <p className="font-medium text-gray-900">{item.name}</p>
+                                                                <p className="text-xs text-gray-500 font-mono">{item.code}</p>
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell className="text-right font-semibold">
+                                                            {item.stock}
+                                                        </TableCell>
+                                                        <TableCell className="text-right text-gray-600">
+                                                            {item.monthlySales}
+                                                        </TableCell>
+                                                        <TableCell className="text-right">
+                                                            <span className="px-2 py-1 text-xs font-semibold bg-amber-100 text-amber-800 rounded">
+                                                                {item.coverageMonths} meses
+                                                            </span>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                    {totalPages(overstock.length) > 1 && (
+                                        <div className="flex items-center justify-between pt-3 border-t mt-3">
+                                            <p className="text-xs text-gray-500">
+                                                Mostrando {(slowPage - 1) * ITEMS_PER_PAGE + 1}-{Math.min(slowPage * ITEMS_PER_PAGE, overstock.length)} de {overstock.length}
+                                            </p>
+                                            <div className="flex items-center gap-1">
+                                                <button
+                                                    onClick={() => setSlowPage(p => Math.max(1, p - 1))}
+                                                    disabled={slowPage === 1}
+                                                    className="p-1.5 rounded-md hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                                                >
+                                                    <ChevronLeft className="h-4 w-4" />
+                                                </button>
+                                                <span className="text-xs text-gray-600 px-2">
+                                                    {slowPage} / {totalPages(overstock.length)}
+                                                </span>
+                                                <button
+                                                    onClick={() => setSlowPage(p => Math.min(totalPages(overstock.length), p + 1))}
+                                                    disabled={slowPage === totalPages(overstock.length)}
+                                                    className="p-1.5 rounded-md hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                                                >
+                                                    <ChevronRight className="h-4 w-4" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </>
                             )}
                         </TabsContent>
                     </Tabs>
