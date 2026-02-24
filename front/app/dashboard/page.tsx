@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { DashboardLayout } from "@/components/dashboard/dashboard-layout"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
@@ -50,6 +51,7 @@ export default function DashboardPage() {
   const [restockAlerts, setRestockAlerts] = useState<RestockAlertItem[]>([])
   const [count, setCount] = useState(0)
   const { user } = useAuth()
+  const router = useRouter()
   const hasLoadedRef = useRef(false)
 
   useEffect(() => {
@@ -431,7 +433,7 @@ export default function DashboardPage() {
               <Button
                 variant="outline"
                 className="w-full"
-
+                onClick={() => router.push("/dashboard/reportes?tab=stock")}
               >
                 Ver todos los productos
               </Button>

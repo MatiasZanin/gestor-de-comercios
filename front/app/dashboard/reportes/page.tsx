@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { CalendarIcon, TrendingUp, Package, DollarSign, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -17,6 +18,8 @@ import { apiClient } from "@/lib/api/client";
 import { DailySummaryItem, RankingItem, RestockAlertItem, CashClosureItem, InventoryValuation, StaleProductsResponse } from "@/components/reports/types";
 
 export default function ReportsPage() {
+  const searchParams = useSearchParams();
+  const initialTab = searchParams.get("tab") || "sales";
   // Función helper para obtener el rango del mes corriente
   const getCurrentMonthRange = (): { start: string; end: string } => {
     const now = new Date();
@@ -204,7 +207,7 @@ export default function ReportsPage() {
             {error}
           </div>
         ) : (
-          <Tabs defaultValue="sales" className="w-full">
+          <Tabs defaultValue={initialTab} className="w-full">
             <TabsList className="w-full sm:w-auto grid grid-cols-3 sm:inline-flex gap-1 p-1 bg-gray-100 rounded-xl">
               <TabsTrigger value="sales" className="gap-2 px-4 py-2 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all">
                 <TrendingUp className="h-4 w-4" />
