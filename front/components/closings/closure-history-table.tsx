@@ -196,9 +196,6 @@ export function ClosureHistoryTable({ refreshTrigger, startDate, endDate }: Clos
                                         <th className="pb-2 px-4">Tarjeta</th>
                                         <th className="pb-2 px-4">Transferencia</th>
                                         <th className="pb-2 px-4">Otros</th>
-                                        <th className="pb-2 px-4">Declarado</th>
-                                        <th className="pb-2 px-4">Gastos</th>
-                                        <th className="pb-2 px-4">Fondo</th>
                                         <th className="pb-2 px-4">Diferencia</th>
                                         <th className="pb-2 px-4">Estado</th>
                                         <th className="pb-2 pl-4">Acciones</th>
@@ -224,15 +221,6 @@ export function ClosureHistoryTable({ refreshTrigger, startDate, endDate }: Clos
                                             </td>
                                             <td className="py-3 px-4 tabular-nums">
                                                 {formatCurrency(closure.systemTotalOther)}
-                                            </td>
-                                            <td className="py-3 px-4 tabular-nums">
-                                                {formatCurrency(closure.declaredCash)}
-                                            </td>
-                                            <td className="py-3 px-4 tabular-nums">
-                                                {formatCurrency(closure.expenses)}
-                                            </td>
-                                            <td className="py-3 px-4 tabular-nums">
-                                                {formatCurrency(closure.initialFund)}
                                             </td>
                                             <td
                                                 className={`py-3 px-4 tabular-nums font-medium ${closure.difference === 0
@@ -269,7 +257,8 @@ export function ClosureHistoryTable({ refreshTrigger, startDate, endDate }: Clos
                                                     onClick={() => router.push(`/dashboard/cierres/${closure.closureId}`)}
                                                     title="Ver detalle"
                                                 >
-                                                    <Eye className="w-4 h-4" />
+                                                    {/* <Eye className="w-4 h-4" /> */}
+                                                    <span>Ver</span>
                                                 </Button>
                                             </td>
                                         </tr>
