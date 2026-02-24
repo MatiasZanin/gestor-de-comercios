@@ -120,7 +120,7 @@ export default function ClosuresPage() {
                 {isAdmin && (
                     <>
                         {/* ═══ Toolbar de Filtros ═══ */}
-                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                        <div className="flex flex-col justify-end sm:flex-row items-stretch sm:items-center gap-3">
                             {/* Date Range Picker */}
                             <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
                                 <PopoverTrigger asChild>

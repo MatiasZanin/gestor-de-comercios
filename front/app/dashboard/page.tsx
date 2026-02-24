@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from "react"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { DashboardLayout } from "@/components/dashboard/dashboard-layout"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
-import { Progress } from "@/components/ui/progress"
 import { Button } from "@/components/ui/button"
 import { apiClient } from "@/lib/api/client"
 import { useAuth } from "@/lib/hooks/use-auth"
@@ -28,6 +27,7 @@ interface TopProductItem {
   productCode: string
   productName: string
   monthlyUnits: number
+  uom: string
 }
 
 interface RestockAlertItem {
@@ -77,6 +77,13 @@ export default function DashboardPage() {
       const totalProducts = productsResponse.items.length
       const activeProducts = productsResponse.items.filter((p: any) => p.isActive).length
 
+      // Build a map of product code -> product data for cross-referencing
+      const productsMap = new Map<string, any>()
+      productsResponse.items.forEach((p: any) => {
+        const code = p.code || p.productCode || ""
+        if (code) productsMap.set(code, p)
+      })
+
       // Load today's report
       const today = new Date().toISOString().split("T")[0]
       const dailyReport = await apiClient.getDailyReport({ day: today })
@@ -122,11 +129,14 @@ export default function DashboardPage() {
 
         // Backend returns { rankings: [{ month, items }] }
         const currentMonthData = monthlyRanking.rankings?.find((r: any) => r.month === currentMonth)
-        const products = (currentMonthData?.items || []).slice(0, 5).map((item: any) => ({
-          productCode: item.code,
-          productName: item.name || "Producto",
-          monthlyUnits: item.monthlyUnits || 0,
-        }))
+        const products = (currentMonthData?.items || []).slice(0, 5).map((item: any) => {
+          return {
+            productCode: item.code,
+            productName: item.name || "Producto",
+            monthlyUnits: item.monthlyUnits || 0,
+            uom: item.uom || "uds",
+          }
+        })
         setTopProducts(products)
       } catch (error) {
         console.error("Error loading monthly ranking:", error)
@@ -197,9 +207,6 @@ export default function DashboardPage() {
       show: user.role === "admin",
     },
   ]
-
-  // Calculate max units for progress bar scaling
-  const maxUnits = topProducts.length > 0 ? Math.max(...topProducts.map(p => p.monthlyUnits)) : 100
 
   // Chart config
   const chartConfig = {
@@ -314,35 +321,50 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               {loading ? (
-                <div className="h-[300px] flex items-center justify-center">
+                <div className="h-32 flex items-center justify-center">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
                 </div>
               ) : topProducts.length > 0 ? (
-                <div className="space-y-4">
-                  {topProducts.map((product, index) => (
-                    <div key={product.productCode} className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${index === 0 ? "bg-yellow-100 text-yellow-700" :
-                            index === 1 ? "bg-gray-100 text-gray-600" :
-                              index === 2 ? "bg-orange-100 text-orange-700" :
-                                "bg-gray-50 text-gray-500"
-                            }`}>
-                            {index + 1}
-                          </span>
-                          <span className="text-sm font-medium text-gray-900 truncate max-w-[140px]" title={product.productName}>
-                            {product.productName}
-                          </span>
-                        </div>
-                        <span className="text-sm font-semibold text-gray-700">
-                          {product.monthlyUnits} uds
-                        </span>
-                      </div>
-                    </div>
-                  ))}
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-gray-200">
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600"></th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Código</th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Nombre</th>
+                        <th className="text-center py-3 px-4 text-sm font-semibold text-gray-600">Ventas</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {topProducts.map((product, index) => (
+                        <tr key={product.productCode} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                          <td className="py-3 px-4">
+                            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${index === 0 ? "bg-yellow-100 text-yellow-700" :
+                              index === 1 ? "bg-gray-100 text-gray-600" :
+                                index === 2 ? "bg-orange-100 text-orange-700" :
+                                  "bg-gray-50 text-gray-500"
+                              }`}>
+                              {index + 1}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className="text-sm text-gray-600">{product.productCode}</span>
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className="text-sm font-medium text-gray-900">{product.productName}</span>
+                          </td>
+                          <td className="text-center py-3 px-4">
+                            <span className="text-sm font-semibold text-gray-700">
+                              {product.monthlyUnits} {product.uom}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               ) : (
-                <div className="h-[300px] flex items-center justify-center text-gray-500">
+                <div className="h-32 flex items-center justify-center text-gray-500">
                   No hay datos disponibles
                 </div>
               )}

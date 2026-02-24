@@ -244,11 +244,6 @@ export default function SalesPage() {
 
   return (
     <DashboardLayout>
-      {loading && (
-        <div className="fixed inset-0 bg-white/50 flex items-center justify-center z-50">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600"></div>
-        </div>
-      )}
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
