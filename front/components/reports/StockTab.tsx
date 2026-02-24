@@ -72,8 +72,8 @@ export function StockTab({ restockAlerts, inventoryValuation, staleProducts }: S
                                 <DollarSign className="h-5 w-5 text-blue-700" />
                             </div>
                             <div>
-                                <p className="text-sm text-gray-600">Costo de Reposición</p>
-                                <p className="text-xl font-bold text-gray-900">
+                                <p className="text-xs sm:text-sm text-gray-600">Costo de Reposición</p>
+                                <p className="text-lg sm:text-xl font-bold text-gray-900">
                                     {formatCurrency(valuation.totalCost)}
                                 </p>
                             </div>
@@ -87,8 +87,8 @@ export function StockTab({ restockAlerts, inventoryValuation, staleProducts }: S
                                 <TrendingUp className="h-5 w-5 text-green-700" />
                             </div>
                             <div>
-                                <p className="text-sm text-gray-600">Valor a Precio de Venta</p>
-                                <p className="text-xl font-bold text-gray-900">
+                                <p className="text-xs sm:text-sm text-gray-600">Valor a Precio de Venta</p>
+                                <p className="text-lg sm:text-xl font-bold text-gray-900">
                                     {formatCurrency(valuation.totalRetail)}
                                 </p>
                             </div>
@@ -102,10 +102,10 @@ export function StockTab({ restockAlerts, inventoryValuation, staleProducts }: S
                                 <Package className="h-5 w-5 text-purple-700" />
                             </div>
                             <div>
-                                <p className="text-sm text-gray-600">Ganancia Potencial</p>
-                                <p className="text-xl font-bold text-gray-900">
+                                <p className="text-xs sm:text-sm text-gray-600">Ganancia Potencial</p>
+                                <p className="text-lg sm:text-xl font-bold text-gray-900">
                                     {formatCurrency(valuation.totalRetail - valuation.totalCost)}
-                                    <span className="text-sm font-normal text-gray-500 ml-2">
+                                    <span className="text-xs sm:text-sm font-normal text-gray-500 ml-1 sm:ml-2">
                                         ({profitMargin.toFixed(1)}% margen)
                                     </span>
                                 </p>
@@ -117,32 +117,35 @@ export function StockTab({ restockAlerts, inventoryValuation, staleProducts }: S
 
             {/* Tables in Tabs */}
             <Card className="border-0 shadow-sm">
-                <CardContent className="">
+                <CardContent className="px-2 sm:px-6">
                     <Tabs defaultValue="critical-stock">
-                        <TabsList className="w-full">
-                            <TabsTrigger value="critical-stock" className="gap-1.5">
-                                <AlertTriangle className="h-4 w-4 text-red-600" />
-                                Alerta Stock Crítico
+                        <TabsList className="w-full flex">
+                            <TabsTrigger value="critical-stock" className="gap-1 sm:gap-1.5 flex-1 text-xs sm:text-sm px-1 sm:px-3">
+                                <AlertTriangle className="h-4 w-4 text-red-600 shrink-0" />
+                                <span className="hidden sm:inline">Alerta Stock Crítico</span>
+                                <span className="sm:hidden">Crítico</span>
                                 {restockAlerts.length > 0 && (
-                                    <span className="ml-1 px-1.5 py-0.5 text-xs font-medium bg-red-100 text-red-700 rounded-full">
+                                    <span className="ml-0.5 sm:ml-1 px-1 sm:px-1.5 py-0.5 text-[10px] sm:text-xs font-medium bg-red-100 text-red-700 rounded-full">
                                         {restockAlerts.length}
                                     </span>
                                 )}
                             </TabsTrigger>
-                            <TabsTrigger value="dead-stock" className="gap-1.5">
-                                <Skull className="h-4 w-4 text-gray-600" />
-                                Stock Muerto
+                            <TabsTrigger value="dead-stock" className="gap-1 sm:gap-1.5 flex-1 text-xs sm:text-sm px-1 sm:px-3">
+                                <Skull className="h-4 w-4 text-gray-600 shrink-0" />
+                                <span className="hidden sm:inline">Stock Muerto</span>
+                                <span className="sm:hidden">Muerto</span>
                                 {deadStock.length > 0 && (
-                                    <span className="ml-1 px-1.5 py-0.5 text-xs font-medium bg-gray-200 text-gray-700 rounded-full">
+                                    <span className="ml-0.5 sm:ml-1 px-1 sm:px-1.5 py-0.5 text-[10px] sm:text-xs font-medium bg-gray-200 text-gray-700 rounded-full">
                                         {deadStock.length}
                                     </span>
                                 )}
                             </TabsTrigger>
-                            <TabsTrigger value="slow-rotation" className="gap-1.5">
-                                <Turtle className="h-4 w-4 text-amber-600" />
-                                Rotación Lenta
+                            <TabsTrigger value="slow-rotation" className="gap-1 sm:gap-1.5 flex-1 text-xs sm:text-sm px-1 sm:px-3">
+                                <Turtle className="h-4 w-4 text-amber-600 shrink-0" />
+                                <span className="hidden sm:inline">Rotación Lenta</span>
+                                <span className="sm:hidden">Lenta</span>
                                 {overstock.length > 0 && (
-                                    <span className="ml-1 px-1.5 py-0.5 text-xs font-medium bg-amber-100 text-amber-700 rounded-full">
+                                    <span className="ml-0.5 sm:ml-1 px-1 sm:px-1.5 py-0.5 text-[10px] sm:text-xs font-medium bg-amber-100 text-amber-700 rounded-full">
                                         {overstock.length}
                                     </span>
                                 )}
@@ -182,7 +185,31 @@ export function StockTab({ restockAlerts, inventoryValuation, staleProducts }: S
                                 </div>
                             ) : (
                                 <>
-                                    <div className="overflow-x-auto">
+                                    {/* Mobile card view */}
+                                    <div className="sm:hidden space-y-2">
+                                        {paginate(restockAlerts, criticalPage).map((alert) => {
+                                            const isCritical = alert.stock <= 0;
+                                            return (
+                                                <div key={alert.code} className="p-3 border rounded-lg bg-white">
+                                                    <div className="flex items-start justify-between gap-2">
+                                                        <div className="min-w-0">
+                                                            <p className="font-medium text-gray-900 text-sm truncate">{alert.name}</p>
+                                                            <p className="text-xs text-gray-500 font-mono">{alert.code}</p>
+                                                        </div>
+                                                        <span className={`px-2 py-0.5 text-xs font-semibold rounded shrink-0 ${isCritical ? "bg-red-200 text-red-800" : "bg-orange-200 text-orange-800"}`}>
+                                                            {isCritical ? "AGOTADO" : "BAJO"}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex gap-4 mt-2 text-xs">
+                                                        <div><span className="text-gray-500">Stock: </span><span className="font-semibold">{alert.stock}</span></div>
+                                                        <div><span className="text-gray-500">Mín: </span><span className="text-gray-600">{alert.minStock}</span></div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                    {/* Desktop table view */}
+                                    <div className="hidden sm:block overflow-x-auto">
                                         <Table>
                                             <TableHeader>
                                                 <TableRow>
@@ -288,7 +315,23 @@ export function StockTab({ restockAlerts, inventoryValuation, staleProducts }: S
                                 </div>
                             ) : (
                                 <>
-                                    <div className="overflow-x-auto">
+                                    {/* Mobile card view */}
+                                    <div className="sm:hidden space-y-2">
+                                        {paginate(deadStock, deadPage).map((item) => (
+                                            <div key={item.code} className="p-3 border rounded-lg bg-white">
+                                                <div className="min-w-0">
+                                                    <p className="font-medium text-gray-900 text-sm truncate">{item.name}</p>
+                                                    <p className="text-xs text-gray-500 font-mono">{item.code}</p>
+                                                </div>
+                                                <div className="flex gap-4 mt-2 text-xs">
+                                                    <div><span className="text-gray-500">Stock: </span><span className="font-semibold">{item.stock}</span></div>
+                                                    <div><span className="text-gray-500">Última venta: </span><span className="text-gray-600">{formatDate(item.lastSaleDate)}</span></div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    {/* Desktop table view */}
+                                    <div className="hidden sm:block overflow-x-auto">
                                         <Table>
                                             <TableHeader>
                                                 <TableRow>
@@ -380,7 +423,28 @@ export function StockTab({ restockAlerts, inventoryValuation, staleProducts }: S
                                 </div>
                             ) : (
                                 <>
-                                    <div className="overflow-x-auto">
+                                    {/* Mobile card view */}
+                                    <div className="sm:hidden space-y-2">
+                                        {paginate(overstock, slowPage).map((item) => (
+                                            <div key={item.code} className="p-3 border rounded-lg bg-white">
+                                                <div className="flex items-start justify-between gap-2">
+                                                    <div className="min-w-0">
+                                                        <p className="font-medium text-gray-900 text-sm truncate">{item.name}</p>
+                                                        <p className="text-xs text-gray-500 font-mono">{item.code}</p>
+                                                    </div>
+                                                    <span className="px-2 py-0.5 text-xs font-semibold bg-amber-100 text-amber-800 rounded shrink-0">
+                                                        {item.coverageMonths} meses
+                                                    </span>
+                                                </div>
+                                                <div className="flex gap-4 mt-2 text-xs">
+                                                    <div><span className="text-gray-500">Stock: </span><span className="font-semibold">{item.stock}</span></div>
+                                                    <div><span className="text-gray-500">Ventas/mes: </span><span className="text-gray-600">{item.monthlySales}</span></div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    {/* Desktop table view */}
+                                    <div className="hidden sm:block overflow-x-auto">
                                         <Table>
                                             <TableHeader>
                                                 <TableRow>
