@@ -154,17 +154,17 @@ export default function ProductsPage() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div>
-            <h1 className="text-3xl font-bold ">Productos</h1>
-            <p className="text-gray-600">
+            <h1 className="text-2xl sm:text-3xl font-bold ">Productos</h1>
+            <p className="text-gray-600 text-sm sm:text-base">
               Gestiona el inventario de productos de tu comercio
             </p>
           </div>
           {isAdmin && (
             <Button
               onClick={handleCreateProduct}
-              className="bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 shadow-lg"
+              className="bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 shadow-lg w-full sm:w-auto"
             >
               <Plus className="w-4 h-4 mr-2" />
               Nuevo Producto
@@ -179,70 +179,71 @@ export default function ProductsPage() {
                 Lista de Productos
               </CardTitle>
             </div>
-            <div className="flex mt-4 items-center justify-between">
-              <div className="flex items-center gap-4">
+            <div className="flex flex-col sm:flex-row mt-4 items-stretch sm:items-center justify-between gap-3">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 w-full sm:w-auto">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                   <Input
                     placeholder="Buscar productos..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 w-64 border-gray-200 focus:border-emerald-500"
+                    className="pl-10 w-full sm:w-64 border-gray-200 focus:border-emerald-500"
                   />
                 </div>
 
-                {/* --- NUEVO DESPLEGABLE DE ORDEN --- */}
-                <Select
-                  onValueChange={(value) => setSortOrder(value as SortKey)}
-                  defaultValue={sortOrder}
-                >
-                  <SelectTrigger className="w-[200px] border-gray-200 focus:border-emerald-500">
+                <div className="flex items-center gap-3">
+                  {/* --- DESPLEGABLE DE ORDEN --- */}
+                  <Select
+                    onValueChange={(value) => setSortOrder(value as SortKey)}
+                    defaultValue={sortOrder}
+                  >
+                    <SelectTrigger className="w-full sm:w-[200px] border-gray-200 focus:border-emerald-500">
+                      <SelectValue placeholder="Ordenar por..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectLabel>Nombre</SelectLabel>
+                        <SelectItem value="name_asc">
+                          <div className="flex items-center gap-2">
+                            <ArrowUp className="w-3 h-3" />
+                            Alfabético (A-Z)
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="name_desc">
+                          <div className="flex items-center gap-2">
+                            <ArrowDown className="w-3 h-3" />
+                            Alfabético (Z-A)
+                          </div>
+                        </SelectItem>
+                      </SelectGroup>
+                      <SelectGroup>
+                        <SelectLabel>Stock</SelectLabel>
+                        <SelectItem value="stock_asc">
+                          <div className="flex items-center gap-2">
+                            <ArrowUp className="w-3 h-3" />
+                            Menor a Mayor
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="stock_desc">
+                          <div className="flex items-center gap-2">
+                            <ArrowDown className="w-3 h-3" />
+                            Mayor a Menor
+                          </div>
+                        </SelectItem>
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                  {/* ---------------------------------- */}
 
-                    <SelectValue placeholder="Ordenar por..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      <SelectLabel>Nombre</SelectLabel>
-                      <SelectItem value="name_asc">
-                        <div className="flex items-center gap-2">
-                          <ArrowUp className="w-3 h-3" />
-                          Alfabético (A-Z)
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="name_desc">
-                        <div className="flex items-center gap-2">
-                          <ArrowDown className="w-3 h-3" />
-                          Alfabético (Z-A)
-                        </div>
-                      </SelectItem>
-                    </SelectGroup>
-                    <SelectGroup>
-                      <SelectLabel>Stock</SelectLabel>
-                      <SelectItem value="stock_asc">
-                        <div className="flex items-center gap-2">
-                          <ArrowUp className="w-3 h-3" />
-                          Menor a Mayor
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="stock_desc">
-                        <div className="flex items-center gap-2">
-                          <ArrowDown className="w-3 h-3" />
-                          Mayor a Menor
-                        </div>
-                      </SelectItem>
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-                {/* ---------------------------------- */}
-
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-700">
-                    {showActiveOnly ? "Activos" : "Inactivos"}
-                  </span>
-                  <Switch
-                    checked={showActiveOnly}
-                    onCheckedChange={setShowActiveOnly}
-                  />
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-sm text-gray-700">
+                      {showActiveOnly ? "Activos" : "Inactivos"}
+                    </span>
+                    <Switch
+                      checked={showActiveOnly}
+                      onCheckedChange={setShowActiveOnly}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -270,11 +271,11 @@ export default function ProductsPage() {
                 {paginatedProducts.map((product) => (
                   <div
                     key={product.code}
-                    className="flex items-center justify-between p-4 border border-gray-100 rounded-xl hover:bg-gray-50 transition-all duration-200 "
+                    className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 border border-gray-100 rounded-xl hover:bg-gray-50 transition-all duration-200 gap-3"
                   >
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="font-semibold text-gray-900 text-lg">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
+                        <h3 className="font-semibold text-gray-900 text-base sm:text-lg truncate">
                           {product.name}
                         </h3>
                         <Badge
@@ -296,29 +297,29 @@ export default function ProductsPage() {
                           </Badge>
                         )}
                       </div>
-                      <div className="grid grid-cols-2 md:grid-cols-6 gap-4 text-sm">
+                      <div className="grid grid-cols-3 sm:grid-cols-2 md:grid-cols-6 gap-x-3 gap-y-2 sm:gap-4 text-sm">
                         <div className="flex flex-col">
-                          <span className="text-gray-500">Código</span>
-                          <span className="font-medium">
+                          <span className="text-gray-500 text-xs sm:text-sm">Código</span>
+                          <span className="font-medium text-xs sm:text-sm truncate">
                             {product.code}
                           </span>
                         </div>
                         <div className="flex flex-col">
-                          <span className="text-gray-500">Categoría</span>
-                          <span className="font-medium">
+                          <span className="text-gray-500 text-xs sm:text-sm">Categoría</span>
+                          <span className="font-medium text-xs sm:text-sm truncate">
                             {product.category || "-"}
                           </span>
                         </div>
                         <div className="flex flex-col">
-                          <span className="text-gray-500">Marca</span>
-                          <span className="font-medium">
+                          <span className="text-gray-500 text-xs sm:text-sm">Marca</span>
+                          <span className="font-medium text-xs sm:text-sm truncate">
                             {product.brand || "-"}
                           </span>
                         </div>
                         <div className="flex flex-col">
-                          <span className="text-gray-500">Stock</span>
+                          <span className="text-gray-500 text-xs sm:text-sm">Stock</span>
                           <span
-                            className={`font-medium ${product.alertStatus === 'LOW'
+                            className={`font-medium text-xs sm:text-sm ${product.alertStatus === 'LOW'
                               ? "text-red-600"
                               : product.stock <= 5
                                 ? "text-orange-600"
@@ -327,35 +328,35 @@ export default function ProductsPage() {
                           >
                             {product.stock} {product.uom}
                             {product.minStock && product.minStock > 0 && (
-                              <span className="text-gray-400 text-xs ml-1">
+                              <span className="text-gray-400 text-xs ml-1 hidden sm:inline">
                                 (mín: {product.minStock})
                               </span>
                             )}
                           </span>
                         </div>
                         <div className="flex flex-col">
-                          <span className="text-gray-500">Precio</span>
-                          <span className="font-medium text-emerald-600">
+                          <span className="text-gray-500 text-xs sm:text-sm">Precio</span>
+                          <span className="font-medium text-emerald-600 text-xs sm:text-sm">
                             ${product.priceSale}
                           </span>
                         </div>
                         {isAdmin && product.priceBuy && (
                           <div className="flex flex-col">
-                            <span className="text-gray-500">Costo</span>
-                            <span className="font-medium">
+                            <span className="text-gray-500 text-xs sm:text-sm">Costo</span>
+                            <span className="font-medium text-xs sm:text-sm">
                               ${product.priceBuy}
                             </span>
                           </div>
                         )}
                       </div>
                       {product.notes && (
-                        <p className="text-sm text-gray-600 mt-2 italic">
+                        <p className="text-xs sm:text-sm text-gray-600 mt-2 italic">
                           {product.notes}
                         </p>
                       )}
                     </div>
                     {isAdmin && (
-                      <div className="flex items-center gap-2 ml-4">
+                      <div className="flex items-center gap-2 sm:ml-4 self-end sm:self-center">
                         <Button
                           variant="outline"
                           size="sm"
@@ -379,9 +380,9 @@ export default function ProductsPage() {
 
                 {/* Pagination */}
                 {totalPages > 1 && (
-                  <div className="flex items-center justify-between pt-6 border-t border-gray-100">
-                    <span className="text-sm text-gray-500">
-                      Mostrando {(currentPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, filteredProducts.length)} de {filteredProducts.length} productos
+                  <div className="flex flex-col sm:flex-row items-center justify-between pt-6 border-t border-gray-100 gap-3">
+                    <span className="text-xs sm:text-sm text-gray-500">
+                      Mostrando {(currentPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, filteredProducts.length)} de {filteredProducts.length}
                     </span>
                     <div className="flex items-center gap-1">
                       <Button
@@ -395,7 +396,6 @@ export default function ProductsPage() {
                       </Button>
                       {Array.from({ length: totalPages }, (_, i) => i + 1)
                         .filter((page) => {
-                          // Show first, last, current, and neighbors
                           if (page === 1 || page === totalPages) return true
                           if (Math.abs(page - currentPage) <= 1) return true
                           return false
@@ -409,7 +409,7 @@ export default function ProductsPage() {
                         }, [])
                         .map((item, idx) =>
                           typeof item === "string" ? (
-                            <span key={`ellipsis-${idx}`} className="px-2 text-gray-400 text-sm">
+                            <span key={`ellipsis-${idx}`} className="px-1.5 sm:px-2 text-gray-400 text-sm">
                               {item}
                             </span>
                           ) : (

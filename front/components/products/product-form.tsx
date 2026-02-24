@@ -159,10 +159,10 @@ export function ProductForm({ product, products = [], onSuccess, onCancel }: Pro
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <Card className="w-full max-w-2xl max-h-[95vh] flex flex-col bg-white shadow-2xl gap-0">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center sm:p-4 z-50">
+      <Card className="w-full sm:max-w-2xl h-full sm:h-auto sm:max-h-[95vh] flex flex-col bg-white shadow-2xl gap-0 rounded-none sm:rounded-xl">
 
-        <CardHeader className="border-b bg-gray-50/50 rounded-t-xl shrink-0 py-4">
+        <CardHeader className="border-b bg-gray-50/50 sm:rounded-t-xl shrink-0 py-3 sm:py-4">
           <CardTitle className="text-xl">
             {product ? "Editar Producto" : "Nuevo Producto"}
           </CardTitle>
@@ -174,10 +174,10 @@ export function ProductForm({ product, products = [], onSuccess, onCancel }: Pro
         </CardHeader>
 
         <CardContent
-          className="overflow-y-auto flex-1 p-6 scrollbar-visible"
+          className="overflow-y-auto flex-1 p-4 sm:p-6 scrollbar-visible"
           style={scrollbarStyles}
         >
-          <form id="product-form" onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <form id="product-form" onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
 
             <div className="space-y-2">
               {!product ? (
@@ -378,7 +378,7 @@ export function ProductForm({ product, products = [], onSuccess, onCancel }: Pro
           </form>
         </CardContent>
 
-        <div className="p-4 border-t rounded-b-xl flex justify-between items-center shrink-0 bg-white z-10">
+        <div className="p-3 sm:p-4 border-t sm:rounded-b-xl flex justify-between items-center shrink-0 bg-white z-10" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
           <span className="text-xs text-gray-400 hidden sm:inline-block">
             * Campos requeridos para el sistema
           </span>
