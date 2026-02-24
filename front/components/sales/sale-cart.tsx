@@ -68,12 +68,12 @@ export function SaleCart({ items, qtyInputs, onUpdateQty, onUpdateQtyInput, onRe
                                 return (
                                     <div
                                         key={item.code}
-                                        className={`flex items-center justify-between p-3 rounded-lg shadow-sm border transition-colors ${isReturn
-                                                ? "bg-red-50 border-red-200"
-                                                : "bg-white border-gray-200"
+                                        className={`flex flex-col sm:flex-row sm:items-center justify-between p-2 sm:p-3 rounded-lg shadow-sm border transition-colors gap-2 ${isReturn
+                                            ? "bg-red-50 border-red-200"
+                                            : "bg-white border-gray-200"
                                             }`}
                                     >
-                                        <div className="flex-1 min-w-0 mr-2">
+                                        <div className="flex-1 min-w-0 mr-0 sm:mr-2">
                                             <div className="flex items-center gap-2">
                                                 <h4 className={`font-medium truncate text-sm ${isReturn ? "text-red-600" : ""}`}>{item.name}</h4>
                                                 {isReturn && (
@@ -88,7 +88,7 @@ export function SaleCart({ items, qtyInputs, onUpdateQty, onUpdateQtyInput, onRe
                                             </div>
                                         </div>
 
-                                        <div className="flex items-center gap-1 shrink-0">
+                                        <div className="flex items-center gap-1 shrink-0 self-end sm:self-auto">
                                             {/* Toggle return mode */}
                                             <Tooltip>
                                                 <TooltipTrigger asChild>
@@ -155,7 +155,7 @@ export function SaleCart({ items, qtyInputs, onUpdateQty, onUpdateQtyInput, onRe
                         </div>
 
                         {/* Total fijo al fondo del container de items */}
-                        <div className="p-4 bg-white border-t mt-auto shadow-sm z-10">
+                        <div className="p-3 sm:p-4 bg-white border-t mt-auto shadow-sm z-10">
                             <div className="flex justify-between items-center">
                                 <span className="text-gray-600 font-medium">Subtotal Items: {items.length}</span>
                                 <div className={`text-xl font-bold ${total < 0 ? "text-red-600" : "text-gray-900"}`}>

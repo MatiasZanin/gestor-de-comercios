@@ -21,23 +21,23 @@ export function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
   const { state, actions } = useSaleForm({ onSuccess })
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      {/* CAMBIO: h-[95vh] y flex-col para forzar la altura completa */}
-      <Card className="w-full max-w-7xl h-[95vh] flex flex-col overflow-hidden gap-0">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center sm:p-4 z-50">
+      {/* Full-screen on mobile, constrained modal on desktop */}
+      <Card className="w-full sm:max-w-7xl h-full sm:h-[95vh] flex flex-col overflow-hidden gap-0 rounded-none sm:rounded-xl">
 
-        <CardHeader className="flex flex-row items-center justify-between py-4 border-b shrink-0">
-          <CardTitle>Nueva Venta</CardTitle>
-          <div className="text-2xl font-bold text-orange-600">
+        <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between py-3 sm:py-4 border-b shrink-0 gap-1">
+          <CardTitle className="text-base sm:text-lg">Nueva Venta</CardTitle>
+          <div className="text-xl sm:text-2xl font-bold text-orange-600">
             Total: {formatCurrency(actions.calculateTotal())}
           </div>
         </CardHeader>
 
         {/* CAMBIO: flex-1 y min-h-0 permite que el contenido interno haga scroll sin romper el layout */}
-        <CardContent className="flex-1 flex flex-col min-h-0 p-6 gap-4">
+        <CardContent className="flex-1 flex flex-col min-h-0 p-3 sm:p-6 gap-3 sm:gap-4">
 
           {/* Grid principal que ocupa todo el espacio disponible */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1 min-h-0">
-            <div className="h-full overflow-hidden">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 flex-1 min-h-0">
+            <div className="min-h-[200px] lg:h-full overflow-hidden">
               <ProductList
                 searchTerm={state.searchTerm}
                 onSearchChange={actions.setSearchTerm}
@@ -49,7 +49,7 @@ export function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
               />
             </div>
 
-            <div className="h-full overflow-hidden">
+            <div className="min-h-[200px] lg:h-full overflow-hidden">
               <SaleCart
                 items={state.selectedItems}
                 qtyInputs={state.qtyInputs}
@@ -70,14 +70,14 @@ export function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
           )}
 
           {/* Footer de botones, fijo al fondo */}
-          <div className="flex justify-end space-x-2 pt-2 border-t shrink-0">
-            <Button type="button" variant="outline" onClick={onCancel}>
+          <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:space-x-2 pt-2 border-t shrink-0" style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}>
+            <Button type="button" variant="outline" onClick={onCancel} className="w-full sm:w-auto">
               Cancelar
             </Button>
             <Button
               type="button"
               disabled={state.selectedItems.length === 0}
-              className="bg-orange-600 hover:bg-orange-700 px-8"
+              className="bg-orange-600 hover:bg-orange-700 px-8 w-full sm:w-auto"
               onClick={() => actions.setShowCheckoutModal(true)}
             >
               {actions.calculateTotal() > 0

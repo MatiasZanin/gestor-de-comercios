@@ -27,8 +27,8 @@ export function CheckoutModal({
     onClose,
 }: CheckoutModalProps) {
     return (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[65]">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden">
+        <div className="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center sm:p-4 z-[65]">
+            <div className="bg-white rounded-none sm:rounded-lg shadow-xl w-full sm:max-w-md h-full sm:h-auto overflow-y-auto flex flex-col">
                 <div className="p-6 border-b bg-gray-50">
                     <h3 className="text-xl font-bold text-center">
                         {total > 0 ? "Finalizar Venta" : total === 0 ? "Confirmar Cambio" : "Emitir Reembolso"}
@@ -43,7 +43,7 @@ export function CheckoutModal({
                     </div>
                 </div>
 
-                <form onSubmit={onConfirm} className="p-6 space-y-4">
+                <form onSubmit={onConfirm} className="p-4 sm:p-6 space-y-4 flex-1">
                     <div>
                         <Label htmlFor="paymentMethod">Método de Pago</Label>
                         <ReactSelect
@@ -92,13 +92,13 @@ export function CheckoutModal({
                         />
                     </div>
 
-                    <div className="flex flex-col gap-2 pt-4">
+                    <div className="flex flex-col gap-2 pt-4" style={{ paddingBottom: 'max(0rem, env(safe-area-inset-bottom))' }}>
                         <Button
                             type="submit"
                             disabled={loading}
                             className={`w-full h-12 text-lg font-bold ${total < 0
-                                    ? "bg-red-600 hover:bg-red-700"
-                                    : "bg-orange-600 hover:bg-orange-700"
+                                ? "bg-red-600 hover:bg-red-700"
+                                : "bg-orange-600 hover:bg-orange-700"
                                 }`}
                         >
                             {loading
