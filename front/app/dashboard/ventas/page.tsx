@@ -60,14 +60,25 @@ export default function SalesPage() {
 
   // Helper: get today as DateRange
   const getTodayRange = (): { start: string; end: string; dateRange: DateRange } => {
-    const today = new Date()
-    const todayStr = today.toISOString().split("T")[0]
+    const today = new Date();
+
+    // Extracción de valores locales (getMonth devuelve 0-11, por lo que sumamos 1)
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, "0");
+    const day = String(today.getDate()).padStart(2, "0");
+
+    // Construcción del string garantizando la zona horaria correcta
+    const todayStr = `${year}-${month}-${day}`;
+
+    console.log("Hora local exacta:", today);
+    console.log("String formateado local:", todayStr);
+
     return {
       start: todayStr,
       end: todayStr,
       dateRange: { from: today, to: today },
-    }
-  }
+    };
+  };
 
   // Helper: determine if any filter is active (differs from default "today" view)
   const hasActiveFilters = useMemo(() => {

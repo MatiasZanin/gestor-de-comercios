@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { CalendarIcon, TrendingUp, Package, DollarSign, Loader2 } from "lucide-react";
 import { format } from "date-fns";
@@ -17,7 +17,7 @@ import { FinanceTab } from "@/components/reports/FinanceTab";
 import { apiClient } from "@/lib/api/client";
 import { DailySummaryItem, RankingItem, RestockAlertItem, CashClosureItem, InventoryValuation, StaleProductsResponse } from "@/components/reports/types";
 
-export default function ReportsPage() {
+function ReportsContent() {
   const searchParams = useSearchParams();
   const initialTab = searchParams.get("tab") || "sales";
   // Función helper para obtener el rango del mes corriente
@@ -240,5 +240,21 @@ export default function ReportsPage() {
         )}
       </div>
     </DashboardLayout>
+  );
+}
+
+export default function ReportsPage() {
+  return (
+    <Suspense
+      fallback={
+        <DashboardLayout>
+          <div className="flex justify-center items-center h-64">
+            <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
+          </div>
+        </DashboardLayout>
+      }
+    >
+      <ReportsContent />
+    </Suspense>
   );
 }

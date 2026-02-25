@@ -23,7 +23,7 @@ const chunkArray = <T>(arr: T[], size: number): T[][] =>
 
 const randomDateLast30Days = () => {
     const end = new Date();
-    end.setDate(end.getDate() - 1); // Ayer
+    end.setDate(end.getDate());
     end.setHours(23, 59, 59, 999);
 
     const start = new Date(end);
@@ -167,12 +167,14 @@ const seedSales = async () => {
         console.log('🏗️ Construyendo ventas (hasta ayer)...');
 
         // A. Venta masiva (Ticket largo)
-        salesToWrite.push({
-            PutRequest: { Item: createSaleItem(products, 15, true) },
-        });
+        for (let i = 0; i < 5; i++) {
+            salesToWrite.push({
+                PutRequest: { Item: createSaleItem(products, 15, true) },
+            });
+        }
 
         // B. Ventas simples
-        for (let i = 0; i < 15; i++) {
+        for (let i = 0; i < 35; i++) {
             salesToWrite.push({
                 PutRequest: { Item: createSaleItem(products, 1) },
             });
