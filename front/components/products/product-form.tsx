@@ -399,20 +399,156 @@ export function ProductForm({ product, products = [], onSuccess, onCancel }: Pro
 
       </Card>
 
+
+
       <Dialog open={showUomHelp} onOpenChange={setShowUomHelp}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Unidades de Medida</DialogTitle></DialogHeader>
-          <div className="text-sm space-y-2">
-            <p><strong>Unidad (u):</strong> Productos cerrados (latas, paquetes).</p>
-            <p><strong>Kilos/Litros:</strong> Productos a granel o balanza.</p>
+        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold">¿Qué es la Unidad de Medida (UOM)?</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 text-sm">
+            <p className="text-gray-600">
+              La <strong>Unidad de Medida (UOM)</strong> define cómo se cuenta, pesa o mide el producto al momento de venderlo o controlar su stock.
+            </p>
+
+            {/* Categoría: Unidades */}
+            <div className="flex gap-3 p-3 bg-blue-50 rounded-lg border-l-4 border-blue-500">
+              <span className="text-xl">📦</span>
+              <div>
+                <p className="font-semibold text-blue-800">Cantidades enteras</p>
+                <p className="text-blue-900/80 text-xs mt-1">
+                  Para productos que se venden por envase cerrado o por pieza.
+                </p>
+                <div className="mt-2 flex gap-2">
+                  <code className="bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded text-xs font-semibold">Unidad (u)</code>
+                </div>
+              </div>
+            </div>
+
+            {/* Categoría: Peso */}
+            <div className="flex gap-3 p-3 bg-orange-50 rounded-lg border-l-4 border-orange-500">
+              <span className="text-xl">⚖️</span>
+              <div>
+                <p className="font-semibold text-orange-800">Peso</p>
+                <p className="text-orange-900/80 text-xs mt-1">
+                  Ideal para productos sueltos, fiambrería, verdulería o carnicería (se integra con las balanzas).
+                </p>
+                <div className="mt-2 flex gap-2">
+                  <code className="bg-orange-100 text-orange-800 px-1.5 py-0.5 rounded text-xs font-semibold">Kilogramo (kg)</code>
+                  <code className="bg-orange-100 text-orange-800 px-1.5 py-0.5 rounded text-xs font-semibold">Gramo (g)</code>
+                </div>
+              </div>
+            </div>
+
+            {/* Categoría: Volumen */}
+            <div className="flex gap-3 p-3 bg-teal-50 rounded-lg border-l-4 border-teal-500">
+              <span className="text-xl">💧</span>
+              <div>
+                <p className="font-semibold text-teal-800">Líquidos y Volumen</p>
+                <p className="text-teal-900/80 text-xs mt-1">
+                  Para bebidas sueltas, artículos de limpieza, perfumería, etc.
+                </p>
+                <div className="mt-2 flex gap-2">
+                  <code className="bg-teal-100 text-teal-800 px-1.5 py-0.5 rounded text-xs font-semibold">Litro (l)</code>
+                  <code className="bg-teal-100 text-teal-800 px-1.5 py-0.5 rounded text-xs font-semibold">Mililitro (ml)</code>
+                </div>
+              </div>
+            </div>
+
+            {/* Categoría: Longitud */}
+            <div className="flex gap-3 p-3 bg-purple-50 rounded-lg border-l-4 border-purple-500">
+              <span className="text-xl">📏</span>
+              <div>
+                <p className="font-semibold text-purple-800">Longitud</p>
+                <p className="text-purple-900/80 text-xs mt-1">
+                  Útil si vendés telas, cables, mangueras o materiales de ferretería.
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <code className="bg-purple-100 text-purple-800 px-1.5 py-0.5 rounded text-xs font-semibold">Metro (m)</code>
+                  <code className="bg-purple-100 text-purple-800 px-1.5 py-0.5 rounded text-xs font-semibold">Centímetro (cm)</code>
+                  <code className="bg-purple-100 text-purple-800 px-1.5 py-0.5 rounded text-xs font-semibold">Milímetro (mm)</code>
+                </div>
+              </div>
+            </div>
+
+            {/* Tip de facturación/precios */}
+            <div className="bg-gray-50 rounded-lg p-3">
+              <p className="font-medium text-gray-700 mb-2">💡 Consejo sobre el precio</p>
+              <p className="text-gray-600 text-xs leading-relaxed">
+                Asegurate de que el precio base que le pongas al producto corresponda exactamente a <strong>1 unidad de la medida elegida</strong>. Por ejemplo, si elegís <code className="bg-gray-200 px-1 rounded">kg</code>, el precio de venta debe ser el valor por 1 Kilogramo.
+              </p>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
 
       <Dialog open={showCodeHelp} onOpenChange={setShowCodeHelp}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Código de Producto</DialogTitle></DialogHeader>
-          <p className="text-sm">Usa el código de barras del producto o genera uno interno con el botón "Generar".</p>
+        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold">¿Qué es el Código de Producto?</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 text-sm">
+            <p className="text-gray-600">
+              El código es un <strong>identificador único</strong> para cada producto. Sirve para buscarlo rápidamente y evitar confusiones.
+            </p>
+
+            {/* Tipos de código */}
+            <div className="flex gap-3 p-3 bg-blue-50 rounded-lg border-l-4 border-blue-500">
+              <span className="text-xl">🏷️</span>
+              <div>
+                <p className="font-semibold text-blue-800">SKU (Stock Keeping Unit)</p>
+                <p className="text-blue-900/80 text-xs mt-1">
+                  Código interno que vos definís. Ej: <strong>GAL-CHOC-500</strong> (galleta chocolate 500g)
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3 p-3 bg-green-50 rounded-lg border-l-4 border-green-500">
+              <span className="text-xl">📊</span>
+              <div>
+                <p className="font-semibold text-green-800">EAN / Código de barras</p>
+                <p className="text-green-900/80 text-xs mt-1">
+                  Número del código de barras del producto. Ej: <strong>7790001234567</strong>
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3 p-3 bg-orange-50 rounded-lg border-l-4 border-orange-500">
+              <span className="text-xl">⚖️</span>
+              <div>
+                <p className="font-semibold text-orange-800">Código de Balanza (EAN-13)</p>
+                <p className="text-orange-900/80 text-xs mt-1">
+                  Para productos pesables. El sistema detecta automáticamente si el código empieza con <strong>2</strong>.
+                </p>
+                <div className="mt-2 grid grid-cols-1 gap-1 text-[10px] uppercase tracking-wider font-bold text-orange-700">
+                  <div className="flex justify-between bg-orange-100 px-2 py-1 rounded">
+                    <span>Prefijo</span>
+                    <span>2</span>
+                  </div>
+                  <div className="flex justify-between bg-orange-200 px-2 py-1 rounded">
+                    <span>PLU (Producto)</span>
+                    <span>5 dígitos</span>
+                  </div>
+                  <div className="flex justify-between bg-orange-100 px-2 py-1 rounded">
+                    <span>Peso/Precio</span>
+                    <span>5 dígitos</span>
+                  </div>
+                </div>
+                <p className="text-orange-900/60 text-[10px] mt-2 italic">
+                  Ejemplo: 200123015007 interpretará 1.500kg del producto con PLU 00123.
+                </p>
+              </div>
+            </div>
+
+            {/* Generar automático */}
+            <div className="bg-gray-50 rounded-lg p-3">
+              <p className="font-medium text-gray-700 mb-2">💡 ¿No tenés código?</p>
+              <p className="text-gray-600 text-xs">
+                Si el producto no tiene código de barras o no querés inventar uno, usá el botón <strong>&quot;Generar&quot;</strong> para crear uno automático con formato <code className="bg-gray-200 px-1 rounded">INT-XXXX-XXXX</code>.
+              </p>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 
