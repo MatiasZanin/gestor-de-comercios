@@ -9,7 +9,10 @@ export type AuditAction =
     | 'PRODUCT_CREATE'
     | 'PRODUCT_UPDATE'
     | 'SALE_CREATE'
-    | 'REGISTER_CLOSE';
+    | 'REGISTER_CLOSE'
+    | 'OFFER_CREATE'
+    | 'OFFER_UPDATE'
+    | 'OFFER_FINISH';
 
 /**
  * Registra un evento de auditoría en DynamoDB.

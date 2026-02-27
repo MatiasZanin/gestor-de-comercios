@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo } from "react"
-import { Plus, Receipt, CalendarIcon, Search, ChevronLeft, ChevronRight, X } from "lucide-react"
+import { Plus, Receipt, CalendarIcon, Search, ChevronLeft, ChevronRight, X, Tag } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -436,10 +436,27 @@ export default function SalesPage() {
                                 </div>
                               </div>
                               <div className="text-xs text-gray-600 space-y-0.5">
-                                <div>Código: {item.code}</div>
+                                <div className="flex items-center gap-1">
+                                  Código: {item.code}
+                                  {item.discountApplied && item.discountApplied > 0 && (
+                                    <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1 py-0.5 rounded flex items-center gap-0.5">
+                                      <Tag className="w-2.5 h-2.5" />
+                                      {item.offerName || 'Oferta'}
+                                    </span>
+                                  )}
+                                </div>
                                 <div className="flex justify-between">
                                   <span>Cantidad: {Math.abs(item.qty)} {item.uom}</span>
-                                  <span>Precio: {formatCurrency(item.priceSale)}</span>
+                                  <span>
+                                    {item.discountApplied && item.discountApplied > 0 && item.originalPrice ? (
+                                      <>
+                                        <span className="line-through text-gray-400 mr-1">{formatCurrency(item.originalPrice)}</span>
+                                        {formatCurrency(item.priceSale)}
+                                      </>
+                                    ) : (
+                                      <>Precio: {formatCurrency(item.priceSale)}</>
+                                    )}
+                                  </span>
                                 </div>
                               </div>
                             </div>
@@ -487,6 +504,12 @@ export default function SalesPage() {
                                           Dev.
                                         </span>
                                       )}
+                                      {item.discountApplied && item.discountApplied > 0 && (
+                                        <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-600 bg-emerald-50 px-1 py-0.5 rounded shrink-0 flex items-center gap-0.5">
+                                          <Tag className="w-2.5 h-2.5" />
+                                          {item.offerName || 'Dto'}
+                                        </span>
+                                      )}
                                     </div>
                                   </td>
                                   <td className="px-3 py-1">
@@ -499,7 +522,16 @@ export default function SalesPage() {
                                     <TruncatedCell>{item.category}</TruncatedCell>
                                   </td>
                                   <td className={`px-3 py-1 whitespace-nowrap text-left tabular-nums ${isReturn ? "text-red-600" : ""}`}>{Math.abs(item.qty)} {item.uom}</td>
-                                  <td className="px-3 py-1 whitespace-nowrap text-left tabular-nums">{formatCurrency(item.priceSale)}</td>
+                                  <td className="px-3 py-1 whitespace-nowrap text-left tabular-nums">
+                                    {item.discountApplied && item.discountApplied > 0 && item.originalPrice ? (
+                                      <>
+                                        <span className="line-through text-gray-400 mr-1">{formatCurrency(item.originalPrice)}</span>
+                                        <span className="text-emerald-700">{formatCurrency(item.priceSale)}</span>
+                                      </>
+                                    ) : (
+                                      formatCurrency(item.priceSale)
+                                    )}
+                                  </td>
                                   <td className={`px-3 py-1 whitespace-nowrap text-left tabular-nums font-medium ${isReturn ? "text-red-600" : ""}`}>
                                     {formatCurrency(item.qty * item.priceSale)}
                                   </td>

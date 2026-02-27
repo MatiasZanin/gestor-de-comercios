@@ -29,6 +29,9 @@ const ACTION_COLORS: Record<AuditAction, string> = {
     PRODUCT_UPDATE: "bg-blue-100 text-blue-800 border-blue-200",
     SALE_CREATE: "bg-amber-100 text-amber-800 border-amber-200",
     REGISTER_CLOSE: "bg-purple-100 text-purple-800 border-purple-200",
+    OFFER_CREATE: "bg-orange-100 text-orange-800 border-orange-200",
+    OFFER_UPDATE: "bg-teal-100 text-teal-800 border-teal-200",
+    OFFER_FINISH: "bg-rose-100 text-rose-800 border-rose-200",
 }
 
 function formatDetailValue(key: string, value: any): string {

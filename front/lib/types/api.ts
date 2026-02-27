@@ -63,6 +63,10 @@ export interface SaleItem {
   uom: string
   brand?: string
   category?: string
+  originalPrice?: number    // Precio original antes de descuento
+  discountApplied?: number  // Monto de descuento por unidad
+  offerId?: string          // ID de la oferta aplicada
+  offerName?: string        // Nombre de la oferta aplicada
 }
 
 export type PaymentMethod = 'CASH' | 'CARD' | 'TRANSFER' | 'OTHER'
@@ -209,13 +213,16 @@ export interface CashCloseDetailResponse {
 }
 
 // Audit Log Models
-export type AuditAction = 'PRODUCT_CREATE' | 'PRODUCT_UPDATE' | 'SALE_CREATE' | 'REGISTER_CLOSE'
+export type AuditAction = 'PRODUCT_CREATE' | 'PRODUCT_UPDATE' | 'SALE_CREATE' | 'REGISTER_CLOSE' | 'OFFER_CREATE' | 'OFFER_UPDATE' | 'OFFER_FINISH'
 
 export const ACTION_LABELS: Record<AuditAction, string> = {
   PRODUCT_CREATE: 'Producto creado',
   PRODUCT_UPDATE: 'Producto actualizado',
   SALE_CREATE: 'Venta registrada',
   REGISTER_CLOSE: 'Cierre de caja',
+  OFFER_CREATE: 'Oferta creada',
+  OFFER_UPDATE: 'Oferta actualizada',
+  OFFER_FINISH: 'Oferta finalizada',
 }
 
 export const DETAIL_FIELD_LABELS: Record<string, string> = {
@@ -250,3 +257,51 @@ export interface AuditLogListResponse {
   items: AuditLog[]
   lastKey?: string
 }
+
+// Offer Models
+export type DiscountType = 'PERCENTAGE' | 'FIXED'
+export type ScopeType = 'PRODUCT' | 'CATEGORY' | 'BRAND'
+
+export interface OfferScope {
+  type: ScopeType
+  values: string[]
+}
+
+export interface Offer {
+  offerId: string
+  commerceId: string
+  name: string
+  discountType: DiscountType
+  discountValue: number
+  startDate: string
+  endDate: string
+  scope: OfferScope
+  createdAt: string
+  updatedAt: string
+  createdBy: string
+}
+
+export interface CreateOfferRequest {
+  name: string
+  discountType: DiscountType
+  discountValue: number
+  startDate: string
+  endDate: string
+  scope: OfferScope
+}
+
+export interface UpdateOfferRequest {
+  name?: string
+  discountType?: DiscountType
+  discountValue?: number
+  startDate?: string
+  endDate?: string
+  scope?: OfferScope
+}
+
+export interface OfferListResponse {
+  items: Offer[]
+  lastKey?: string
+}
+
+export type OfferStatus = 'active' | 'scheduled' | 'expired'

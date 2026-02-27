@@ -241,6 +241,37 @@ export class ApiClient {
     const query = searchParams.toString()
     return this.makeRequest(`/audit-logs${query ? `?${query}` : ""}`)
   }
+
+  // Offer endpoints
+  async createOffer(data: any): Promise<any> {
+    return this.makeRequest("/offers", {
+      method: "POST",
+      body: JSON.stringify(data),
+    })
+  }
+
+  async listOffers(params?: { status?: string; startDate?: string; endDate?: string; lastKey?: string }): Promise<any> {
+    const searchParams = new URLSearchParams()
+    if (params?.status) searchParams.append("status", params.status)
+    if (params?.startDate) searchParams.append("startDate", params.startDate)
+    if (params?.endDate) searchParams.append("endDate", params.endDate)
+    if (params?.lastKey) searchParams.append("lastKey", params.lastKey)
+    const query = searchParams.toString()
+    return this.makeRequest(`/offers${query ? `?${query}` : ""}`)
+  }
+
+  async updateOffer(offerId: string, data: any): Promise<any> {
+    return this.makeRequest(`/offers/${encodeURIComponent(offerId)}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    })
+  }
+
+  async finishOffer(offerId: string): Promise<any> {
+    return this.makeRequest(`/offers/${encodeURIComponent(offerId)}/finish`, {
+      method: "POST",
+    })
+  }
 }
 
 export const apiClient = ApiClient.getInstance()

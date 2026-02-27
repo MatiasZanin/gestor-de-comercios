@@ -51,7 +51,7 @@ export function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
 
             <div className="min-h-[200px] lg:h-full overflow-hidden">
               <SaleCart
-                items={state.selectedItems}
+                items={state.itemsWithOffers}
                 qtyInputs={state.qtyInputs}
                 onUpdateQty={actions.updateItemQty}
                 onUpdateQtyInput={actions.updateQtyInput}

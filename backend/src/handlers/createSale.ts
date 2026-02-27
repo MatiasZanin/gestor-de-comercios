@@ -19,6 +19,7 @@ import { assertCommerceAccess } from '../helpers/assertCommerceAccess';
 import { updateDailyStats } from '../helpers/updateDailyStats';
 import { updateStock } from '../helpers/updateStock';
 import { logAudit } from '../helpers/auditLogger';
+import { resolveOffers } from '../helpers/resolveOffers';
 import { Sale, SaleItem } from '../models/sale';
 import { formatJSONResponse } from '../utils/api-response';
 
@@ -163,10 +164,23 @@ export const handler = async (
     const createdAt = new Date().toISOString();
     const day = createdAt.slice(0, 10);
     const saleId = randomUUID();
-    // Calcular total y profit
+
+    // Resolver ofertas activas para los items de la venta
+    const discountMap = await resolveOffers(commerceId, items, tableName);
+
+    // Aplicar descuentos y calcular total y profit
     let total = 0;
     let profit = 0;
     for (const item of items) {
+      const discount = discountMap.get(item.code);
+      if (discount) {
+        item.originalPrice = item.priceSale;
+        item.discountApplied = discount.discountApplied;
+        item.offerId = discount.offerId;
+        item.offerName = discount.offerName;
+        // El precio efectivo de venta es el precio con descuento
+        item.priceSale = discount.finalPrice;
+      }
       total += item.priceSale * item.qty;
       profit += (item.priceSale - (item.priceBuy || 0)) * item.qty;
     }
@@ -174,6 +188,7 @@ export const handler = async (
     const currentMonth = createdAt.slice(0, 7); // "YYYY-MM"
 
     // Actualizar stock, stats históricas y ranking mensual para cada item
+    // Nota: updateDailyStats y updateMonthlyRanking usan item.priceSale que ya está post-descuento
     for (const item of items) {
       await updateStock(commerceId, item.code, item.qty);
       await updateDailyStats(

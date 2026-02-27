@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { Plus, Minus, X, RotateCcw } from "lucide-react"
+import { Plus, Minus, X, RotateCcw, Tag } from "lucide-react"
 import { formatCurrency } from "@/lib/utils/sales-utils"
 import type { SaleItem } from "@/lib/types/api"
 
@@ -81,10 +81,22 @@ export function SaleCart({ items, qtyInputs, onUpdateQty, onUpdateQtyInput, onRe
                                                         Devolución
                                                     </span>
                                                 )}
+                                                {item.discountApplied && item.discountApplied > 0 && (
+                                                    <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded shrink-0 flex items-center gap-0.5">
+                                                        <Tag className="w-2.5 h-2.5" />
+                                                        {item.offerName || 'Oferta'}
+                                                    </span>
+                                                )}
                                             </div>
                                             <div className="flex items-center text-xs text-gray-500 gap-2">
                                                 <span className="truncate max-w-[100px]">{item.code}</span>
                                                 {item.brand && <span className="truncate max-w-[100px] hidden sm:inline">• {item.brand}</span>}
+                                                {item.discountApplied && item.discountApplied > 0 && item.originalPrice && (
+                                                    <span className="text-emerald-600">
+                                                        <span className="line-through text-gray-400 mr-1">{formatCurrency(item.originalPrice)}</span>
+                                                        {formatCurrency(item.priceSale - item.discountApplied)}/u
+                                                    </span>
+                                                )}
                                             </div>
                                         </div>
 
@@ -139,7 +151,7 @@ export function SaleCart({ items, qtyInputs, onUpdateQty, onUpdateQtyInput, onRe
                                             </Button>
 
                                             <div className={`w-20 text-right font-medium text-sm mx-1 ${isReturn ? "text-red-600" : ""}`}>
-                                                {formatCurrency(item.qty * item.priceSale)}
+                                                {formatCurrency(item.qty * (item.discountApplied ? item.priceSale - item.discountApplied : item.priceSale))}
                                             </div>
 
                                             <Button

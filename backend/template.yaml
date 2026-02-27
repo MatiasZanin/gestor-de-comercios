@@ -512,6 +512,66 @@ Resources:
             Path: '/{commerceId}/audit-logs'
             Method: GET
 
+  CreateOfferFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub createOffer-${CommerceStage}
+      CodeUri: ./dist
+      Handler: handlers/createOffer.handler
+      Role: !GetAtt LambdaDynamoRole.Arn
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: '/{commerceId}/offers'
+            Method: POST
+
+  ListOffersFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub listOffers-${CommerceStage}
+      CodeUri: ./dist
+      Handler: handlers/listOffers.handler
+      Role: !GetAtt LambdaDynamoRole.Arn
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: '/{commerceId}/offers'
+            Method: GET
+
+  UpdateOfferFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub updateOffer-${CommerceStage}
+      CodeUri: ./dist
+      Handler: handlers/updateOffer.handler
+      Role: !GetAtt LambdaDynamoRole.Arn
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: '/{commerceId}/offers/{offerId}'
+            Method: PUT
+
+  FinishOfferFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub finishOffer-${CommerceStage}
+      CodeUri: ./dist
+      Handler: handlers/finishOffer.handler
+      Role: !GetAtt LambdaDynamoRole.Arn
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: '/{commerceId}/offers/{offerId}/finish'
+            Method: POST
+
   JwtAuthorizerFunction:
     Type: AWS::Serverless::Function
     Properties:

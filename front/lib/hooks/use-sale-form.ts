@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { apiClient } from "@/lib/api/client"
-import type { Product, CreateSaleRequest, Sale, SaleItem, PaymentMethod } from "@/lib/types/api"
+import type { Product, CreateSaleRequest, Sale, SaleItem, PaymentMethod, Offer } from "@/lib/types/api"
 import { parseVariableWeightEAN13 } from "@/lib/utils/sales-utils"
 
 interface UseSaleFormProps {
@@ -39,9 +39,22 @@ export function useSaleForm({ onSuccess }: UseSaleFormProps) {
         }
     }, [])
 
+    // Ofertas activas
+    const [activeOffers, setActiveOffers] = useState<Offer[]>([])
+
+    const loadOffers = useCallback(async () => {
+        try {
+            const response = await apiClient.listOffers({ status: 'active' })
+            setActiveOffers(response.items || [])
+        } catch (error) {
+            console.error("Error loading offers:", error)
+        }
+    }, [])
+
     useEffect(() => {
         loadProducts()
-    }, [loadProducts])
+        loadOffers()
+    }, [loadProducts, loadOffers])
 
     useEffect(() => {
         if (!showSuccess) return
@@ -191,6 +204,64 @@ export function useSaleForm({ onSuccess }: UseSaleFormProps) {
         setSearchTerm("")
     }
 
+    // --- Aplicar ofertas a los items ---
+    const applyOfferToItem = useCallback((item: SaleItem): SaleItem => {
+        if (activeOffers.length === 0) return item
+
+        const now = new Date().toISOString()
+        let bestDiscount = 0
+        let bestOffer: Offer | null = null
+
+        for (const offer of activeOffers) {
+            if (now < offer.startDate || now > offer.endDate) continue
+
+            let applies = false
+            switch (offer.scope.type) {
+                case 'PRODUCT':
+                    applies = offer.scope.values.includes(item.code)
+                    break
+                case 'CATEGORY':
+                    applies = !!item.category && offer.scope.values.includes(item.category)
+                    break
+                case 'BRAND':
+                    applies = !!item.brand && offer.scope.values.includes(item.brand)
+                    break
+            }
+
+            if (!applies) continue
+
+            let discount = 0
+            if (offer.discountType === 'PERCENTAGE') {
+                discount = (item.priceSale * offer.discountValue) / 100
+            } else {
+                discount = Math.min(offer.discountValue, item.priceSale)
+            }
+
+            if (discount > bestDiscount) {
+                bestDiscount = discount
+                bestOffer = offer
+            }
+        }
+
+        if (bestOffer && bestDiscount > 0) {
+            return {
+                ...item,
+                originalPrice: item.priceSale,
+                discountApplied: Math.round(bestDiscount * 100) / 100,
+                offerName: bestOffer.name,
+                offerId: bestOffer.offerId,
+            }
+        }
+
+        return { ...item, originalPrice: undefined, discountApplied: undefined, offerName: undefined, offerId: undefined }
+    }, [activeOffers])
+
+    // Items con ofertas aplicadas (derivado)
+    const itemsWithOffers = useMemo(() =>
+        selectedItems.map(applyOfferToItem),
+        [selectedItems, applyOfferToItem]
+    )
+
     const filteredProducts = () => {
         return products.filter(
             (product) =>
@@ -200,7 +271,10 @@ export function useSaleForm({ onSuccess }: UseSaleFormProps) {
     }
 
 
-    const calculateTotal = () => selectedItems.reduce((total, item) => total + item.qty * item.priceSale, 0)
+    const calculateTotal = () => itemsWithOffers.reduce((total, item) => {
+        const unitPrice = item.discountApplied ? item.priceSale - item.discountApplied : item.priceSale
+        return total + item.qty * unitPrice
+    }, 0)
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -234,6 +308,8 @@ export function useSaleForm({ onSuccess }: UseSaleFormProps) {
         state: {
             products,
             selectedItems,
+            itemsWithOffers,
+            activeOffers,
             loadingProducts,
             loading,
             error,

@@ -6,6 +6,12 @@ export interface SaleItem {
   priceSale: number;
   profit?: number;
   uom: string;
+  originalPrice?: number;      // Precio original antes del descuento
+  discountApplied?: number;    // Monto de descuento por unidad
+  offerId?: string;            // ID de la oferta aplicada
+  offerName?: string;          // Nombre de la oferta aplicada
+  brand?: string;
+  category?: string;
 }
 
 export type PaymentMethod = 'CASH' | 'CARD' | 'TRANSFER' | 'OTHER';
