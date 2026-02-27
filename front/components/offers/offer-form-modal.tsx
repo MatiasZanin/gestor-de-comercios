@@ -5,8 +5,18 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
-import { X, Plus, Trash2 } from "lucide-react"
+import { Calendar } from "@/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { X, Plus, Trash2, CalendarIcon, Clock, HelpCircle } from "lucide-react"
+import { format } from "date-fns"
+import { es } from "date-fns/locale"
 import { apiClient } from "@/lib/api/client"
 import type { Offer, DiscountType, ScopeType, Product } from "@/lib/types/api"
 
@@ -20,16 +30,51 @@ export function OfferFormModal({ offer, onClose, onSuccess }: OfferFormModalProp
     const isEditing = !!offer
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState("")
+    const [showGuide, setShowGuide] = useState(false)
 
     // Form state
     const [name, setName] = useState(offer?.name || "")
     const [discountType, setDiscountType] = useState<DiscountType>(offer?.discountType || "PERCENTAGE")
     const [discountValue, setDiscountValue] = useState(offer?.discountValue?.toString() || "")
-    const [startDate, setStartDate] = useState(offer?.startDate ? offer.startDate.slice(0, 16) : "")
-    const [endDate, setEndDate] = useState(offer?.endDate ? offer.endDate.slice(0, 16) : "")
+
+    // Date + time state (separated for better UX)
+    const parseExisting = (iso?: string) => {
+        if (!iso) return { date: undefined as Date | undefined, hour: "00", minute: "00" }
+        const d = new Date(iso)
+        return {
+            date: d,
+            hour: String(d.getHours()).padStart(2, "0"),
+            minute: String(d.getMinutes()).padStart(2, "0"),
+        }
+    }
+    const startParsed = parseExisting(offer?.startDate)
+    const endParsed = parseExisting(offer?.endDate)
+
+    const [startDateObj, setStartDateObj] = useState<Date | undefined>(startParsed.date)
+    const [startHour, setStartHour] = useState(startParsed.hour)
+    const [startMinute, setStartMinute] = useState(startParsed.minute)
+    const [startPopoverOpen, setStartPopoverOpen] = useState(false)
+
+    const [endDateObj, setEndDateObj] = useState<Date | undefined>(endParsed.date)
+    const [endHour, setEndHour] = useState(endParsed.hour || "23")
+    const [endMinute, setEndMinute] = useState(endParsed.minute || "59")
+    const [endPopoverOpen, setEndPopoverOpen] = useState(false)
+
     const [scopeType, setScopeType] = useState<ScopeType>(offer?.scope?.type || "PRODUCT")
     const [scopeValues, setScopeValues] = useState<string[]>(offer?.scope?.values || [])
     const [scopeInput, setScopeInput] = useState("")
+
+    // Helper: combine date + time into ISO string
+    const combineDatetime = (date: Date | undefined, hour: string, minute: string): string | null => {
+        if (!date) return null
+        const d = new Date(date)
+        d.setHours(Number(hour), Number(minute), 0, 0)
+        return d.toISOString()
+    }
+
+    // Generate hour/minute options
+    const hourOptions = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"))
+    const minuteOptions = ["00", "15", "30", "45"]
 
     // Products/metadata for suggestions
     const [products, setProducts] = useState<Product[]>([])
@@ -70,8 +115,12 @@ export function OfferFormModal({ offer, onClose, onSuccess }: OfferFormModalProp
         if (!name.trim()) { setError("El nombre es obligatorio"); return }
         if (!discountValue || Number(discountValue) <= 0) { setError("El valor del descuento debe ser positivo"); return }
         if (discountType === "PERCENTAGE" && Number(discountValue) > 100) { setError("El porcentaje no puede superar 100"); return }
-        if (!startDate || !endDate) { setError("Las fechas de inicio y fin son obligatorias"); return }
-        if (new Date(startDate) >= new Date(endDate)) { setError("La fecha de inicio debe ser anterior a la de fin"); return }
+        if (!startDateObj || !endDateObj) { setError("Las fechas de inicio y fin son obligatorias"); return }
+
+        const startIso = combineDatetime(startDateObj, startHour, startMinute)
+        const endIso = combineDatetime(endDateObj, endHour, endMinute)
+        if (!startIso || !endIso) { setError("Las fechas de inicio y fin son obligatorias"); return }
+        if (new Date(startIso) >= new Date(endIso)) { setError("La fecha de inicio debe ser anterior a la de fin"); return }
         if (scopeValues.length === 0) { setError("Debes seleccionar al menos un valor de alcance"); return }
 
         setLoading(true)
@@ -80,8 +129,8 @@ export function OfferFormModal({ offer, onClose, onSuccess }: OfferFormModalProp
                 name: name.trim(),
                 discountType,
                 discountValue: Number(discountValue),
-                startDate: new Date(startDate).toISOString(),
-                endDate: new Date(endDate).toISOString(),
+                startDate: startIso,
+                endDate: endIso,
                 scope: { type: scopeType, values: scopeValues },
             }
 
@@ -127,7 +176,12 @@ export function OfferFormModal({ offer, onClose, onSuccess }: OfferFormModalProp
         <div className="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center sm:p-4 z-[60]">
             <div className="bg-white rounded-none sm:rounded-lg shadow-xl w-full sm:max-w-lg h-full sm:h-auto sm:max-h-[90vh] overflow-y-auto">
                 <div className="p-6 border-b bg-gray-50 flex items-center justify-between">
-                    <h3 className="text-xl font-bold">{isEditing ? "Editar Oferta" : "Nueva Oferta"}</h3>
+                    <div className="flex items-center gap-2">
+                        <h3 className="text-xl font-bold">{isEditing ? "Editar Oferta" : "Nueva Oferta"}</h3>
+                        <button type="button" onClick={() => setShowGuide(true)} className="text-gray-400 hover:text-orange-500 transition-colors">
+                            <HelpCircle className="h-5 w-5" />
+                        </button>
+                    </div>
                     <Button variant="ghost" size="icon" onClick={onClose}>
                         <X className="w-5 h-5" />
                     </Button>
@@ -156,7 +210,7 @@ export function OfferFormModal({ offer, onClose, onSuccess }: OfferFormModalProp
                                 <SelectTrigger className="mt-1">
                                     <SelectValue />
                                 </SelectTrigger>
-                                <SelectContent>
+                                <SelectContent className="z-[70]">
                                     <SelectItem value="PERCENTAGE">Porcentaje (%)</SelectItem>
                                     <SelectItem value="FIXED">Monto Fijo ($)</SelectItem>
                                 </SelectContent>
@@ -179,25 +233,114 @@ export function OfferFormModal({ offer, onClose, onSuccess }: OfferFormModalProp
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <Label htmlFor="startDate">Fecha inicio</Label>
-                            <Input
-                                id="startDate"
-                                type="datetime-local"
-                                value={startDate}
-                                onChange={(e) => setStartDate(e.target.value)}
-                                className="mt-1"
-                            />
+                        {/* Fecha inicio */}
+                        <div className="space-y-2">
+                            <Label>Fecha inicio</Label>
+                            <Popover open={startPopoverOpen} onOpenChange={setStartPopoverOpen}>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        className="w-full justify-start text-left font-normal gap-2 mt-1"
+                                    >
+                                        <CalendarIcon className="h-4 w-4 text-orange-500" />
+                                        <span className="text-sm truncate">
+                                            {startDateObj
+                                                ? format(startDateObj, "dd MMM yyyy", { locale: es })
+                                                : "Seleccionar"}
+                                        </span>
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0 z-[70]" align="start">
+                                    <Calendar
+                                        mode="single"
+                                        selected={startDateObj}
+                                        onSelect={(date) => {
+                                            setStartDateObj(date)
+                                            setStartPopoverOpen(false)
+                                        }}
+                                        locale={es}
+                                    />
+                                </PopoverContent>
+                            </Popover>
+                            <div className="flex items-center gap-1.5">
+                                <Clock className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                                <Select value={startHour} onValueChange={setStartHour}>
+                                    <SelectTrigger className="h-8 text-xs flex-1">
+                                        <SelectValue placeholder="HH" />
+                                    </SelectTrigger>
+                                    <SelectContent className="z-[70] max-h-48">
+                                        {hourOptions.map(h => (
+                                            <SelectItem key={h} value={h}>{h}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <span className="text-gray-400 font-bold">:</span>
+                                <Select value={startMinute} onValueChange={setStartMinute}>
+                                    <SelectTrigger className="h-8 text-xs flex-1">
+                                        <SelectValue placeholder="MM" />
+                                    </SelectTrigger>
+                                    <SelectContent className="z-[70]">
+                                        {minuteOptions.map(m => (
+                                            <SelectItem key={m} value={m}>{m}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
                         </div>
-                        <div>
-                            <Label htmlFor="endDate">Fecha fin</Label>
-                            <Input
-                                id="endDate"
-                                type="datetime-local"
-                                value={endDate}
-                                onChange={(e) => setEndDate(e.target.value)}
-                                className="mt-1"
-                            />
+
+                        {/* Fecha fin */}
+                        <div className="space-y-2">
+                            <Label>Fecha fin</Label>
+                            <Popover open={endPopoverOpen} onOpenChange={setEndPopoverOpen}>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        className="w-full justify-start text-left font-normal gap-2 mt-1"
+                                    >
+                                        <CalendarIcon className="h-4 w-4 text-orange-500" />
+                                        <span className="text-sm truncate">
+                                            {endDateObj
+                                                ? format(endDateObj, "dd MMM yyyy", { locale: es })
+                                                : "Seleccionar"}
+                                        </span>
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0 z-[70]" align="start">
+                                    <Calendar
+                                        mode="single"
+                                        selected={endDateObj}
+                                        onSelect={(date) => {
+                                            setEndDateObj(date)
+                                            setEndPopoverOpen(false)
+                                        }}
+                                        locale={es}
+                                    />
+                                </PopoverContent>
+                            </Popover>
+                            <div className="flex items-center gap-1.5">
+                                <Clock className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                                <Select value={endHour} onValueChange={setEndHour}>
+                                    <SelectTrigger className="h-8 text-xs flex-1">
+                                        <SelectValue placeholder="HH" />
+                                    </SelectTrigger>
+                                    <SelectContent className="z-[70] max-h-48">
+                                        {hourOptions.map(h => (
+                                            <SelectItem key={h} value={h}>{h}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <span className="text-gray-400 font-bold">:</span>
+                                <Select value={endMinute} onValueChange={setEndMinute}>
+                                    <SelectTrigger className="h-8 text-xs flex-1">
+                                        <SelectValue placeholder="MM" />
+                                    </SelectTrigger>
+                                    <SelectContent className="z-[70]">
+                                        {minuteOptions.map(m => (
+                                            <SelectItem key={m} value={m}>{m}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
                         </div>
                     </div>
 
@@ -208,7 +351,7 @@ export function OfferFormModal({ offer, onClose, onSuccess }: OfferFormModalProp
                             <SelectTrigger className="mt-1">
                                 <SelectValue />
                             </SelectTrigger>
-                            <SelectContent>
+                            <SelectContent className="z-[70]">
                                 <SelectItem value="PRODUCT">Por Producto</SelectItem>
                                 <SelectItem value="CATEGORY">Por Categoría</SelectItem>
                                 <SelectItem value="BRAND">Por Marca</SelectItem>
@@ -281,6 +424,57 @@ export function OfferFormModal({ offer, onClose, onSuccess }: OfferFormModalProp
                     </div>
                 </form>
             </div>
+
+            <Dialog open={showGuide} onOpenChange={setShowGuide}>
+                <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto z-[80]">
+                    <DialogHeader>
+                        <DialogTitle className="text-lg font-semibold">🏷️ Cómo crear una oferta (Guía Rápida)</DialogTitle>
+                    </DialogHeader>
+
+                    <div className="space-y-4 text-sm">
+                        {/* 1. El Descuento */}
+                        <div className="flex gap-3 p-3 bg-orange-50 rounded-lg border-l-4 border-orange-500">
+                            <span className="text-xl">1️⃣</span>
+                            <div>
+                                <p className="font-semibold text-orange-800">El Descuento</p>
+                                <ul className="text-orange-900/80 text-xs mt-1 space-y-1 list-none">
+                                    <li><strong>Nombre:</strong> Poné algo fácil de identificar (Ej: &quot;Promo Verano&quot;).</li>
+                                    <li><strong>Tipo y Valor:</strong> Elegí si es <code className="bg-orange-100 text-orange-800 px-1 rounded text-xs">Porcentaje (%)</code> o <code className="bg-orange-100 text-orange-800 px-1 rounded text-xs">Monto Fijo ($)</code> y escribí el número.</li>
+                                    <li className="text-orange-600 italic text-[10px]">Si es porcentaje, el máximo es 100.</li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        {/* 2. La Vigencia */}
+                        <div className="flex gap-3 p-3 bg-blue-50 rounded-lg border-l-4 border-blue-500">
+                            <span className="text-xl">2️⃣</span>
+                            <div>
+                                <p className="font-semibold text-blue-800">La Vigencia (Días y Horarios)</p>
+                                <ul className="text-blue-900/80 text-xs mt-1 space-y-1 list-none">
+                                    <li>Elegí las fechas de inicio y fin en el calendario.</li>
+                                    <li>Ajustá la hora: El reloj usa formato de 24 horas (ej: <code className="bg-blue-100 text-blue-800 px-1 rounded text-xs">14:00</code> son las 2 de la tarde; <code className="bg-blue-100 text-blue-800 px-1 rounded text-xs">00:00</code> es la medianoche).</li>
+                                </ul>
+                                <div className="mt-2 p-2 bg-blue-100 rounded text-[10px] text-blue-800 font-medium">
+                                    ⚠️ Importante: La fecha y hora de inicio debe ser estrictamente anterior a la de cierre.
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 3. El Alcance */}
+                        <div className="flex gap-3 p-3 bg-emerald-50 rounded-lg border-l-4 border-emerald-500">
+                            <span className="text-xl">3️⃣</span>
+                            <div>
+                                <p className="font-semibold text-emerald-800">El Alcance (A qué le bajamos el precio)</p>
+                                <ul className="text-emerald-900/80 text-xs mt-1 space-y-1 list-none">
+                                    <li>Elegí si la oferta va por <code className="bg-emerald-100 text-emerald-800 px-1 rounded text-xs">Producto</code>, <code className="bg-emerald-100 text-emerald-800 px-1 rounded text-xs">Categoría</code> o <code className="bg-emerald-100 text-emerald-800 px-1 rounded text-xs">Marca</code>.</li>
+                                    <li>Buscá lo que querés agregar y hacé clic en la sugerencia.</li>
+                                    <li>Podés agregar más de uno.</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }
