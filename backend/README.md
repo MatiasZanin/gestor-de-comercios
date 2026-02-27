@@ -36,7 +36,7 @@ commerce-mvp/
 
 ### Tabla Dynamo
 
-La plantilla `sam/template.yaml` crea una tabla DynamoDB denominada `CommerceData-<CommerceStage>` con clave de partición `PK` y clave de ordenamiento `SK`. Los productos se almacenan con `PK = COM#<commerceId>` y `SK = PRODUCT#<code>`, mientras que las ventas se almacenan con `SK = SALE#<ISO-date>#<saleId>`. La GSI `GSI-Ventas-Por-Día` permite consultas por día (`GSI1PK = COM#<commerceId>#YYYY-MM-DD`).
+La plantilla `sam/template.yaml` crea una tabla DynamoDB denominada `GestionComercios-<CommerceStage>` con clave de partición `PK` y clave de ordenamiento `SK`. Los productos se almacenan con `PK = COM#<commerceId>` y `SK = PRODUCT#<code>`, mientras que las ventas se almacenan con `SK = SALE#<ISO-date>#<saleId>`. La GSI `GSI-Ventas-Por-Día` permite consultas por día (`GSI1PK = COM#<commerceId>#YYYY-MM-DD`).
 
 ### Despliegue
 

@@ -29,17 +29,17 @@ Globals:
     Tracing: Active
     Environment:
       Variables:
-        TABLE_NAME: !Ref CommerceData
+        TABLE_NAME: !Ref GestionComercios
         COMMERCE_STAGE: !Ref CommerceStage
         RETENTION_DAYS: !Ref RetentionDays
         SALES_BY_DAY_GSI: GSI-Ventas-Por-Dia
 
 Resources:
   ## DynamoDB single-table para productos y ventas
-  CommerceData:
+  GestionComercios:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub CommerceData-${CommerceStage}
+      TableName: !Sub GestionComercios-${CommerceStage}
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: PK
@@ -221,23 +221,23 @@ Resources:
                   - dynamodb:Query
                   - dynamodb:ConditionCheckItem
                   - dynamodb:DescribeTable
-                Resource: !GetAtt CommerceData.Arn
+                Resource: !GetAtt GestionComercios.Arn
               - Effect: Allow
                 Action:
                   - dynamodb:Query
-                Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/CommerceData-${CommerceStage}/index/GSI-Ventas-Por-Dia
+                Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/GestionComercios-${CommerceStage}/index/GSI-Ventas-Por-Dia
               - Effect: Allow
                 Action:
                   - dynamodb:Query
-                Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/CommerceData-${CommerceStage}/index/GSI-Productos-Activos
+                Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/GestionComercios-${CommerceStage}/index/GSI-Productos-Activos
               - Effect: Allow
                 Action:
                   - dynamodb:Query
-                Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/CommerceData-${CommerceStage}/index/GSI-Stock-Critico
+                Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/GestionComercios-${CommerceStage}/index/GSI-Stock-Critico
               - Effect: Allow
                 Action:
                   - dynamodb:Query
-                Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/CommerceData-${CommerceStage}/index/GSI-Ranking-Mensual
+                Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/GestionComercios-${CommerceStage}/index/GSI-Ranking-Mensual
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
 

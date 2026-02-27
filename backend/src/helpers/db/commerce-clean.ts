@@ -2,14 +2,14 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, QueryCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
 
 // CONFIGURACIÓN
-const TABLE_NAME = 'CommerceData-dev';
+const TABLE_NAME = 'GestionComercios-dev';
 const COMMERCE_ID = 'gs';
 const REGION = 'us-east-1';
 
 const client = new DynamoDBClient({ region: REGION });
 const docClient = DynamoDBDocumentClient.from(client);
 
-async function cleanCommerceData() {
+async function cleanGestionComercios() {
     const pkToClean = `COM#${COMMERCE_ID}`;
     console.log(`🔥 Iniciando borrado total para: ${pkToClean}`);
 
@@ -62,4 +62,4 @@ async function cleanCommerceData() {
     }
 }
 
-cleanCommerceData();
+cleanGestionComercios();

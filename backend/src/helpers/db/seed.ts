@@ -3,7 +3,7 @@ import { DynamoDBDocumentClient, PutCommand, QueryCommand, DeleteCommand, Update
 import { randomUUID } from 'crypto';
 
 // CONFIGURACIÓN
-const TABLE_NAME = 'CommerceData-dev'; // Asegúrate de que coincida con tu tabla en AWS o local
+const TABLE_NAME = 'GestionComercios-dev'; // Asegúrate de que coincida con tu tabla en AWS o local
 const COMMERCE_ID = 'gs';
 const REGION = 'us-east-1'; // Ajusta a tu región
 

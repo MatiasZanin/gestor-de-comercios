@@ -2,7 +2,7 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, QueryCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
 
 // CONFIGURACIÓN
-const TABLE_NAME = 'CommerceData-dev';
+const TABLE_NAME = 'GestionComercios-dev';
 const COMMERCE_ID = 'gs';
 const REGION = 'us-east-1';
 

@@ -8,7 +8,7 @@ import {
 import { randomUUID } from 'crypto';
 
 // --- CONFIGURACIÓN ---
-const TABLE_NAME = process.env.TABLE_NAME || 'CommerceData-dev';
+const TABLE_NAME = process.env.TABLE_NAME || 'GestionComercios-dev';
 const COMMERCE_ID = 'gs';
 const REGION = process.env.AWS_REGION || 'us-east-1';
 

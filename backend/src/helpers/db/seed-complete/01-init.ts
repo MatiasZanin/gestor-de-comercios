@@ -7,7 +7,7 @@ import {
 } from '@aws-sdk/lib-dynamodb';
 
 // --- CONFIGURACIÓN ---
-const TABLE_NAME = process.env.TABLE_NAME || 'CommerceData-dev';
+const TABLE_NAME = process.env.TABLE_NAME || 'GestionComercios-dev';
 const COMMERCE_ID = 'gs';
 const REGION = process.env.AWS_REGION || 'us-east-1';
 
@@ -37,7 +37,7 @@ const uoms = ['un', 'kg', 'lt', 'mt'];
 /**
  * 1. Eliminar todos los datos existentes del comercio
  */
-const cleanCommerceData = async () => {
+const cleanGestionComercios = async () => {
     console.log(`🧹 Buscando datos existentes para COM#${COMMERCE_ID}...`);
 
     let itemsToDelete: any[] = [];
@@ -194,7 +194,7 @@ const seedProducts = async () => {
 // --- EJECUCIÓN ---
 const run = async () => {
     try {
-        await cleanCommerceData();
+        await cleanGestionComercios();
         await seedProducts();
         console.log('🚀 Seed finalizado correctamente.');
     } catch (error) {
