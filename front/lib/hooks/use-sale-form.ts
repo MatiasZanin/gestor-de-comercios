@@ -206,6 +206,8 @@ export function useSaleForm({ onSuccess }: UseSaleFormProps) {
 
     // --- Aplicar ofertas a los items ---
     const applyOfferToItem = useCallback((item: SaleItem): SaleItem => {
+        // No aplicar descuentos a productos en devolución (qty negativo)
+        if (item.qty < 0) return { ...item, originalPrice: undefined, discountApplied: undefined, offerName: undefined, offerId: undefined }
         if (activeOffers.length === 0) return item
 
         const now = new Date().toISOString()

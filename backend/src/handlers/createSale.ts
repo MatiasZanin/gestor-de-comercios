@@ -185,14 +185,17 @@ export const handler = async (
     let total = 0;
     let profit = 0;
     for (const item of items) {
-      const discount = discountMap.get(item.code);
-      if (discount) {
-        item.originalPrice = item.priceSale;
-        item.discountApplied = discount.discountApplied;
-        item.offerId = discount.offerId;
-        item.offerName = discount.offerName;
-        // El precio efectivo de venta es el precio con descuento
-        item.priceSale = discount.finalPrice;
+      // No aplicar descuentos a productos en devolución (qty negativo)
+      if (item.qty > 0) {
+        const discount = discountMap.get(item.code);
+        if (discount) {
+          item.originalPrice = item.priceSale;
+          item.discountApplied = discount.discountApplied;
+          item.offerId = discount.offerId;
+          item.offerName = discount.offerName;
+          // El precio efectivo de venta es el precio con descuento
+          item.priceSale = discount.finalPrice;
+        }
       }
       total += item.priceSale * item.qty;
       profit += (item.priceSale - (item.priceBuy || 0)) * item.qty;

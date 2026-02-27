@@ -134,7 +134,8 @@ export const handler = async (
             if (!['PRODUCT', 'CATEGORY', 'BRAND'].includes(body.scope.type)) {
                 throw new BadRequestError('scope.type must be PRODUCT, CATEGORY or BRAND');
             }
-            expressionParts.push('scope = :scope');
+            expressionParts.push('#scope = :scope');
+            expressionNames['#scope'] = 'scope';
             expressionValues[':scope'] = body.scope;
         }
 
