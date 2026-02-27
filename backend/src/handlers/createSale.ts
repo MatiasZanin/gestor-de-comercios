@@ -41,8 +41,14 @@ async function updateDailySummary(
   total: number,
   paymentMethod: PaymentMethod
 ): Promise<void> {
-  // Extraer la hora (0-23) del timestamp ISO
-  const hour = new Date(createdAt).getHours();
+  // Extraer la hora (0-23) en zona horaria Argentina
+  const hour = parseInt(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Argentina/Buenos_Aires',
+      hour: 'numeric', hour12: false,
+    }).format(new Date(createdAt)),
+    10
+  );
   const hourKey = `h${hour}`;
 
   // Determinar el key del método de pago
@@ -161,8 +167,15 @@ export const handler = async (
         throw new BadRequestError('Each item must include priceBuy');
       }
     }
-    const createdAt = new Date().toISOString();
-    const day = createdAt.slice(0, 10);
+    const now = new Date();
+    const createdAt = now.toISOString();
+    // Computar el día en zona horaria Argentina (UTC-3) para que las ventas
+    // nocturnas (ej: 23:45 ART = 02:45 UTC+0) se asignen al día local correcto.
+    const artParts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Argentina/Buenos_Aires',
+      year: 'numeric', month: '2-digit', day: '2-digit',
+    }).format(now); // en-CA da formato "YYYY-MM-DD"
+    const day = artParts;
     const saleId = randomUUID();
 
     // Resolver ofertas activas para los items de la venta
@@ -184,8 +197,8 @@ export const handler = async (
       total += item.priceSale * item.qty;
       profit += (item.priceSale - (item.priceBuy || 0)) * item.qty;
     }
-    // Mes actual para el ranking de rotación mensual
-    const currentMonth = createdAt.slice(0, 7); // "YYYY-MM"
+    // Mes actual para el ranking de rotación mensual (derivado del día local)
+    const currentMonth = day.slice(0, 7); // "YYYY-MM"
 
     // Actualizar stock, stats históricas y ranking mensual para cada item
     // Nota: updateDailyStats y updateMonthlyRanking usan item.priceSale que ya está post-descuento
