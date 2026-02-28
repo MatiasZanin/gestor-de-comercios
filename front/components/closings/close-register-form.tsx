@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Loader2, CheckCircle, XCircle } from "lucide-react"
 import { apiClient } from "@/lib/api/client"
+import { useAuth } from "@/lib/hooks/use-auth"
 import type { CreateCashCloseRequest, CashClose } from "@/lib/types/api"
 
 interface CloseRegisterFormProps {
@@ -15,6 +16,8 @@ interface CloseRegisterFormProps {
 }
 
 export function CloseRegisterForm({ onSuccess }: CloseRegisterFormProps) {
+    const { user } = useAuth()
+    const isAdmin = user?.role === "admin"
     const [declaredCash, setDeclaredCash] = useState("")
     const [expenses, setExpenses] = useState("")
     const [initialFund, setInitialFund] = useState("")
@@ -157,27 +160,50 @@ export function CloseRegisterForm({ onSuccess }: CloseRegisterFormProps) {
                                 <CheckCircle className="w-5 h-5" />
                                 <span className="font-medium">¡Caja cerrada correctamente!</span>
                             </div>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                                <div>
-                                    <p className="text-gray-500">Efectivo Sistema</p>
-                                    <p className="font-semibold">{formatCurrency(lastClosure.systemTotalCash)}</p>
+                            {isAdmin ? (
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                                    <div>
+                                        <p className="text-gray-500">Efectivo Sistema</p>
+                                        <p className="font-semibold">{formatCurrency(lastClosure.systemTotalCash ?? 0)}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-gray-500">Tarjeta Sistema</p>
+                                        <p className="font-semibold">{formatCurrency(lastClosure.systemTotalCard ?? 0)}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-gray-500">Transferencia Sistema</p>
+                                        <p className="font-semibold">{formatCurrency(lastClosure.systemTotalTransfer ?? 0)}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-gray-500">Diferencia</p>
+                                        <p className={`font-semibold ${(lastClosure.difference ?? 0) === 0 ? 'text-emerald-600' : (lastClosure.difference ?? 0) > 0 ? 'text-blue-600' : 'text-red-600'}`}>
+                                            {formatCurrency(lastClosure.difference ?? 0)}
+                                            {(lastClosure.difference ?? 0) > 0 ? ' (sobrante)' : (lastClosure.difference ?? 0) < 0 ? ' (faltante)' : ''}
+                                        </p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <p className="text-gray-500">Tarjeta Sistema</p>
-                                    <p className="font-semibold">{formatCurrency(lastClosure.systemTotalCard)}</p>
+                            ) : (
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+                                    <div>
+                                        <p className="text-gray-500">Efectivo Contado</p>
+                                        <p className="font-semibold">{formatCurrency(lastClosure.declaredCash)}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-gray-500">Gastos</p>
+                                        <p className="font-semibold">{formatCurrency(lastClosure.expenses)}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-gray-500">Fondo Inicial</p>
+                                        <p className="font-semibold">{formatCurrency(lastClosure.initialFund)}</p>
+                                    </div>
+                                    {lastClosure.notes && (
+                                        <div className="col-span-2 md:col-span-3">
+                                            <p className="text-gray-500">Notas</p>
+                                            <p className="font-semibold">{lastClosure.notes}</p>
+                                        </div>
+                                    )}
                                 </div>
-                                <div>
-                                    <p className="text-gray-500">Transferencia Sistema</p>
-                                    <p className="font-semibold">{formatCurrency(lastClosure.systemTotalTransfer)}</p>
-                                </div>
-                                <div>
-                                    <p className="text-gray-500">Diferencia</p>
-                                    <p className={`font-semibold ${lastClosure.difference === 0 ? 'text-emerald-600' : lastClosure.difference > 0 ? 'text-blue-600' : 'text-red-600'}`}>
-                                        {formatCurrency(lastClosure.difference)}
-                                        {lastClosure.difference > 0 ? ' (sobrante)' : lastClosure.difference < 0 ? ' (faltante)' : ''}
-                                    </p>
-                                </div>
-                            </div>
+                            )}
                         </div>
                     )}
 

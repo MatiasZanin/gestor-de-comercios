@@ -13,6 +13,7 @@ import {
   ArrowDown,
   ChevronLeft,
   ChevronRight,
+  X,
 } from "lucide-react"
 // -------------------------
 
@@ -57,6 +58,8 @@ export default function ProductsPage() {
   // --- Nuevo Estado ---
   const [sortOrder, setSortOrder] = useState<SortKey>("name_asc")
   const [currentPage, setCurrentPage] = useState(1)
+  const [selectedCategory, setSelectedCategory] = useState<string>("all")
+  const [selectedBrand, setSelectedBrand] = useState<string>("all")
 
   const [showForm, setShowForm] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
@@ -116,12 +119,29 @@ export default function ProductsPage() {
     loadProducts(true)
   }
 
+  // Listas únicas de categorías y marcas derivadas de los productos
+  const uniqueCategories = useMemo(() => {
+    const cats = products
+      .map((p) => p.category)
+      .filter((c): c is string => !!c)
+    return Array.from(new Set(cats)).sort((a, b) => a.localeCompare(b))
+  }, [products])
+
+  const uniqueBrands = useMemo(() => {
+    const brands = products
+      .map((p) => p.brand)
+      .filter((b): b is string => !!b)
+    return Array.from(new Set(brands)).sort((a, b) => a.localeCompare(b))
+  }, [products])
+
   const filteredProducts = useMemo(() =>
     products
       .filter(
         (product) =>
-          product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          product.code.toLowerCase().includes(searchTerm.toLowerCase())
+          (product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            product.code.toLowerCase().includes(searchTerm.toLowerCase())) &&
+          (selectedCategory === "all" || product.category === selectedCategory) &&
+          (selectedBrand === "all" || product.brand === selectedBrand)
       )
       .sort((a, b) => {
         switch (sortOrder) {
@@ -137,7 +157,7 @@ export default function ProductsPage() {
             return 0
         }
       }),
-    [products, searchTerm, sortOrder]
+    [products, searchTerm, sortOrder, selectedCategory, selectedBrand]
   )
 
   const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE)
@@ -149,7 +169,7 @@ export default function ProductsPage() {
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchTerm, sortOrder, showActiveOnly])
+  }, [searchTerm, sortOrder, showActiveOnly, selectedCategory, selectedBrand])
 
   return (
     <DashboardLayout>
@@ -184,14 +204,50 @@ export default function ProductsPage() {
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                   <Input
-                    placeholder="Buscar productos..."
+                    placeholder="Buscar por nombre..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-10 w-full sm:w-64 border-gray-200 focus:border-emerald-500"
                   />
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
+                  {/* --- FILTRO DE CATEGORÍA --- */}
+                  <Select
+                    value={selectedCategory}
+                    onValueChange={setSelectedCategory}
+                  >
+                    <SelectTrigger className="w-full sm:w-[180px] border-gray-200 focus:border-emerald-500">
+                      <SelectValue placeholder="Categoría" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas las categorías</SelectItem>
+                      {uniqueCategories.map((cat) => (
+                        <SelectItem key={cat} value={cat}>
+                          {cat}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  {/* --- FILTRO DE MARCA --- */}
+                  <Select
+                    value={selectedBrand}
+                    onValueChange={setSelectedBrand}
+                  >
+                    <SelectTrigger className="w-full sm:w-[180px] border-gray-200 focus:border-emerald-500">
+                      <SelectValue placeholder="Marca" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas las marcas</SelectItem>
+                      {uniqueBrands.map((brand) => (
+                        <SelectItem key={brand} value={brand}>
+                          {brand}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
                   {/* --- DESPLEGABLE DE ORDEN --- */}
                   <Select
                     onValueChange={(value) => setSortOrder(value as SortKey)}
@@ -247,6 +303,55 @@ export default function ProductsPage() {
                 </div>
               </div>
             </div>
+
+            {/* --- CHIPS DE FILTROS ACTIVOS --- */}
+            {(searchTerm || selectedCategory !== "all" || selectedBrand !== "all") && (
+              <div className="flex flex-wrap items-center gap-2 mt-4">
+                {searchTerm && (
+                  <Badge
+                    variant="secondary"
+                    className="flex items-center gap-1 px-3 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 cursor-pointer transition-colors"
+                    onClick={() => setSearchTerm("")}
+                  >
+                    Búsqueda: {searchTerm}
+                    <X className="w-3 h-3 ml-1" />
+                  </Badge>
+                )}
+                {selectedCategory !== "all" && (
+                  <Badge
+                    variant="secondary"
+                    className="flex items-center gap-1 px-3 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 cursor-pointer transition-colors"
+                    onClick={() => setSelectedCategory("all")}
+                  >
+                    Categoría: {selectedCategory}
+                    <X className="w-3 h-3 ml-1" />
+                  </Badge>
+                )}
+                {selectedBrand !== "all" && (
+                  <Badge
+                    variant="secondary"
+                    className="flex items-center gap-1 px-3 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 cursor-pointer transition-colors"
+                    onClick={() => setSelectedBrand("all")}
+                  >
+                    Marca: {selectedBrand}
+                    <X className="w-3 h-3 ml-1" />
+                  </Badge>
+                )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setSearchTerm("")
+                    setSelectedCategory("all")
+                    setSelectedBrand("all")
+                  }}
+                  className="text-gray-500 hover:text-red-600 hover:bg-red-50 text-xs h-7 px-2"
+                >
+                  <X className="w-3 h-3 mr-1" />
+                  Limpiar filtros
+                </Button>
+              </div>
+            )}
           </CardHeader>
           <CardContent className="p-6">
             {loading && products.length === 0 ? (

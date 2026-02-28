@@ -179,7 +179,7 @@ export default function OffersPage() {
                                     <SelectItem value="all">Todas</SelectItem>
                                     <SelectItem value="active">Activas</SelectItem>
                                     <SelectItem value="scheduled">Programadas</SelectItem>
-                                    <SelectItem value="expired">Históricas</SelectItem>
+                                    <SelectItem value="expired">Finalizadas</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>

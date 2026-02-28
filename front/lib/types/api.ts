@@ -179,14 +179,14 @@ export interface CashClose {
   userId: string
   openedAt: string
   closedAt: string
-  systemTotalCash: number
-  systemTotalCard: number
-  systemTotalTransfer: number
-  systemTotalOther: number
+  systemTotalCash?: number
+  systemTotalCard?: number
+  systemTotalTransfer?: number
+  systemTotalOther?: number
   declaredCash: number
   expenses: number
   initialFund: number
-  difference: number
+  difference?: number
   notes?: string
 }
 

@@ -18,7 +18,7 @@ export function sanitizeForRole<T extends Record<string, any>>(
     if (value && typeof value === 'object') {
       const result: Record<string, any> = {};
       for (const [k, v] of Object.entries(value)) {
-        if (k === 'priceBuy' || k === 'profit') {
+        if (k === 'priceBuy' || k === 'profit' || k === 'systemTotalCash' || k === 'systemTotalCard' || k === 'systemTotalTransfer' || k === 'systemTotalOther' || k === 'difference') {
           continue;
         }
         result[k] = clean(v);
