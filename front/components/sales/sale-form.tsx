@@ -15,10 +15,11 @@ import { CheckoutModal } from "./checkout-modal"
 interface SaleFormProps {
   onSuccess: (sale: Sale) => void
   onCancel: () => void
+  initialItems?: import("@/lib/types/api").SaleItem[]
 }
 
-export function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
-  const { state, actions } = useSaleForm({ onSuccess })
+export function SaleForm({ onSuccess, onCancel, initialItems }: SaleFormProps) {
+  const { state, actions } = useSaleForm({ onSuccess, initialItems })
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center sm:p-4 z-50">
@@ -26,7 +27,7 @@ export function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
       <Card className="w-full sm:max-w-7xl h-full sm:h-[95vh] flex flex-col overflow-hidden gap-0 rounded-none sm:rounded-xl">
 
         <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between py-3 sm:py-4 border-b shrink-0 gap-1">
-          <CardTitle className="text-base sm:text-lg">Nueva Venta</CardTitle>
+          <CardTitle className="text-base sm:text-lg">{initialItems ? "Devolución por Ticket" : "Nueva Venta"}</CardTitle>
           <div className="text-xl sm:text-2xl font-bold text-orange-600">
             Total: {formatCurrency(actions.calculateTotal())}
           </div>

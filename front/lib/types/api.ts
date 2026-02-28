@@ -243,6 +243,8 @@ export const DETAIL_FIELD_LABELS: Record<string, string> = {
   category: 'Categoría',
   brand: 'Marca',
   qtyStep: 'Paso de cantidad',
+  offerId: 'ID de oferta',
+  updatedFields: 'Campos actualizados',
 }
 
 export interface AuditLog {

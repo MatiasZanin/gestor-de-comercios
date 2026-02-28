@@ -89,7 +89,7 @@ export function SaleCart({ items, qtyInputs, onUpdateQty, onUpdateQtyInput, onRe
                                                 )}
                                             </div>
                                             <div className="flex items-center text-xs text-gray-500 gap-2">
-                                                <span className="truncate max-w-[100px]">{item.code}</span>
+                                                <span className="truncate max-w-[100px]">{item.code.replace(/__RET$/, '')}</span>
                                                 {item.brand && <span className="truncate max-w-[100px] hidden sm:inline">• {item.brand}</span>}
                                                 {item.discountApplied && item.discountApplied > 0 && item.originalPrice && (
                                                     <span className="text-emerald-600">

@@ -5,9 +5,10 @@ import { parseVariableWeightEAN13 } from "@/lib/utils/sales-utils"
 
 interface UseSaleFormProps {
     onSuccess: (sale: Sale) => void
+    initialItems?: SaleItem[]
 }
 
-export function useSaleForm({ onSuccess }: UseSaleFormProps) {
+export function useSaleForm({ onSuccess, initialItems }: UseSaleFormProps) {
     // Datos y estado de carga
     const [products, setProducts] = useState<Product[]>([])
     const [loadingProducts, setLoadingProducts] = useState(true)
@@ -17,11 +18,18 @@ export function useSaleForm({ onSuccess }: UseSaleFormProps) {
     const [showCheckoutModal, setShowCheckoutModal] = useState(false)
 
     // Estado del formulario
-    const [selectedItems, setSelectedItems] = useState<SaleItem[]>([])
+    const [selectedItems, setSelectedItems] = useState<SaleItem[]>(initialItems ?? [])
     const [notes, setNotes] = useState("")
     const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("CASH")
     const [searchTerm, setSearchTerm] = useState("")
-    const [qtyInputs, setQtyInputs] = useState<Record<string, string>>({})
+    const [qtyInputs, setQtyInputs] = useState<Record<string, string>>(() => {
+        if (!initialItems) return {}
+        const inputs: Record<string, string> = {}
+        for (const item of initialItems) {
+            inputs[item.code] = Math.abs(item.qty).toFixed(2)
+        }
+        return inputs
+    })
 
     // Modales
     const [showOtherModal, setShowOtherModal] = useState(false)
@@ -285,7 +293,10 @@ export function useSaleForm({ onSuccess }: UseSaleFormProps) {
 
         try {
             const saleData: CreateSaleRequest = {
-                items: selectedItems,
+                items: selectedItems.map(item => ({
+                    ...item,
+                    code: item.code.replace(/__RET$/, ''), // Strip cart suffix for API
+                })),
                 notes: notes.trim() || undefined,
                 paymentMethod,
             }

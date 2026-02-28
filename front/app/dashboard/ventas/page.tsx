@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo } from "react"
-import { Plus, Receipt, CalendarIcon, Search, ChevronLeft, ChevronRight, X, Tag } from "lucide-react"
+import { Plus, Receipt, CalendarIcon, Search, ChevronLeft, ChevronRight, X, Tag, RotateCcw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -30,6 +30,7 @@ import { apiClient } from "@/lib/api/client"
 import type { Sale, SaleListResponse } from "@/lib/types/api"
 import { PAYMENT_METHOD_LABELS } from "@/lib/types/api"
 import { SaleForm } from "@/components/sales/sale-form"
+import { ReturnTicketModal } from "@/components/sales/return-ticket-modal"
 import { format, startOfMonth, subDays } from "date-fns"
 import { es } from "date-fns/locale"
 import { DashboardLayout } from "../../../components/dashboard/dashboard-layout"
@@ -41,6 +42,8 @@ export default function SalesPage() {
   const [isFiltering, setIsFiltering] = useState(false)
   const [searchSaleId, setSearchSaleId] = useState("")
   const [showForm, setShowForm] = useState(false)
+  const [showReturnModal, setShowReturnModal] = useState(false)
+  const [returnItems, setReturnItems] = useState<import("@/lib/types/api").SaleItem[] | undefined>(undefined)
   const [isInitialized, setIsInitialized] = useState(false)
 
   // Date range state (applied)
@@ -261,13 +264,23 @@ export default function SalesPage() {
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Ventas</h1>
             <p className="text-sm sm:text-base text-gray-600">Registra y gestiona las ventas</p>
           </div>
-          <Button
-            onClick={handleCreateSale}
-            className="bg-orange-600 hover:bg-orange-700 text-base sm:text-lg px-4 py-4 sm:px-6 sm:py-6 rounded-lg cursor-pointer transition-transform transform hover:scale-105 w-full sm:w-auto"
-          >
-            <Plus className="w-5 h-5 mr-2" />
-            Nueva Venta
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            <Button
+              onClick={() => setShowReturnModal(true)}
+              variant="outline"
+              className="border-red-300 text-red-600 hover:bg-red-50 hover:text-red-700 text-base sm:text-lg px-4 py-4 sm:px-6 sm:py-6 rounded-lg cursor-pointer transition-transform transform hover:scale-105 w-full sm:w-auto"
+            >
+              <RotateCcw className="w-5 h-5 mr-2" />
+              Devolución
+            </Button>
+            <Button
+              onClick={handleCreateSale}
+              className="bg-orange-600 hover:bg-orange-700 text-base sm:text-lg px-4 py-4 sm:px-6 sm:py-6 rounded-lg cursor-pointer transition-transform transform hover:scale-105 w-full sm:w-auto"
+            >
+              <Plus className="w-5 h-5 mr-2" />
+              Nueva Venta
+            </Button>
+          </div>
         </div>
         <Card>
           <CardHeader className="pb-4">
@@ -607,7 +620,31 @@ export default function SalesPage() {
             )}
           </CardContent>
         </Card>
-        {showForm && <SaleForm onSuccess={handleFormSuccess} onCancel={() => setShowForm(false)} />}
+        {showForm && (
+          <SaleForm
+            onSuccess={handleFormSuccess}
+            onCancel={() => { setShowForm(false); setReturnItems(undefined) }}
+            initialItems={returnItems}
+          />
+        )}
+        {showReturnModal && (
+          <ReturnTicketModal
+            onClose={() => setShowReturnModal(false)}
+            onGenerateReturn={(sale) => {
+              // Convert sale items to return items (negative qty)
+              const items = sale.items
+                .filter((item) => item.qty > 0) // Only return positive-qty items
+                .map((item) => ({
+                  ...item,
+                  code: `${item.code}__RET`, // Suffix to avoid key collision with catalog products
+                  qty: -Math.abs(item.qty), // Make qty negative for return
+                }))
+              setReturnItems(items)
+              setShowReturnModal(false)
+              setShowForm(true)
+            }}
+          />
+        )}
       </div>
     </DashboardLayout>
   )
