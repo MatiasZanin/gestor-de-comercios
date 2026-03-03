@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo } from "react"
-import { Eye, ClipboardList, CalendarIcon, ChevronLeft, ChevronRight, X } from "lucide-react"
+import { Eye, ClipboardList, CalendarIcon, ChevronLeft, ChevronRight, X, ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -34,6 +34,24 @@ const ACTION_COLORS: Record<AuditAction, string> = {
     OFFER_FINISH: "bg-rose-100 text-rose-800 border-rose-200",
 }
 
+const DISCOUNT_TYPE_LABELS: Record<string, string> = {
+    PERCENTAGE: 'Porcentaje',
+    FIXED: 'Monto fijo',
+}
+
+const SCOPE_TYPE_LABELS: Record<string, string> = {
+    PRODUCT: 'Producto',
+    CATEGORY: 'Categoría',
+    BRAND: 'Marca',
+}
+
+function formatScopeValue(value: any): string {
+    if (!value || typeof value !== "object") return String(value ?? "—")
+    const typeLabel = SCOPE_TYPE_LABELS[value.type] ?? value.type
+    const values = Array.isArray(value.values) ? value.values.join(", ") : ""
+    return `${typeLabel}: ${values}`
+}
+
 function formatDetailValue(key: string, value: any): string {
     if (value === null || value === undefined) return "—"
     if (typeof value === "boolean") return value ? "Sí" : "No"
@@ -42,9 +60,17 @@ function formatDetailValue(key: string, value: any): string {
         return PAYMENT_METHOD_LABELS[value as PaymentMethod] ?? value
     }
 
+    if (key === "discountType" && typeof value === "string") {
+        return DISCOUNT_TYPE_LABELS[value] ?? value
+    }
+
+    if (key === "scope") {
+        return formatScopeValue(value)
+    }
+
     if (
         (key === "total" || key === "declaredCash" || key === "difference" ||
-            key === "priceBuy" || key === "priceSale") &&
+            key === "priceBuy" || key === "priceSale" || key === "discountValue") &&
         typeof value === "number"
     ) {
         return new Intl.NumberFormat("es-AR", {
@@ -466,7 +492,7 @@ export default function AuditPage() {
 
             {/* Detail Modal */}
             <Dialog open={!!selectedLog} onOpenChange={(open) => !open && setSelectedLog(null)}>
-                <DialogContent className="sm:max-w-md">
+                <DialogContent className="sm:max-w-md max-h-[85vh] flex flex-col overflow-hidden">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
                             <ClipboardList className="w-5 h-5" />
@@ -482,7 +508,7 @@ export default function AuditPage() {
                     </DialogHeader>
 
                     {selectedLog && (
-                        <div className="space-y-4">
+                        <div className="space-y-4 overflow-y-auto min-h-0 pr-1">
                             <div className="flex items-center gap-3">
                                 <Badge
                                     variant="outline"
@@ -492,24 +518,87 @@ export default function AuditPage() {
                                 </Badge>
                             </div>
 
-                            <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-                                <h4 className="text-sm font-semibold text-gray-700">Información</h4>
-                                <div className="grid grid-cols-1 gap-2">
-                                    {Object.entries(selectedLog.details).map(([key, value]) => (
-                                        <div
-                                            key={key}
-                                            className="flex justify-between items-center py-1.5 border-b border-gray-100 last:border-0"
-                                        >
-                                            <span className="text-sm text-gray-500">
-                                                {DETAIL_FIELD_LABELS[key] ?? key}
-                                            </span>
-                                            <span className="text-sm font-medium text-gray-900 text-right max-w-[60%] truncate">
-                                                {formatDetailValue(key, value)}
-                                            </span>
+                            {/* Identidad del elemento (code, name, offerId, etc.) */}
+                            {(() => {
+                                const identityEntries = Object.entries(selectedLog.details).filter(
+                                    ([key]) => key !== "changes"
+                                )
+                                return identityEntries.length > 0 ? (
+                                    <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                                        <h4 className="text-sm font-semibold text-gray-700">Identificación</h4>
+                                        {identityEntries.map(([key, value]) => (
+                                            <div
+                                                key={key}
+                                                className="flex justify-between items-center py-1.5 border-b border-gray-100 last:border-0"
+                                            >
+                                                <span className="text-sm text-gray-500">
+                                                    {DETAIL_FIELD_LABELS[key] ?? key}
+                                                </span>
+                                                <span className="text-sm font-medium text-gray-900 text-right max-w-[60%] break-words">
+                                                    {formatDetailValue(key, value)}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : null
+                            })()}
+
+                            {/* Cambios old → new para acciones de update */}
+                            {selectedLog.details.changes &&
+                                typeof selectedLog.details.changes === "object" &&
+                                Object.keys(selectedLog.details.changes).length > 0 && (
+                                    <div className="bg-gradient-to-b from-blue-50/80 to-white rounded-lg border border-blue-100 p-4 space-y-3">
+                                        <h4 className="text-sm font-semibold text-blue-800 flex items-center gap-1.5">
+                                            <ArrowRight className="w-3.5 h-3.5" />
+                                            Campos modificados
+                                        </h4>
+                                        <div className="space-y-3">
+                                            {Object.entries(
+                                                selectedLog.details.changes as Record<string, { old: any; new: any }>
+                                            ).map(([field, { old: oldVal, new: newVal }]) => (
+                                                <div
+                                                    key={field}
+                                                    className="rounded-md bg-white border border-gray-100 p-3 space-y-1.5"
+                                                >
+                                                    <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
+                                                        {DETAIL_FIELD_LABELS[field] ?? field}
+                                                    </span>
+                                                    <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2 text-sm min-w-0">
+                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-red-50 text-red-700 border border-red-100 font-medium break-words text-xs sm:text-sm">
+                                                            {formatDetailValue(field, oldVal)}
+                                                        </span>
+                                                        <ArrowRight className="w-3.5 h-3.5 text-gray-400 flex-shrink-0 rotate-90 sm:rotate-0" />
+                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-100 font-medium break-words text-xs sm:text-sm">
+                                                            {formatDetailValue(field, newVal)}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            ))}
                                         </div>
-                                    ))}
+                                    </div>
+                                )}
+
+                            {/* Detalles planos (para acciones sin changes, ej: creates, cierre de caja) */}
+                            {!selectedLog.details.changes && (
+                                <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                                    <h4 className="text-sm font-semibold text-gray-700">Información</h4>
+                                    <div className="grid grid-cols-1 gap-2">
+                                        {Object.entries(selectedLog.details).map(([key, value]) => (
+                                            <div
+                                                key={key}
+                                                className="flex justify-between items-center py-1.5 border-b border-gray-100 last:border-0"
+                                            >
+                                                <span className="text-sm text-gray-500">
+                                                    {DETAIL_FIELD_LABELS[key] ?? key}
+                                                </span>
+                                                <span className="text-sm font-medium text-gray-900 text-right max-w-[60%] break-words">
+                                                    {formatDetailValue(key, value)}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
+                            )}
 
                             <div className="text-xs text-gray-400">
                                 Realizado por: <span className="font-medium text-gray-600">{selectedLog.userEmail || selectedLog.userId}</span>

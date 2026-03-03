@@ -50,3 +50,32 @@ export async function logAudit(
         console.error('[AuditLogger] Failed to log audit event:', err);
     }
 }
+
+/**
+ * Compara el estado anterior y posterior de un item y devuelve solo los campos
+ * que cambiaron, con sus valores viejos y nuevos.
+ * Incluye siempre los campos de identidad (id, name) para contexto.
+ */
+export function buildAuditChanges(
+    oldItem: Record<string, unknown>,
+    newItem: Record<string, unknown>,
+    identityFields: Record<string, unknown>,
+    trackedFields: string[]
+): Record<string, unknown> {
+    const changes: Record<string, { old: unknown; new: unknown }> = {};
+
+    for (const field of trackedFields) {
+        const oldVal = oldItem[field];
+        const newVal = newItem[field];
+        const oldStr = JSON.stringify(oldVal);
+        const newStr = JSON.stringify(newVal);
+        if (oldStr !== newStr) {
+            changes[field] = { old: oldVal ?? null, new: newVal ?? null };
+        }
+    }
+
+    return {
+        ...identityFields,
+        changes,
+    };
+}

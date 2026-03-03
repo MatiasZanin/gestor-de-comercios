@@ -1,5 +1,5 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, GetCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import {
   APIGatewayProxyEventV2WithJWTAuthorizer,
   APIGatewayProxyResultV2,
@@ -13,7 +13,7 @@ import {
 import { assertCommerceAccess } from '../helpers/assertCommerceAccess';
 import { sanitizeForRole } from '../helpers/sanitizeForRole';
 import { addCategory } from '../helpers/addCategory';
-import { logAudit } from '../helpers/auditLogger';
+import { logAudit, buildAuditChanges } from '../helpers/auditLogger';
 import { formatJSONResponse } from '../utils/api-response';
 
 const dynamoClient = new DynamoDBClient({});
@@ -81,6 +81,15 @@ export const handler = async (
       throw new BadRequestError('No updatable fields provided');
     }
 
+    // Obtener el item viejo antes de actualizar para auditoría
+    const oldResult = await docClient.send(
+      new GetCommand({
+        TableName: tableName,
+        Key: { PK: `COM#${commerceId}`, SK: `PRODUCT#${code}` },
+      })
+    );
+    const oldItem = oldResult.Item ?? {};
+
     const updatedAt = new Date().toISOString();
     expressionValues[':now'] = updatedAt;
 
@@ -142,7 +151,13 @@ export const handler = async (
 
     const userId = claims.sub as string;
     const userEmail = (claims.email as string) || '';
-    await logAudit(tableName, commerceId, userId, userEmail, 'PRODUCT_UPDATE', body);
+    const auditDetails = buildAuditChanges(
+      oldItem,
+      updatedItem,
+      { code, name: updatedItem.name },
+      allowedFields
+    );
+    await logAudit(tableName, commerceId, userId, userEmail, 'PRODUCT_UPDATE', auditDetails);
 
     const responseItem = sanitizeForRole(updatedItem, roles);
     return formatJSONResponse(responseItem);

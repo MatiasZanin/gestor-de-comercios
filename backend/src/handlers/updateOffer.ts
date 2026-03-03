@@ -15,7 +15,7 @@ import {
     buildErrorResponse,
 } from '../helpers/errors';
 import { assertCommerceAccess } from '../helpers/assertCommerceAccess';
-import { logAudit } from '../helpers/auditLogger';
+import { logAudit, buildAuditChanges } from '../helpers/auditLogger';
 import { Offer } from '../models/offer';
 import { formatJSONResponse } from '../utils/api-response';
 
@@ -160,10 +160,14 @@ export const handler = async (
 
         const userId = claims.sub as string;
         const userEmail = (claims.email as string) || '';
-        await logAudit(tableName, commerceId, userId, userEmail, 'OFFER_UPDATE', {
-            offerId,
-            updatedFields: Object.keys(body),
-        });
+        const trackedFields = ['name', 'discountType', 'discountValue', 'startDate', 'endDate', 'scope'];
+        const auditDetails = buildAuditChanges(
+            existing.Item as Record<string, unknown>,
+            (result.Attributes ?? {}) as Record<string, unknown>,
+            { offerId, name: (result.Attributes ?? existing.Item as any).name },
+            trackedFields
+        );
+        await logAudit(tableName, commerceId, userId, userEmail, 'OFFER_UPDATE', auditDetails);
 
         return formatJSONResponse(result.Attributes || {});
     } catch (err) {
