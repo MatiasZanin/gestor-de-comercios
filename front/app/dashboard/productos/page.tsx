@@ -14,6 +14,7 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
+  Download,
 } from "lucide-react"
 // -------------------------
 
@@ -41,6 +42,7 @@ import type { Product, ProductListResponse } from "@/lib/types/api"
 import { ProductForm } from "@/components/products/product-form"
 import { DeleteProductDialog } from "@/components/products/delete-product-dialog"
 import { DashboardLayout } from "../../../components/dashboard/dashboard-layout"
+import { ExportCSVModal } from "@/components/shared/export-csv-modal"
 
 // --- Nuevo Tipo ---
 // Tipo para las claves de ordenamiento
@@ -65,6 +67,7 @@ export default function ProductsPage() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null)
   const [lastKey, setLastKey] = useState<string | undefined>()
+  const [showExportModal, setShowExportModal] = useState(false)
 
   const isAdmin = user?.["cognito:groups"]?.includes("admin")
 
@@ -119,6 +122,25 @@ export default function ProductsPage() {
     loadProducts(true)
   }
 
+  // --- Datos para exportación CSV ---
+  const activeFilters = useMemo(() => {
+    const filters: { label: string; value: string }[] = []
+    filters.push({ label: "Estado", value: showActiveOnly ? "Activos" : "Inactivos" })
+    if (searchTerm) filters.push({ label: "Búsqueda", value: searchTerm })
+    if (selectedCategory !== "all") filters.push({ label: "Categoría", value: selectedCategory })
+    if (selectedBrand !== "all") filters.push({ label: "Marca", value: selectedBrand })
+    const sortLabels: Record<SortKey, string> = {
+      name_asc: "Nombre A-Z",
+      name_desc: "Nombre Z-A",
+      stock_asc: "Stock menor a mayor",
+      stock_desc: "Stock mayor a menor",
+    }
+    filters.push({ label: "Orden", value: sortLabels[sortOrder] })
+    return filters
+  }, [showActiveOnly, searchTerm, selectedCategory, selectedBrand, sortOrder])
+
+
+
   // Listas únicas de categorías y marcas derivadas de los productos
   const uniqueCategories = useMemo(() => {
     const cats = products
@@ -160,6 +182,24 @@ export default function ProductsPage() {
     [products, searchTerm, sortOrder, selectedCategory, selectedBrand]
   )
 
+  const csvHeaders = ["Código", "Nombre", "Categoría", "Marca", "Stock", "Unidad", "Stock Mín.", "Precio Compra", "Precio Venta", "Estado", "Notas"]
+  const csvRows = useMemo(() =>
+    filteredProducts.map((p) => [
+      p.code,
+      p.name,
+      p.category || "",
+      p.brand || "",
+      p.stock,
+      p.uom,
+      p.minStock ?? "",
+      p.priceBuy,
+      p.priceSale,
+      p.isActive ? "Activo" : "Inactivo",
+      p.notes || "",
+    ]),
+    [filteredProducts]
+  )
+
   const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE)
   const paginatedProducts = filteredProducts.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
@@ -181,15 +221,26 @@ export default function ProductsPage() {
               Gestiona el inventario de productos de tu comercio
             </p>
           </div>
-          {isAdmin && (
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
             <Button
-              onClick={handleCreateProduct}
-              className="bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 shadow-lg w-full sm:w-auto"
+              variant="outline"
+              onClick={() => setShowExportModal(true)}
+              disabled={filteredProducts.length === 0}
+              className="border-emerald-300 text-emerald-700 hover:bg-emerald-50 hover:border-emerald-400 w-full sm:w-auto"
             >
-              <Plus className="w-4 h-4 mr-2" />
-              Nuevo Producto
+              <Download className="w-4 h-4 mr-2" />
+              Exportar
             </Button>
-          )}
+            {isAdmin && (
+              <Button
+                onClick={handleCreateProduct}
+                className="bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 shadow-lg w-full sm:w-auto"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Nuevo Producto
+              </Button>
+            )}
+          </div>
         </div>
         <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm pt-0">
           <CardHeader className="border-b pt-6">
@@ -576,6 +627,20 @@ export default function ProductsPage() {
             onCancel={() => setDeletingProduct(null)}
           />
         )}
+
+        {/* --- Modal de confirmación de exportación --- */}
+        <ExportCSVModal
+          title="Exportar Productos"
+          description="Se exportarán los productos filtrados a un archivo CSV."
+          filenamePrefix="productos"
+          headers={csvHeaders}
+          rows={csvRows}
+          filters={activeFilters}
+          itemCount={filteredProducts.length}
+          itemLabel="productos"
+          open={showExportModal}
+          onOpenChange={setShowExportModal}
+        />
       </div>
     </DashboardLayout >
   )
