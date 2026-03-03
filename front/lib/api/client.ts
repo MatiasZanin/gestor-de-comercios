@@ -5,7 +5,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL!
 
 export class ApiClient {
   private static instance: ApiClient
-  private onUnauthorized?: () => void | Promise<void>
+  private onUnauthorized?: () => boolean | Promise<boolean>
 
   static getInstance(): ApiClient {
     if (!ApiClient.instance) {
@@ -15,18 +15,20 @@ export class ApiClient {
   }
 
   // Método para establecer el callback de redirección
-  setOnUnauthorized(callback: () => void | Promise<void>) {
+  setOnUnauthorized(callback: () => boolean | Promise<boolean>) {
     this.onUnauthorized = callback
   }
 
-  private handleUnauthorized() {
+  private async handleUnauthorized(): Promise<boolean> {
     if (this.onUnauthorized) {
-      this.onUnauthorized()
+      const result = await this.onUnauthorized()
+      return result === true
     } else {
       if (typeof window !== "undefined") {
         authService.logout()
         window.location.href = "/login"
       }
+      return false
     }
   }
 
@@ -57,8 +59,15 @@ export class ApiClient {
         if (refreshedToken) {
           return this.retryRequest<T>(endpoint, options, refreshedToken)
         }
-        // Si el refresh falló, hacer logout
-        this.handleUnauthorized()
+        // Si el refresh falló, intentar re-autenticación en caliente
+        const reauthed = await this.handleUnauthorized()
+        if (reauthed) {
+          // Re-autenticación exitosa, reintentar el request con el nuevo token
+          const newToken = authService.getToken()
+          if (newToken) {
+            return this.retryRequest<T>(endpoint, options, newToken)
+          }
+        }
         throw new Error("Sesión expirada. Redirigiendo al login...")
       }
 
@@ -86,7 +95,13 @@ export class ApiClient {
 
     if (!response.ok) {
       if (response.status === 401) {
-        this.handleUnauthorized()
+        const reauthed = await this.handleUnauthorized()
+        if (reauthed) {
+          const newToken = authService.getToken()
+          if (newToken) {
+            return this.retryRequest<T>(endpoint, options, newToken)
+          }
+        }
         throw new Error("Sesión expirada. Redirigiendo al login...")
       }
 

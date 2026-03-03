@@ -20,6 +20,9 @@ const userPool = new CognitoUserPool({
   ClientId: clientId,
 })
 
+// Evento global para notificar que la sesión expiró
+export const sessionEvents = new EventTarget()
+
 export class AuthService {
   private static instance: AuthService
   private authState: AuthState = {
@@ -29,6 +32,7 @@ export class AuthService {
     commerceId: null,
     role: null,
   }
+  private pendingReauth: { resolve: (value: boolean) => void } | null = null
 
   static getInstance(): AuthService {
     if (!AuthService.instance) {
@@ -297,16 +301,36 @@ export class AuthService {
     })
   }
 
-  // Maneja tokens expirados: intenta refresh, si falla hace logout
+  // Maneja tokens expirados: intenta refresh, si falla emite evento para mostrar LoginModal
   async handleTokenExpired(): Promise<boolean> {
     console.warn("Token expirado, intentando refresh...")
     const newToken = await this.refreshToken()
     if (newToken) {
       return true // refresh exitoso
     }
-    console.warn("Refresh falló, haciendo logout")
-    this.logout()
-    return false // hay que redirigir al login
+    console.warn("Refresh falló, mostrando modal de re-autenticación")
+    // Emitir evento para que el LoginModal se muestre
+    sessionEvents.dispatchEvent(new Event("session-expired"))
+    // Esperar a que el usuario se re-autentique o elija salir
+    return new Promise((resolve) => {
+      this.pendingReauth = { resolve }
+    })
+  }
+
+  // Llamado cuando el usuario se re-autentica exitosamente en el modal
+  resolveReauth(): void {
+    if (this.pendingReauth) {
+      this.pendingReauth.resolve(true)
+      this.pendingReauth = null
+    }
+  }
+
+  // Llamado cuando el usuario elige "Salir" en el modal
+  rejectReauth(): void {
+    if (this.pendingReauth) {
+      this.pendingReauth.resolve(false)
+      this.pendingReauth = null
+    }
   }
 
   getAuthState(): AuthState {

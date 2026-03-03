@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useCallback } from "react"
 import type React from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -20,6 +21,22 @@ interface SaleFormProps {
 
 export function SaleForm({ onSuccess, onCancel, initialItems }: SaleFormProps) {
   const { state, actions } = useSaleForm({ onSuccess, initialItems })
+
+  // Prevenir cierre de pestaña / recarga accidental
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+    }
+    window.addEventListener("beforeunload", handler)
+    return () => window.removeEventListener("beforeunload", handler)
+  }, [])
+
+  // Confirmar antes de cerrar el modal
+  const handleCancel = useCallback(() => {
+    if (state.selectedItems.length === 0 || window.confirm("¿Estás seguro de que querés cancelar? Se perderán los productos cargados.")) {
+      onCancel()
+    }
+  }, [state.selectedItems.length, onCancel])
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center sm:p-4 z-50">
@@ -72,7 +89,7 @@ export function SaleForm({ onSuccess, onCancel, initialItems }: SaleFormProps) {
 
           {/* Footer de botones, fijo al fondo */}
           <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:space-x-2 pt-2 border-t shrink-0" style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}>
-            <Button type="button" variant="outline" onClick={onCancel} className="w-full sm:w-auto">
+            <Button type="button" variant="outline" onClick={handleCancel} className="w-full sm:w-auto">
               Cancelar
             </Button>
             <Button
