@@ -5,7 +5,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL!
 
 export class ApiClient {
   private static instance: ApiClient
-  private onUnauthorized?: () => void
+  private onUnauthorized?: () => void | Promise<void>
 
   static getInstance(): ApiClient {
     if (!ApiClient.instance) {
@@ -15,7 +15,7 @@ export class ApiClient {
   }
 
   // Método para establecer el callback de redirección
-  setOnUnauthorized(callback: () => void) {
+  setOnUnauthorized(callback: () => void | Promise<void>) {
     this.onUnauthorized = callback
   }
 
@@ -31,13 +31,48 @@ export class ApiClient {
   }
 
   private async makeRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    const token = authService.getToken()
+    // Obtener token válido (se refresca automáticamente si está expirado)
+    const token = await authService.getValidToken()
     const commerceId = authService.getCommerceId()
 
     if (!token || !commerceId) {
       throw new Error("No authentication token or commerce ID available")
     }
 
+    const url = `${API_BASE_URL}/${commerceId}${endpoint}`
+
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+        ...options.headers,
+      },
+    })
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        // Intentar refresh explícito y reintentar una vez
+        const refreshedToken = await authService.refreshToken()
+        if (refreshedToken) {
+          return this.retryRequest<T>(endpoint, options, refreshedToken)
+        }
+        // Si el refresh falló, hacer logout
+        this.handleUnauthorized()
+        throw new Error("Sesión expirada. Redirigiendo al login...")
+      }
+
+      const errorData: ApiError = await response.json().catch(() => ({
+        error: { message: "Unknown error occurred" },
+      }))
+      throw new Error(errorData.error.message)
+    }
+
+    return response.json()
+  }
+
+  private async retryRequest<T>(endpoint: string, options: RequestInit, token: string): Promise<T> {
+    const commerceId = authService.getCommerceId()
     const url = `${API_BASE_URL}/${commerceId}${endpoint}`
 
     const response = await fetch(url, {

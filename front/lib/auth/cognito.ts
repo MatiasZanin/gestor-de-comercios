@@ -89,7 +89,7 @@ export class AuthService {
           const payload = idToken.payload as any
 
           const user: CognitoUserType = {
-            username:   payload["cognito:username"],
+            username: payload["cognito:username"],
             email_verified: payload.email_verified,
             sub: payload.sub,
             email: payload.email,
@@ -121,7 +121,7 @@ export class AuthService {
           // Guardamos el usuario temporalmente para usarlo en completeNewPassword
           this.tempCognitoUser = cognitoUser
           this.tempUserAttributes = userAttributes
-          
+
           // Rechazamos con un error especial para que el frontend sepa que necesita nueva contraseña
           reject({
             code: "NewPasswordRequired",
@@ -183,11 +183,11 @@ export class AuthService {
             }
 
             this.saveToStorage()
-            
+
             // Limpiamos las referencias temporales
             this.tempCognitoUser = null
             this.tempUserAttributes = null
-            
+
             resolve(this.authState)
           },
           onFailure: (error) => {
@@ -215,10 +215,98 @@ export class AuthService {
     this.clearStorage()
   }
 
-  // Método específico para manejar tokens expirados
-  handleTokenExpired(): void {
-    console.warn("Token expired, logging out user")
+  // Intenta obtener un token válido, refrescando automáticamente si es necesario
+  async getValidToken(): Promise<string | null> {
+    return new Promise((resolve) => {
+      const cognitoUser = userPool.getCurrentUser()
+      if (!cognitoUser) {
+        resolve(this.authState.token) // fallback al token almacenado
+        return
+      }
+
+      cognitoUser.getSession((err: Error | null, session: CognitoUserSession | null) => {
+        if (err || !session || !session.isValid()) {
+          console.warn("No se pudo obtener sesión válida:", err?.message)
+          resolve(this.authState.token) // fallback, el API client manejará el 401
+          return
+        }
+
+        const idToken = session.getIdToken()
+        const newToken = idToken.getJwtToken()
+
+        // Actualizar el estado interno si el token cambió
+        if (newToken !== this.authState.token) {
+          console.info("🔄 Token refrescado exitosamente")
+          this.authState.token = newToken
+          this.saveToStorage()
+        }
+
+        resolve(newToken)
+      })
+    })
+  }
+
+  // Intenta refrescar el token explícitamente. Retorna el nuevo token o null si falla.
+  async refreshToken(): Promise<string | null> {
+    return new Promise((resolve) => {
+      const cognitoUser = userPool.getCurrentUser()
+      if (!cognitoUser) {
+        resolve(null)
+        return
+      }
+
+      cognitoUser.getSession((err: Error | null, session: CognitoUserSession | null) => {
+        if (err || !session || !session.isValid()) {
+          console.warn("Refresh token falló:", err?.message)
+          resolve(null)
+          return
+        }
+
+        const idToken = session.getIdToken()
+        const newToken = idToken.getJwtToken()
+        const payload = idToken.payload as any
+
+        // Actualizar authState completo con el nuevo token
+        const user: CognitoUserType = {
+          username: payload["cognito:username"],
+          email_verified: payload.email_verified,
+          sub: payload.sub,
+          email: payload.email,
+          "cognito:groups": payload["cognito:groups"] || [],
+          role: payload["cognito:groups"]?.includes("admin") ? "admin" : "vendedor",
+          commerceId: payload["custom:commerceIds"]?.split(",")[0] || null,
+          commerceList: payload["custom:commerceIds"]
+            ? payload["custom:commerceIds"].split(",")
+            : [payload["custom:commerceId"]],
+        }
+
+        const role = user["cognito:groups"]?.includes("admin") ? "admin" : "vendedor"
+
+        this.authState = {
+          isAuthenticated: true,
+          user,
+          token: newToken,
+          commerceId: user.commerceId,
+          role,
+        }
+
+        this.saveToStorage()
+        console.info("🔄 Token refrescado exitosamente (refresh explícito)")
+        resolve(newToken)
+      })
+    })
+  }
+
+  // Maneja tokens expirados: intenta refresh, si falla hace logout
+  async handleTokenExpired(): Promise<boolean> {
+    console.warn("Token expirado, intentando refresh...")
+    const newToken = await this.refreshToken()
+    if (newToken) {
+      return true // refresh exitoso
+    }
+    console.warn("Refresh falló, haciendo logout")
     this.logout()
+    return false // hay que redirigir al login
   }
 
   getAuthState(): AuthState {

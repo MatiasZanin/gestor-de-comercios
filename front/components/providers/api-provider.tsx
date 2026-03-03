@@ -13,10 +13,12 @@ export function ApiProvider({ children }: ApiProviderProps) {
     const router = useRouter()
 
     useEffect(() => {
-        // Configurar el callback para manejar errores 401
-        apiClient.setOnUnauthorized(() => {
-            authService.handleTokenExpired()
-            router.push("/login")
+        // Configurar el callback para manejar errores 401 (se ejecuta solo si el refresh en el client falló)
+        apiClient.setOnUnauthorized(async () => {
+            const refreshed = await authService.handleTokenExpired()
+            if (!refreshed) {
+                router.push("/login")
+            }
         })
     }, [router])
 
