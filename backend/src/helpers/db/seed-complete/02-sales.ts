@@ -129,6 +129,8 @@ const createSaleItem = (
             name: p.name,
             priceSale: priceSale, // createSale usa priceSale, no price
             priceBuy: priceBuy,   // Requerido por createSale
+            category: p.category,
+            brand: p.brand,
             qty,
             uom,                  // Requerido por createSale
         };
