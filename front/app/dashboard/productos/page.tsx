@@ -222,15 +222,18 @@ export default function ProductsPage() {
             </p>
           </div>
           <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-            <Button
-              variant="outline"
-              onClick={() => setShowExportModal(true)}
-              disabled={filteredProducts.length === 0}
-              className="border-emerald-300 text-emerald-700 hover:bg-emerald-50 hover:border-emerald-400 w-full sm:w-auto"
-            >
-              <Download className="w-4 h-4 mr-2" />
-              Exportar
-            </Button>
+
+            {isAdmin && (
+              <Button
+                variant="outline"
+                onClick={() => setShowExportModal(true)}
+                disabled={filteredProducts.length === 0}
+                className="border-emerald-300 text-emerald-700 hover:bg-emerald-50 hover:border-emerald-400 w-full sm:w-auto"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Exportar
+              </Button>
+            )}
             {isAdmin && (
               <Button
                 onClick={handleCreateProduct}

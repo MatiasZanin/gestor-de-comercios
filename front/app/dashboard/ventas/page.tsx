@@ -61,7 +61,8 @@ export default function SalesPage() {
   const [pageKeys, setPageKeys] = useState<Record<number, string | undefined>>({ 1: undefined })
   const [hasNextPage, setHasNextPage] = useState(false)
 
-  const isAdmin = user?.role === "admin"
+  const isVendedor = user?.role === "vendedor"
+
 
   // Helper: get today as DateRange
   const getTodayRange = (): { start: string; end: string; dateRange: DateRange } => {
@@ -334,15 +335,18 @@ export default function SalesPage() {
             <p className="text-sm sm:text-base text-gray-600">Registra y gestiona las ventas</p>
           </div>
           <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-            <Button
-              variant="outline"
-              onClick={() => setShowExportModal(true)}
-              disabled={sales.length === 0}
-              className="border-emerald-300 text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50 hover:border-emerald-400 text-base sm:text-lg px-4 py-4 sm:px-6 sm:py-6 rounded-lg cursor-pointer transition-transform transform hover:scale-105 w-full sm:w-auto"
-            >
-              <Download className="w-4 h-4 mr-2" />
-              Exportar
-            </Button>
+            {!isVendedor && (
+              <Button
+
+                variant="outline"
+                onClick={() => setShowExportModal(true)}
+                disabled={sales.length === 0}
+                className="border-emerald-300 text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50 hover:border-emerald-400 text-base sm:text-lg px-4 py-4 sm:px-6 sm:py-6 rounded-lg cursor-pointer transition-transform transform hover:scale-105 w-full sm:w-auto"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Exportar
+              </Button>
+            )}
             <Button
               onClick={() => setShowReturnModal(true)}
               variant="outline"

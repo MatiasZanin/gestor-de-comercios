@@ -3,6 +3,7 @@ import { DynamoDBDocumentClient, QueryCommand, QueryCommandOutput } from '@aws-s
 import { APIGatewayProxyEventV2WithJWTAuthorizer, APIGatewayProxyResultV2 } from 'aws-lambda';
 import { BadRequestError, buildErrorResponse } from '../helpers/errors';
 import { assertCommerceAccess } from '../helpers/assertCommerceAccess';
+import { assertRole } from '../helpers/assertRole';
 import { sanitizeForRole } from '../helpers/sanitizeForRole';
 import { formatJSONResponse } from '../utils/api-response';
 
@@ -94,6 +95,7 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer): P
         if (!commerceId) throw new BadRequestError('Missing commerceId');
 
         assertCommerceAccess(event, commerceId);
+        assertRole(event, 'admin');
 
         const queryParams = event.queryStringParameters || {};
 
