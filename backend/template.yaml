@@ -408,6 +408,22 @@ Resources:
             Path: '/{commerceId}/closures'
             Method: GET
 
+  ExportClosuresFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub exportClosures-${CommerceStage}
+      CodeUri: ./dist
+      Handler: handlers/exportClosures.handler
+      Role: !GetAtt LambdaDynamoRole.Arn
+      Timeout: 30
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: '/{commerceId}/closures/export'
+            Method: GET
+
   GetClosureDetailFunction:
     Type: AWS::Serverless::Function
     Properties:

@@ -292,6 +292,15 @@ export class ApiClient {
     return this.makeRequest(`/closures/${encodeURIComponent(closureId)}`)
   }
 
+  async exportClosures(params: { day?: string; start?: string; end?: string }): Promise<{ items: any[]; totalCount: number }> {
+    const searchParams = new URLSearchParams()
+    if (params.day) searchParams.append("day", params.day)
+    if (params.start) searchParams.append("start", params.start)
+    if (params.end) searchParams.append("end", params.end)
+    const query = searchParams.toString()
+    return this.makeRequest(`/closures/export${query ? `?${query}` : ""}`)
+  }
+
   async listAuditLogs(params?: { lastKey?: string; start?: string; end?: string }): Promise<any> {
     const searchParams = new URLSearchParams()
     if (params?.lastKey) searchParams.append("lastKey", params.lastKey)
