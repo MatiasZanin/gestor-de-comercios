@@ -106,6 +106,7 @@ export default function SalesPage() {
     setPageKeys({ 1: undefined })
     setHasNextPage(false)
     setLoading(true)
+    setSales([])
     const params: Record<string, string> = newStart === newEnd
       ? { day: newStart }
       : { start: newStart, end: newEnd }
@@ -178,7 +179,9 @@ export default function SalesPage() {
 
   const loadPage = useCallback(async (page: number, cursorKey?: string) => {
     try {
+      console.log("loadPage")
       setLoading(true)
+      setSales([])
       const params = {
         ...buildQueryParams(),
         lastKey: cursorKey,
