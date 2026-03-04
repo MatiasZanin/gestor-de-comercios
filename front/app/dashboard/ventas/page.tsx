@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo } from "react"
-import { Plus, Receipt, CalendarIcon, Search, ChevronLeft, ChevronRight, X, Tag, RotateCcw } from "lucide-react"
+import { Plus, Receipt, CalendarIcon, Search, ChevronLeft, ChevronRight, X, Tag, RotateCcw, Download } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -34,6 +34,7 @@ import { ReturnTicketModal } from "@/components/sales/return-ticket-modal"
 import { format, startOfMonth, subDays } from "date-fns"
 import { es } from "date-fns/locale"
 import { DashboardLayout } from "../../../components/dashboard/dashboard-layout"
+import { ExportCSVModal, escapeCSVValue, downloadCSV } from "@/components/shared/export-csv-modal"
 
 export default function SalesPage() {
   const { user } = useAuth()
@@ -45,6 +46,7 @@ export default function SalesPage() {
   const [showReturnModal, setShowReturnModal] = useState(false)
   const [returnItems, setReturnItems] = useState<import("@/lib/types/api").SaleItem[] | undefined>(undefined)
   const [isInitialized, setIsInitialized] = useState(false)
+  const [showExportModal, setShowExportModal] = useState(false)
 
   // Date range state (applied)
   const [startDate, setStartDate] = useState("")
@@ -256,6 +258,73 @@ export default function SalesPage() {
     }).format(amount)
   }
 
+  const csvHeaders: string[] = [
+    "N° Venta", "Fecha", "Método Pago", "Producto", "Código", "Marca",
+    "Categoría", "Cantidad", "Unidad", "Precio Compra", "Precio Venta", "Subtotal", "Total Venta", "Ganancia", "Notas"
+  ]
+
+  const activeFilters = useMemo(() => {
+    const filters: { label: string; value: string }[] = []
+    if (startDate && endDate) {
+      if (startDate === endDate) {
+        filters.push({ label: "Fecha", value: startDate })
+      } else {
+        filters.push({ label: "Desde", value: startDate })
+        filters.push({ label: "Hasta", value: endDate })
+      }
+    }
+    if (searchSaleId.trim()) filters.push({ label: "N° Venta", value: searchSaleId.trim() })
+    return filters
+  }, [startDate, endDate, searchSaleId])
+
+  const handleExportSales = async (selectedColumnIndices: number[]) => {
+    const params: { day?: string; start?: string; end?: string } = {}
+    if (startDate && endDate && startDate === endDate) {
+      params.day = startDate
+    } else {
+      if (startDate) params.start = startDate
+      if (endDate) params.end = endDate
+    }
+
+    const response = await apiClient.exportSales(params)
+    const allSales = response.items
+
+    // Una fila por item de cada venta
+    const allRows: any[][] = []
+    for (const sale of allSales) {
+      for (const item of sale.items) {
+        allRows.push([
+          sale.saleId?.slice(-8) ?? "",
+          sale.createdAt ? new Date(sale.createdAt).toLocaleString("es-AR") : "",
+          sale.paymentMethod ? (PAYMENT_METHOD_LABELS[sale.paymentMethod as keyof typeof PAYMENT_METHOD_LABELS] ?? sale.paymentMethod) : "",
+          item.name ?? "",
+          item.code ?? "",
+          item.brand ?? "",
+          item.category ?? "",
+          item.qty ?? 0,
+          item.uom ?? "",
+          item.priceBuy ?? 0,
+          item.priceSale ?? 0,
+          (item.qty ?? 0) * (item.priceSale ?? 0),
+          sale.total ?? 0,
+          sale.profit,
+          sale.notes ?? "",
+        ])
+      }
+    }
+
+    const filteredHeaders = selectedColumnIndices.map((i) => csvHeaders[i])
+    const filteredRows = allRows.map((r) => selectedColumnIndices.map((i) => r[i]))
+
+    const csvContent = [
+      filteredHeaders.map(escapeCSVValue).join(","),
+      ...filteredRows.map((r) => r.map(escapeCSVValue).join(",")),
+    ].join("\n")
+
+    downloadCSV(csvContent, "ventas")
+    setShowExportModal(false)
+  }
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -266,9 +335,18 @@ export default function SalesPage() {
           </div>
           <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
             <Button
+              variant="outline"
+              onClick={() => setShowExportModal(true)}
+              disabled={sales.length === 0}
+              className="border-emerald-300 text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50 hover:border-emerald-400 text-base sm:text-lg px-4 py-4 sm:px-6 sm:py-6 rounded-lg cursor-pointer transition-transform transform hover:scale-105 w-full sm:w-auto"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Exportar
+            </Button>
+            <Button
               onClick={() => setShowReturnModal(true)}
               variant="outline"
-              className="border-red-300 text-red-600 hover:bg-red-50 hover:text-red-700 text-base sm:text-lg px-4 py-4 sm:px-6 sm:py-6 rounded-lg cursor-pointer transition-transform transform hover:scale-105 w-full sm:w-auto"
+              className="-3border-red00 text-red-600 hover:bg-red-50 hover:text-red-700 text-base sm:text-lg px-4 py-4 sm:px-6 sm:py-6 rounded-lg cursor-pointer transition-transform transform hover:scale-105 w-full sm:w-auto"
             >
               <RotateCcw className="w-5 h-5 mr-2" />
               Devolución
@@ -645,6 +723,21 @@ export default function SalesPage() {
             }}
           />
         )}
+
+        {/* --- Modal de confirmación de exportación --- */}
+        <ExportCSVModal
+          title="Exportar Ventas"
+          description="Se exportarán las ventas filtradas a un archivo CSV."
+          filenamePrefix="ventas"
+          headers={csvHeaders}
+          rows={[]}
+          filters={activeFilters}
+          itemCount={0} // no mostrar
+          itemLabel="ventas"
+          open={showExportModal}
+          onOpenChange={setShowExportModal}
+          onExport={handleExportSales}
+        />
       </div>
     </DashboardLayout>
   )

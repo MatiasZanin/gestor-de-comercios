@@ -60,23 +60,25 @@ const fetchByDay = async (tableName: string, commerceId: string, day: string, ex
 };
 
 const fetchByDateRange = async (tableName: string, commerceId: string, start?: string, end?: string, exclusiveStartKey?: any) => {
-  const expressionValues: Record<string, any> = { ':pk': `COM#${commerceId}`, ':prefix': 'SALE#' };
-  const expressionNames: Record<string, string> = {};
-  let filterExpression: string | undefined;
+  const expressionValues: Record<string, any> = { ':pk': `COM#${commerceId}` };
+  let keyCondition = 'PK = :pk';
 
+  // Usamos el SK directamente para delimitar las fechas y evitar escaneos de más
   if (start && end) {
-    filterExpression = '#day BETWEEN :start AND :end';
-    expressionNames['#day'] = 'day';
-    expressionValues[':start'] = start;
-    expressionValues[':end'] = end;
+    keyCondition += ' AND SK BETWEEN :startSk AND :endSk';
+    expressionValues[':startSk'] = `SALE#${start}`;
+    // Agregamos 'T23:59:59.999Z' para asegurar que cubra todo el último día
+    expressionValues[':endSk'] = `SALE#${end}T23:59:59.999Z`;
   } else if (start) {
-    filterExpression = '#day >= :start';
-    expressionNames['#day'] = 'day';
-    expressionValues[':start'] = start;
+    keyCondition += ' AND SK >= :startSk';
+    expressionValues[':startSk'] = `SALE#${start}`;
   } else if (end) {
-    filterExpression = '#day <= :end';
-    expressionNames['#day'] = 'day';
-    expressionValues[':end'] = end;
+    keyCondition += ' AND SK BETWEEN :minSk AND :endSk';
+    expressionValues[':minSk'] = 'SALE#';
+    expressionValues[':endSk'] = `SALE#${end}T23:59:59.999Z`;
+  } else {
+    keyCondition += ' AND begins_with(SK, :prefix)';
+    expressionValues[':prefix'] = 'SALE#';
   }
 
   let items: any[] = [];
@@ -85,9 +87,7 @@ const fetchByDateRange = async (tableName: string, commerceId: string, start?: s
   while (items.length < PAGE_SIZE) {
     const result = await docClient.send(new QueryCommand({
       TableName: tableName,
-      KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
-      FilterExpression: filterExpression,
-      ExpressionAttributeNames: Object.keys(expressionNames).length > 0 ? expressionNames : undefined,
+      KeyConditionExpression: keyCondition,
       ExpressionAttributeValues: expressionValues,
       ExclusiveStartKey: currentKey,
       Limit: PAGE_SIZE,

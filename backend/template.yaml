@@ -332,6 +332,22 @@ Resources:
             Path: '/{commerceId}/sales'
             Method: GET
 
+  ExportSalesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub exportSales-${CommerceStage}
+      CodeUri: ./dist
+      Handler: handlers/exportSales.handler
+      Role: !GetAtt LambdaDynamoRole.Arn
+      Timeout: 30
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: '/{commerceId}/sales/export'
+            Method: GET
+
   GetDailyReportFunction:
     Type: AWS::Serverless::Function
     Properties:

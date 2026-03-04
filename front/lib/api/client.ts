@@ -188,6 +188,15 @@ export class ApiClient {
     return this.makeRequest(`/sales${query ? `?${query}` : ""}`)
   }
 
+  async exportSales(params: { day?: string; start?: string; end?: string }): Promise<{ items: any[]; totalCount: number }> {
+    const searchParams = new URLSearchParams()
+    if (params.day) searchParams.append("day", params.day)
+    if (params.start) searchParams.append("start", params.start)
+    if (params.end) searchParams.append("end", params.end)
+    const query = searchParams.toString()
+    return this.makeRequest(`/sales/export${query ? `?${query}` : ""}`)
+  }
+
   // Report endpoints
   async getDailyReport(params: any): Promise<any> {
     const searchParams = new URLSearchParams()

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Download, FileSpreadsheet, Filter, Package, CheckSquare, Square } from "lucide-react"
+import { Download, FileSpreadsheet, Filter, Package, CheckSquare, Square, Loader2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -41,14 +41,34 @@ export interface ExportCSVModalProps {
     open: boolean
     /** Callback cuando se abre/cierra el modal */
     onOpenChange: (open: boolean) => void
+    /**
+     * Callback asíncrono opcional. Si se pasa, el modal delega la exportación
+     * al componente padre (útil cuando los datos se deben fetch-ear al momento de exportar).
+     * Recibe los índices de columnas seleccionadas.
+     */
+    onExport?: (selectedColumnIndices: number[]) => Promise<void>
 }
 
-function escapeCSVValue(val: string | number): string {
-    const str = String(val)
+export function escapeCSVValue(val: any): string {
+    const str = String(val ?? "")
     if (str.includes(",") || str.includes('"') || str.includes("\n")) {
         return `"${str.replace(/"/g, '""')}"`
     }
     return str
+}
+
+export function downloadCSV(content: string, filenamePrefix: string) {
+    const BOM = "\uFEFF"
+    const blob = new Blob([BOM + content], { type: "text/csv;charset=utf-8;" })
+    const url = URL.createObjectURL(blob)
+    const today = new Date().toISOString().slice(0, 10)
+    const link = document.createElement("a")
+    link.href = url
+    link.download = `${filenamePrefix}_${today}.csv`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
 }
 
 export function ExportCSVModal({
@@ -62,15 +82,18 @@ export function ExportCSVModal({
     itemLabel = "items",
     open,
     onOpenChange,
+    onExport,
 }: ExportCSVModalProps) {
     const [selectedColumns, setSelectedColumns] = useState<Set<number>>(
         () => new Set(headers.map((_, i) => i))
     )
+    const [isExporting, setIsExporting] = useState(false)
 
     // Reset selections when headers change or modal opens
     useEffect(() => {
         if (open) {
             setSelectedColumns(new Set(headers.map((_, i) => i)))
+            setIsExporting(false)
         }
     }, [open, headers])
 
@@ -92,8 +115,22 @@ export function ExportCSVModal({
     const selectAll = () => setSelectedColumns(new Set(headers.map((_, i) => i)))
     const deselectAll = () => setSelectedColumns(new Set())
 
-    const handleExport = () => {
+    const handleExport = async () => {
         const selectedIndices = Array.from(selectedColumns).sort((a, b) => a - b)
+
+        if (onExport) {
+            setIsExporting(true)
+            try {
+                await onExport(selectedIndices)
+            } catch (error) {
+                console.error("Error exporting:", error)
+            } finally {
+                setIsExporting(false)
+            }
+            return
+        }
+
+        // Exportación sincrónica (datos ya disponibles en rows)
         const filteredHeaders = selectedIndices.map((i) => headers[i])
         const filteredRows = rows.map((r) => selectedIndices.map((i) => r[i]))
 
@@ -102,19 +139,7 @@ export function ExportCSVModal({
             ...filteredRows.map((r) => r.map(escapeCSVValue).join(",")),
         ].join("\n")
 
-        const BOM = "\uFEFF"
-        const blob = new Blob([BOM + csvContent], {
-            type: "text/csv;charset=utf-8;",
-        })
-        const url = URL.createObjectURL(blob)
-        const today = new Date().toISOString().slice(0, 10)
-        const link = document.createElement("a")
-        link.href = url
-        link.download = `${filenamePrefix}_${today}.csv`
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
-        URL.revokeObjectURL(url)
+        downloadCSV(csvContent, filenamePrefix)
         onOpenChange(false)
     }
 
@@ -132,7 +157,7 @@ export function ExportCSVModal({
                 </DialogHeader>
 
                 <div className="space-y-4 py-2">
-                    <div className="flex items-center gap-3 p-3 bg-emerald-50 rounded-lg border border-emerald-200">
+                    {itemCount ? <div className="flex items-center gap-3 p-3 bg-emerald-50 rounded-lg border border-emerald-200">
                         <Package className="w-8 h-8 text-emerald-600 shrink-0" />
                         <div>
                             <p className="text-2xl font-bold text-emerald-700">
@@ -142,7 +167,7 @@ export function ExportCSVModal({
                                 {itemLabel} a exportar
                             </p>
                         </div>
-                    </div>
+                    </div> : null}
 
                     {filters.length > 0 && (
                         <div className="space-y-2">
@@ -216,17 +241,27 @@ export function ExportCSVModal({
                     <Button
                         variant="outline"
                         onClick={() => onOpenChange(false)}
+                        disabled={isExporting}
                         className="w-full sm:w-auto"
                     >
                         Cancelar
                     </Button>
                     <Button
                         onClick={handleExport}
-                        disabled={noneSelected}
+                        disabled={noneSelected || isExporting}
                         className="bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 w-full sm:w-auto"
                     >
-                        <Download className="w-4 h-4 mr-2" />
-                        Exportar CSV
+                        {isExporting ? (
+                            <>
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                Exportando...
+                            </>
+                        ) : (
+                            <>
+                                <Download className="w-4 h-4 mr-2" />
+                                Exportar CSV
+                            </>
+                        )}
                     </Button>
                 </DialogFooter>
             </DialogContent>
