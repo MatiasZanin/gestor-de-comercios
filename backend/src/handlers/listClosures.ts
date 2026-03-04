@@ -11,6 +11,7 @@ import {
 } from '../helpers/errors';
 import { sanitizeForRole } from '../helpers/sanitizeForRole';
 import { formatJSONResponse } from '../utils/api-response';
+import { getNextCursor, hasNextPage, removeLastItem } from '../helpers/nextPage';
 
 const dynamoClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(dynamoClient);
@@ -21,6 +22,8 @@ export const handler = async (
     try {
         const tableName = process.env.TABLE_NAME;
         const gsiName = process.env.SALES_BY_DAY_GSI || 'GSI-Ventas-Por-Dia';
+        const CLIENT_LIMIT = 10; // O lo que venga por query param (ej: Number(req.query.limit))
+        const DYNAMO_LIMIT = CLIENT_LIMIT + 1; // 11
 
         if (!tableName) {
             throw new Error('TABLE_NAME env var is required');
@@ -74,7 +77,7 @@ export const handler = async (
                     ':closePrefix': 'CLOSE#',
                 },
                 ExclusiveStartKey: exclusiveStartKey,
-                Limit: 25,
+                Limit: DYNAMO_LIMIT,
                 ScanIndexForward: false,
             });
 
@@ -99,7 +102,7 @@ export const handler = async (
                     ':skEnd': skEnd,
                 },
                 ExclusiveStartKey: exclusiveStartKey,
-                Limit: 25,
+                Limit: DYNAMO_LIMIT,
                 ScanIndexForward: false,
             });
 
@@ -115,24 +118,19 @@ export const handler = async (
                     ':closePrefix': 'CLOSE#',
                 },
                 ExclusiveStartKey: exclusiveStartKey,
-                Limit: 25,
+                Limit: DYNAMO_LIMIT,
                 ScanIndexForward: false,
             });
         }
 
         const result = await docClient.send(command);
-        const items = result.Items ?? [];
-
-        let lastKeyBase64: string | undefined;
-        if (result.LastEvaluatedKey) {
-            lastKeyBase64 = Buffer.from(
-                JSON.stringify(result.LastEvaluatedKey)
-            ).toString('base64');
-        }
+        const originalTotalItems = result.Items?.length;
+        const items = removeLastItem(result.Items, CLIENT_LIMIT);
+        const lastKey = getNextCursor(items, result.LastEvaluatedKey, originalTotalItems, CLIENT_LIMIT);
 
         const sanitized = items.map((closure) => sanitizeForRole(closure, roles));
 
-        return formatJSONResponse({ items: sanitized, lastKey: lastKeyBase64 });
+        return formatJSONResponse({ items: sanitized, lastKey });
     } catch (err) {
         return buildErrorResponse(err);
     }

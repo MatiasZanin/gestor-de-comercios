@@ -1,11 +1,11 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { History, Loader2, Eye } from "lucide-react"
+import { History, Loader2, Eye, ChevronLeft, ChevronRight } from "lucide-react"
 import { apiClient } from "@/lib/api/client"
 import type { CashClose, CashCloseListResponse } from "@/lib/types/api"
 import { format } from "date-fns"
@@ -22,7 +22,10 @@ export function ClosureHistoryTable({ refreshTrigger, startDate, endDate }: Clos
     const [closures, setClosures] = useState<CashClose[]>([])
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState("")
-    const [lastKey, setLastKey] = useState<string | undefined>()
+    const [currentPage, setCurrentPage] = useState(1)
+    // pageCursors[0] = undefined (page 1), pageCursors[1] = lastKey for page 2, etc.
+    const [pageCursors, setPageCursors] = useState<(string | undefined)[]>([undefined])
+    const [hasNextPage, setHasNextPage] = useState(false)
 
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat("es-AR", {
@@ -31,16 +34,15 @@ export function ClosureHistoryTable({ refreshTrigger, startDate, endDate }: Clos
         }).format(amount)
     }
 
-    const loadClosures = useCallback(async (reset = false) => {
+    const fetchPage = useCallback(async (cursor: string | undefined) => {
         try {
             setLoading(true)
             setError("")
 
             const params: Record<string, string | undefined> = {
-                lastKey: reset ? undefined : lastKey,
+                lastKey: cursor,
             }
 
-            // Build query params based on date range
             if (startDate && endDate && startDate === endDate) {
                 params.day = startDate
             } else {
@@ -50,39 +52,71 @@ export function ClosureHistoryTable({ refreshTrigger, startDate, endDate }: Clos
 
             const response: CashCloseListResponse = await apiClient.listClosures(params)
 
-            if (reset) {
-                setClosures(response.items)
-            } else {
-                setClosures((prev) => [...prev, ...response.items])
-            }
-
-            setLastKey(response.lastKey)
+            setClosures(response.items)
+            return response.lastKey
         } catch (err) {
-            // Handle 403 gracefully - user is not admin
             if (err instanceof Error && err.message.includes("admin")) {
                 setError("Solo los administradores pueden ver el historial de cierres")
             } else {
                 setError(err instanceof Error ? err.message : "Error al cargar cierres")
             }
+            return undefined
         } finally {
             setLoading(false)
         }
-    }, [startDate, endDate, lastKey])
+    }, [startDate, endDate])
+
+    const loadPage = useCallback(async (page: number) => {
+        const cursor = pageCursors[page - 1]
+        const nextLastKey = await fetchPage(cursor)
+
+        setCurrentPage(page)
+        setHasNextPage(!!nextLastKey)
+
+        if (nextLastKey && pageCursors.length <= page) {
+            setPageCursors(prev => [...prev.slice(0, page), nextLastKey])
+        }
+    }, [pageCursors, fetchPage])
+
+    const resetAndLoad = useCallback(async () => {
+        setCurrentPage(1)
+        setPageCursors([undefined])
+        setHasNextPage(false)
+
+        const nextLastKey = await fetchPage(undefined)
+        setHasNextPage(!!nextLastKey)
+
+        if (nextLastKey) {
+            setPageCursors([undefined, nextLastKey])
+        }
+    }, [fetchPage])
 
     useEffect(() => {
         if (startDate && endDate) {
-            loadClosures(true)
+            resetAndLoad()
         }
     }, [startDate, endDate])
 
     useEffect(() => {
         if (refreshTrigger && refreshTrigger > 0) {
-            loadClosures(true)
+            resetAndLoad()
         }
     }, [refreshTrigger])
 
+    const goToNextPage = () => {
+        if (hasNextPage) {
+            loadPage(currentPage + 1)
+        }
+    }
+
+    const goToPrevPage = () => {
+        if (currentPage > 1) {
+            loadPage(currentPage - 1)
+        }
+    }
+
     if (error && error.includes("administradores")) {
-        return null // Don't show the component at all if user is not admin
+        return null
     }
 
     return (
@@ -126,14 +160,14 @@ export function ClosureHistoryTable({ refreshTrigger, startDate, endDate }: Clos
                                             variant={
                                                 closure.difference === 0
                                                     ? "default"
-                                                    : closure.difference > 0
+                                                    : (closure.difference !== undefined && closure.difference > 0)
                                                         ? "secondary"
                                                         : "destructive"
                                             }
                                         >
                                             {closure.difference === 0
                                                 ? "Cuadrado"
-                                                : closure.difference > 0
+                                                : (closure.difference !== undefined && closure.difference > 0)
                                                     ? "Sobrante"
                                                     : "Faltante"}
                                         </Badge>
@@ -141,11 +175,11 @@ export function ClosureHistoryTable({ refreshTrigger, startDate, endDate }: Clos
                                     <div className="grid grid-cols-2 gap-2 text-sm">
                                         <div>
                                             <p className="text-gray-500">Efectivo Sistema</p>
-                                            <p className="font-medium">{formatCurrency(closure.systemTotalCash)}</p>
+                                            <p className="font-medium">{closure.systemTotalCash ? formatCurrency(closure.systemTotalCash) : "-"}</p>
                                         </div>
                                         <div>
                                             <p className="text-gray-500">Efectivo Declarado</p>
-                                            <p className="font-medium">{formatCurrency(closure.declaredCash)}</p>
+                                            <p className="font-medium">{closure.declaredCash ? formatCurrency(closure.declaredCash) : "-"}</p>
                                         </div>
                                         <div>
                                             <p className="text-gray-500">Gastos</p>
@@ -156,12 +190,12 @@ export function ClosureHistoryTable({ refreshTrigger, startDate, endDate }: Clos
                                             <p
                                                 className={`font-medium ${closure.difference === 0
                                                     ? "text-emerald-600"
-                                                    : closure.difference > 0
+                                                    : (closure.difference !== undefined && closure.difference > 0)
                                                         ? "text-blue-600"
                                                         : "text-red-600"
                                                     }`}
                                             >
-                                                {formatCurrency(closure.difference)}
+                                                {closure.difference !== undefined ? formatCurrency(closure.difference) : "-"}
                                             </p>
                                         </div>
                                     </div>
@@ -211,33 +245,33 @@ export function ClosureHistoryTable({ refreshTrigger, startDate, endDate }: Clos
                                                 {format(new Date(closure.closedAt), "HH:mm", { locale: es })}
                                             </td>
                                             <td className="py-3 px-4 tabular-nums">
-                                                {formatCurrency(closure.systemTotalCash)}
+                                                {closure.systemTotalCash !== undefined ? formatCurrency(closure.systemTotalCash) : "-"}
                                             </td>
                                             <td className="py-3 px-4 tabular-nums">
-                                                {formatCurrency(closure.systemTotalCard)}
+                                                {closure.systemTotalCard !== undefined ? formatCurrency(closure.systemTotalCard) : "-"}
                                             </td>
                                             <td className="py-3 px-4 tabular-nums">
-                                                {formatCurrency(closure.systemTotalTransfer)}
+                                                {closure.systemTotalTransfer !== undefined ? formatCurrency(closure.systemTotalTransfer) : "-"}
                                             </td>
                                             <td className="py-3 px-4 tabular-nums">
-                                                {formatCurrency(closure.systemTotalOther)}
+                                                {closure.systemTotalOther !== undefined ? formatCurrency(closure.systemTotalOther) : "-"}
                                             </td>
                                             <td
                                                 className={`py-3 px-4 tabular-nums font-medium ${closure.difference === 0
                                                     ? "text-emerald-600"
-                                                    : closure.difference > 0
+                                                    : (closure.difference && closure.difference > 0)
                                                         ? "text-blue-600"
                                                         : "text-red-600"
                                                     }`}
                                             >
-                                                {formatCurrency(closure.difference)}
+                                                {closure.difference !== undefined ? formatCurrency(closure.difference) : "-"}
                                             </td>
                                             <td className="py-3 pl-4">
                                                 <Badge
                                                     variant={
                                                         closure.difference === 0
                                                             ? "default"
-                                                            : closure.difference > 0
+                                                            : (closure.difference && closure.difference > 0)
                                                                 ? "secondary"
                                                                 : "destructive"
                                                     }
@@ -245,7 +279,7 @@ export function ClosureHistoryTable({ refreshTrigger, startDate, endDate }: Clos
                                                 >
                                                     {closure.difference === 0
                                                         ? "Cuadrado"
-                                                        : closure.difference > 0
+                                                        : (closure.difference && closure.difference > 0)
                                                             ? "Sobrante"
                                                             : "Faltante"}
                                                 </Badge>
@@ -267,14 +301,29 @@ export function ClosureHistoryTable({ refreshTrigger, startDate, endDate }: Clos
                             </table>
                         </div>
 
-                        {lastKey && (
-                            <div className="text-center pt-4">
+                        {/* Pagination */}
+                        {(currentPage > 1 || hasNextPage) && (
+                            <div className="flex items-center justify-end gap-4 pt-4 border-t">
                                 <Button
                                     variant="outline"
-                                    onClick={() => loadClosures(false)}
-                                    disabled={loading}
+                                    size="sm"
+                                    onClick={goToPrevPage}
+                                    disabled={currentPage <= 1 || loading}
                                 >
-                                    {loading ? "Cargando..." : "Cargar más"}
+                                    <ChevronLeft className="w-4 h-4 mr-1" />
+                                    Anterior
+                                </Button>
+                                <span className="text-sm text-gray-500">
+                                    Página {currentPage}
+                                </span>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={goToNextPage}
+                                    disabled={!hasNextPage || loading}
+                                >
+                                    Siguiente
+                                    <ChevronRight className="w-4 h-4 ml-1" />
                                 </Button>
                             </div>
                         )}
