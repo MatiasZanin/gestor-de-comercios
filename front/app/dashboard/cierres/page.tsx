@@ -108,9 +108,9 @@ export default function ClosuresPage() {
 
     // ═══ Export CSV ═══
     const csvHeaders: string[] = [
-        "ID Cierre", "Fondo Inicial", "Abierto", "Cerrado",
+        "ID Cierre", "Fondo Inicial", "Abierto", "Cerrado", "Total Tarjeta (Sistema)",
         "Total Transferencia (Sistema)", "Total Efectivo (Sistema)", "Efectivo Declarado",
-        "Gastos", "Usuario", "Notas", "Total Tarjeta (Sistema)",
+        "Gastos", "Usuario", "Notas",
         "Diferencia", "Total Otros (Sistema)",
     ]
 
@@ -142,15 +142,15 @@ export default function ClosuresPage() {
         const allRows: any[][] = allClosures.map((c) => [
             c.closureId ?? "",
             c.initialFund ?? 0,
-            c.closedAt ? new Date(c.closedAt).toLocaleString("es-AR") : "",
             c.openedAt ? new Date(c.openedAt).toLocaleString("es-AR") : "",
+            c.closedAt ? new Date(c.closedAt).toLocaleString("es-AR") : "",
+            c.systemTotalCard ?? 0,
             c.systemTotalTransfer ?? 0,
             c.systemTotalCash ?? 0,
             c.declaredCash ?? 0,
             c.expenses ?? 0,
             c.userId ?? "",
             c.notes ?? "",
-            c.systemTotalCard ?? 0,
             c.difference ?? 0,
             c.systemTotalOther ?? 0,
         ])
