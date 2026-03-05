@@ -518,68 +518,67 @@ export default function AuditPage() {
                                 </Badge>
                             </div>
 
-                            {/* Identidad del elemento (code, name, offerId, etc.) */}
-                            {(() => {
-                                const identityEntries = Object.entries(selectedLog.details).filter(
-                                    ([key]) => key !== "changes"
-                                )
-                                return identityEntries.length > 0 ? (
-                                    <div className="bg-gray-50 rounded-lg p-4 space-y-2">
-                                        <h4 className="text-sm font-semibold text-gray-700">Identificación</h4>
-                                        {identityEntries.map(([key, value]) => (
-                                            <div
-                                                key={key}
-                                                className="flex justify-between items-center py-1.5 border-b border-gray-100 last:border-0"
-                                            >
-                                                <span className="text-sm text-gray-500">
-                                                    {DETAIL_FIELD_LABELS[key] ?? key}
-                                                </span>
-                                                <span className="text-sm font-medium text-gray-900 text-right max-w-[60%] break-words">
-                                                    {formatDetailValue(key, value)}
-                                                </span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : null
-                            })()}
-
-                            {/* Cambios old → new para acciones de update */}
-                            {selectedLog.details.changes &&
-                                typeof selectedLog.details.changes === "object" &&
-                                Object.keys(selectedLog.details.changes).length > 0 && (
-                                    <div className="bg-gradient-to-b from-blue-50/80 to-white rounded-lg border border-blue-100 p-4 space-y-3">
-                                        <h4 className="text-sm font-semibold text-blue-800 flex items-center gap-1.5">
-                                            <ArrowRight className="w-3.5 h-3.5" />
-                                            Campos modificados
-                                        </h4>
-                                        <div className="space-y-3">
-                                            {Object.entries(
-                                                selectedLog.details.changes as Record<string, { old: any; new: any }>
-                                            ).map(([field, { old: oldVal, new: newVal }]) => (
-                                                <div
-                                                    key={field}
-                                                    className="rounded-md bg-white border border-gray-100 p-3 space-y-1.5"
-                                                >
-                                                    <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
-                                                        {DETAIL_FIELD_LABELS[field] ?? field}
-                                                    </span>
-                                                    <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2 text-sm min-w-0">
-                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-red-50 text-red-700 border border-red-100 font-medium break-words text-xs sm:text-sm">
-                                                            {formatDetailValue(field, oldVal)}
+                            {/* Si tiene 'changes', es un UPDATE: Mostramos Identificación + Cambios */}
+                            {selectedLog.details.changes ? (
+                                <>
+                                    {/* Identidad del elemento (code, name, offerId, etc.) */}
+                                    {Object.keys(selectedLog.details).filter((k) => k !== "changes").length > 0 && (
+                                        <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                                            <h4 className="text-sm font-semibold text-gray-700">Identificación</h4>
+                                            {Object.entries(selectedLog.details)
+                                                .filter(([key]) => key !== "changes")
+                                                .map(([key, value]) => (
+                                                    <div
+                                                        key={key}
+                                                        className="flex justify-between items-center py-1.5 border-b border-gray-100 last:border-0"
+                                                    >
+                                                        <span className="text-sm text-gray-500">
+                                                            {DETAIL_FIELD_LABELS[key] ?? key}
                                                         </span>
-                                                        <ArrowRight className="w-3.5 h-3.5 text-gray-400 flex-shrink-0 rotate-90 sm:rotate-0" />
-                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-100 font-medium break-words text-xs sm:text-sm">
-                                                            {formatDetailValue(field, newVal)}
+                                                        <span className="text-sm font-medium text-gray-900 text-right max-w-[60%] break-words">
+                                                            {formatDetailValue(key, value)}
                                                         </span>
                                                     </div>
-                                                </div>
-                                            ))}
+                                                ))}
                                         </div>
-                                    </div>
-                                )}
+                                    )}
 
-                            {/* Detalles planos (para acciones sin changes, ej: creates, cierre de caja) */}
-                            {!selectedLog.details.changes && (
+                                    {/* Cambios old → new */}
+                                    {typeof selectedLog.details.changes === "object" &&
+                                        Object.keys(selectedLog.details.changes).length > 0 && (
+                                            <div className="bg-gradient-to-b from-blue-50/80 to-white rounded-lg border border-blue-100 p-4 space-y-3">
+                                                <h4 className="text-sm font-semibold text-blue-800 flex items-center gap-1.5">
+                                                    <ArrowRight className="w-3.5 h-3.5" />
+                                                    Campos modificados
+                                                </h4>
+                                                <div className="space-y-3">
+                                                    {Object.entries(
+                                                        selectedLog.details.changes as Record<string, { old: any; new: any }>
+                                                    ).map(([field, { old: oldVal, new: newVal }]) => (
+                                                        <div
+                                                            key={field}
+                                                            className="rounded-md bg-white border border-gray-100 p-3 space-y-1.5"
+                                                        >
+                                                            <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
+                                                                {DETAIL_FIELD_LABELS[field] ?? field}
+                                                            </span>
+                                                            <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2 text-sm min-w-0">
+                                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-red-50 text-red-700 border border-red-100 font-medium break-words text-xs sm:text-sm">
+                                                                    {formatDetailValue(field, oldVal)}
+                                                                </span>
+                                                                <ArrowRight className="w-3.5 h-3.5 text-gray-400 flex-shrink-0 rotate-90 sm:rotate-0" />
+                                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-100 font-medium break-words text-xs sm:text-sm">
+                                                                    {formatDetailValue(field, newVal)}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                </>
+                            ) : (
+                                /* Si NO tiene 'changes', es un CREATE/CLOSE: Mostramos todo junto de forma plana */
                                 <div className="bg-gray-50 rounded-lg p-4 space-y-3">
                                     <h4 className="text-sm font-semibold text-gray-700">Información</h4>
                                     <div className="grid grid-cols-1 gap-2">
