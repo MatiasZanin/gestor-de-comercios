@@ -1,6 +1,7 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import {
     DynamoDBDocumentClient,
+    GetCommand,
     UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
 import {
@@ -15,6 +16,7 @@ import {
 import { assertCommerceAccess } from '../helpers/assertCommerceAccess';
 import { logAudit } from '../helpers/auditLogger';
 import { formatJSONResponse } from '../utils/api-response';
+import { patchOfferRecord } from '../services/domain';
 
 const dynamoClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(dynamoClient);
@@ -51,6 +53,17 @@ export const handler = async (
         const now = new Date().toISOString();
 
         // Soft delete: sobrescribir endDate con now()
+        const existing = await docClient.send(
+            new GetCommand({
+                TableName: tableName,
+                Key: { PK: pk, SK: sk },
+            })
+        );
+        if (!existing.Item) {
+            throw new BadRequestError('Offer not found');
+        }
+        const patched = patchOfferRecord(existing.Item as any, { endDate: now }, now);
+
         const result = await docClient.send(
             new UpdateCommand({
                 TableName: tableName,
@@ -71,7 +84,7 @@ export const handler = async (
             finishedAt: now,
         });
 
-        return formatJSONResponse(result.Attributes || {});
+        return formatJSONResponse(result.Attributes || patched);
     } catch (err) {
         return buildErrorResponse(err);
     }

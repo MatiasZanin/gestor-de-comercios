@@ -15,6 +15,7 @@ import { addCategory } from '../helpers/addCategory';
 import { logAudit } from '../helpers/auditLogger';
 import { Product } from '../models/product';
 import { formatJSONResponse } from '../utils/api-response';
+import { buildProductRecord } from '../services/domain';
 
 const dynamoClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(dynamoClient);
@@ -60,42 +61,24 @@ export const handler = async (
       throw new BadRequestError('Missing required fields');
     }
     const now = new Date().toISOString();
-    const activeFlag = isActive !== undefined ? !!isActive : true;
-    const gsi2pk = `COM#${commerceId}`;
-    const gsi2sk = `PRODUCT#${activeFlag ? 'true' : 'false'}#${now}`;
-    const pk = `COM#${commerceId}`;
-    const sk = `PRODUCT#${code}`;
-
-    // Calcular alertStatus para Sparse Index: solo se guarda si stock <= minStock
-    const effectiveMinStock = minStock !== undefined && minStock !== null ? minStock : 0;
-    const shouldSetAlert = effectiveMinStock > 0 && stock <= effectiveMinStock;
-
-    const item: Product = {
-      PK: pk,
-      SK: sk,
+    const item: Product = buildProductRecord({
       commerceId,
       code,
       name,
       priceBuy,
       priceSale,
       notes,
-      stock: stock,
-      unitsSold: 0,
-      revenue: 0,
-      profit: 0,
+      stock,
+      uom,
+      isActive: isActive !== undefined ? !!isActive : true,
+      category: category || undefined,
+      brand: brand || undefined,
+      minStock,
+      qtyStep: body.qtyStep || 1,
       createdAt: now,
       updatedAt: now,
       lastSaleDate: now,
-      uom,
-      isActive: activeFlag,
-      qtyStep: body.qtyStep || 1, // Default to 1 if not provided
-      category: category || undefined,
-      brand: brand || undefined,
-      GSI2PK: gsi2pk,
-      GSI2SK: gsi2sk,
-      minStock: effectiveMinStock > 0 ? effectiveMinStock : undefined, // Solo guardar si > 0
-      ...(shouldSetAlert && { alertStatus: 'LOW' }), // Sparse Index: solo agregar si aplica
-    };
+    });
     // Si se proporciona una categoría, agregarla a METADATA#CONFIG si no existe
     if (category) {
       await addCategory(tableName, commerceId, category);

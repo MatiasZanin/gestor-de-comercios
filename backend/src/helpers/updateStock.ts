@@ -1,5 +1,9 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, UpdateCommand, GetCommand } from '@aws-sdk/lib-dynamodb';
+import {
+  DynamoDBDocumentClient,
+  GetCommand,
+  UpdateCommand,
+} from '@aws-sdk/lib-dynamodb';
 import { BadRequestError, NotFoundError } from './errors';
 
 const dynamoClient = new DynamoDBClient({});
@@ -8,11 +12,11 @@ const docClient = DynamoDBDocumentClient.from(dynamoClient);
 /**
  * Ajusta el stock de un producto. Si la cantidad resultante sería negativa,
  * lanza BadRequestError. También actualiza el campo updatedAt.
- * 
+ *
  * Implementa Sparse Index para alertas de stock crítico:
  * - Si el nuevo stock <= minStock, agrega alertStatus = 'LOW'
  * - Si el nuevo stock > minStock, remueve alertStatus
- * 
+ *
  * @param commerceId ID del comercio
  * @param code Código del producto
  * @param qty Cantidad a restar (positivo para ventas, negativo para devoluciones/reposiciones)
@@ -20,15 +24,16 @@ const docClient = DynamoDBDocumentClient.from(dynamoClient);
 export async function updateStock(
   commerceId: string,
   code: string,
-  qty: number
+  qty: number,
+  at: string = new Date().toISOString()
 ): Promise<number> {
-  const tableName = process.env.TABLE_NAME;
+  const tableName = process.env.TABLE_NAME || 'GestionComercios-dev';
   if (!tableName) {
     throw new Error('TABLE_NAME env var is required');
   }
   const pk = `COM#${commerceId}`;
   const sk = `PRODUCT#${code}`;
-  const now = new Date().toISOString();
+  const now = at;
   const today = now.split('T')[0]; // YYYY-MM-DD para lastSaleDate
 
   // Primero obtenemos el producto para conocer minStock y el stock actual
@@ -67,14 +72,17 @@ export async function updateStock(
 
     if (shouldHaveAlert && !currentlyHasAlert) {
       // CASO A: Stock baja del mínimo - agregar alertStatus
-      updateExpression = 'SET stock = :newStock, updatedAt = :now, alertStatus = :status, lastSaleDate = :lastSaleDate';
+      updateExpression =
+        'SET stock = :newStock, updatedAt = :now, alertStatus = :status, lastSaleDate = :lastSaleDate';
       expressionValues[':status'] = 'LOW';
     } else if (!shouldHaveAlert && currentlyHasAlert) {
       // CASO B: Stock se recupera - remover alertStatus (Sparse Index)
-      updateExpression = 'SET stock = :newStock, updatedAt = :now, lastSaleDate = :lastSaleDate REMOVE alertStatus';
+      updateExpression =
+        'SET stock = :newStock, updatedAt = :now, lastSaleDate = :lastSaleDate REMOVE alertStatus';
     } else {
       // No hay cambio en el estado de alerta
-      updateExpression = 'SET stock = :newStock, updatedAt = :now, lastSaleDate = :lastSaleDate';
+      updateExpression =
+        'SET stock = :newStock, updatedAt = :now, lastSaleDate = :lastSaleDate';
     }
 
     const result = await docClient.send(
@@ -82,7 +90,8 @@ export async function updateStock(
         TableName: tableName,
         Key: { PK: pk, SK: sk },
         UpdateExpression: updateExpression,
-        ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK) AND stock = :currentStock',
+        ConditionExpression:
+          'attribute_exists(PK) AND attribute_exists(SK) AND stock = :currentStock',
         ExpressionAttributeValues: {
           ...expressionValues,
           ':currentStock': currentStock, // Optimistic locking

@@ -20,15 +20,16 @@ export async function updateDailyStats(
   qty: number,
   priceBuy: number,
   priceSale: number,
-  uom: string
+  uom: string,
+  at: string = new Date().toISOString()
 ): Promise<void> {
-  const tableName = process.env.TABLE_NAME;
+  const tableName = process.env.TABLE_NAME || 'GestionComercios-dev';
   if (!tableName) {
     throw new Error('TABLE_NAME env var is required');
   }
   const pk = `COM#${commerceId}`;
   const sk = `PRODUCT#${code}`;
-  const now = new Date().toISOString();
+  const now = at;
   const unitsDelta = qty;
   const revenueDelta = priceSale * qty;
   const profitDelta = (priceSale - priceBuy) * qty;

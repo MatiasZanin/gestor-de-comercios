@@ -24,18 +24,20 @@ export async function logAudit(
     userId: string,
     userEmail: string,
     action: AuditAction,
-    details: Record<string, unknown>
+    details: Record<string, unknown>,
+    occurredAt: string = new Date().toISOString(),
+    auditId?: string
 ): Promise<void> {
     try {
-        const now = new Date().toISOString();
-        const ttl = Math.floor(Date.now() / 1000) + 365 * 24 * 60 * 60;
+        const now = occurredAt;
+        const ttl = Math.floor(new Date(occurredAt).getTime() / 1000) + 365 * 24 * 60 * 60;
 
         await docClient.send(
             new PutCommand({
                 TableName: tableName,
                 Item: {
                     PK: `COM#${commerceId}`,
-                    SK: `AUDIT#${now}#${randomUUID()}`,
+                    SK: `AUDIT#${now}#${auditId ?? randomUUID()}`,
                     type: 'AUDIT',
                     userId,
                     userEmail,

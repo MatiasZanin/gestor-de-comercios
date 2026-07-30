@@ -1,215 +1,163 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import { createSaleUseCase } from '../../../services/saleUseCase';
+import { PaymentMethod, SaleItem } from '../../../models/sale';
 import {
-    DynamoDBDocumentClient,
-    BatchWriteCommand,
-    QueryCommand,
-    QueryCommandOutput,
-} from '@aws-sdk/lib-dynamodb';
-import { randomUUID } from 'crypto';
+  buildSeedSalesTimeline,
+  saleIso,
+  SeedDerivedSaleTemplate,
+  SeedItemSpec,
+  SeedSaleTemplate,
+} from './scenario';
+import {
+  cleanAuditItemsByAction,
+  cleanCommerceItems,
+} from './runtime';
+import { deterministicId, SEED_CONFIG, SEED_PRODUCTS } from './shared';
 
-// --- CONFIGURACIÓN ---
 const TABLE_NAME = process.env.TABLE_NAME || 'GestionComercios-dev';
-const COMMERCE_ID = 'gs';
+const COMMERCE_ID = SEED_CONFIG.commerceId;
 const REGION = process.env.AWS_REGION || 'us-east-1';
 
 const client = new DynamoDBClient({ region: REGION });
 const docClient = DynamoDBDocumentClient.from(client);
 
-// --- UTILIDADES ---
-const chunkArray = <T>(arr: T[], size: number): T[][] =>
-    Array.from({ length: Math.ceil(arr.length / size) }, (_, i) =>
-        arr.slice(i * size, i * size + size)
-    );
+const PRODUCT_BY_CODE = new Map(SEED_PRODUCTS.map((product) => [product.code, product]));
 
-const randomDateLast30Days = () => {
-    const end = new Date();
-    end.setDate(end.getDate());
-    end.setHours(23, 59, 59, 999);
-
-    const start = new Date(end);
-    start.setDate(end.getDate() - 30);
-
-    return new Date(
-        start.getTime() + Math.random() * (end.getTime() - start.getTime())
-    ).toISOString();
-};
-
-// Alineado con PaymentMethod en createSale.ts
-const paymentMethods = ['CASH', 'CARD', 'TRANSFER', 'OTHER'];
-
-// --- FUNCIONES ---
-
-const cleanExistingSales = async () => {
-    console.log('🧹 Limpiando ventas antiguas...');
-    let itemsToDelete: any[] = [];
-    let lastEvaluatedKey: Record<string, any> | undefined = undefined;
-
-    do {
-        const command = new QueryCommand({
-            TableName: TABLE_NAME,
-            KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk)',
-            ExpressionAttributeValues: {
-                ':pk': `COM#${COMMERCE_ID}`,
-                ':sk': 'SALE#',
-            },
-            ExclusiveStartKey: lastEvaluatedKey,
-        });
-
-        const response = (await docClient.send(command)) as QueryCommandOutput;
-        if (response.Items) itemsToDelete.push(...response.Items);
-        lastEvaluatedKey = response.LastEvaluatedKey;
-    } while (lastEvaluatedKey);
-
-    if (itemsToDelete.length > 0) {
-        const batches = chunkArray(itemsToDelete, 25);
-        for (const batch of batches) {
-            const deleteRequests = batch.map((item) => ({
-                DeleteRequest: { Key: { PK: item.PK, SK: item.SK } },
-            }));
-            await docClient.send(
-                new BatchWriteCommand({ RequestItems: { [TABLE_NAME]: deleteRequests } })
-            );
-        }
-        console.log(`🗑️ Se eliminaron ${itemsToDelete.length} ventas anteriores.`);
-    } else {
-        console.log('✅ No había ventas anteriores para borrar.');
-    }
-};
-
-const fetchProducts = async () => {
-    console.log('📥 Obteniendo productos existentes...');
-    const command = new QueryCommand({
-        TableName: TABLE_NAME,
-        KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk)',
-        ExpressionAttributeValues: {
-            ':pk': `COM#${COMMERCE_ID}`,
-            ':sk': 'PRODUCT#',
-        },
-    });
-    // @ts-ignore
-    const response = await docClient.send(command);
-
-    if (!response.Items || response.Items.length < 5) {
-        throw new Error(
-            '❌ No hay suficientes productos. Ejecuta primero el seed de productos.'
-        );
-    }
-    return response.Items;
-};
-
-const createSaleItem = (
-    allProducts: any[],
-    itemCount: number,
-    isFixed20: boolean = false
-) => {
-    const saleId = randomUUID();
-    const createdAt = randomDateLast30Days();
-    const day = createdAt.slice(0, 10); // YYYY-MM-DD
-
-    const shuffled = [...allProducts].sort(() => 0.5 - Math.random());
-    const selectedProducts = shuffled.slice(0, itemCount);
-
-    let total = 0;
-    let profit = 0;
-
-    const items = selectedProducts.map((p) => {
-        const qty = isFixed20 ? 1 : Math.floor(Math.random() * 5) + 1;
-
-        // Asegurar priceBuy (Costo) para calcular profit. 
-        // Si el producto no tiene costo, asumimos un margen del 30%.
-        const priceSale = Number(p.priceSale) || 0;
-        const priceBuy = Number(p.priceBuy || p.cost || priceSale * 0.7);
-        const uom = p.uom || 'un';
-
-        total += priceSale * qty;
-        profit += (priceSale - priceBuy) * qty;
-
-        return {
-            code: p.code,
-            name: p.name,
-            priceSale: priceSale, // createSale usa priceSale, no price
-            priceBuy: priceBuy,   // Requerido por createSale
-            category: p.category,
-            brand: p.brand,
-            qty,
-            uom,                  // Requerido por createSale
-        };
-    });
-
-    const ttlSeconds = Math.floor(Date.now() / 1000) + 90 * 24 * 60 * 60;
-
+function buildSaleItem(spec: SeedItemSpec): SaleItem {
+  if (spec.code === '-1') {
     return {
-        PK: `COM#${COMMERCE_ID}`,
-        SK: `SALE#${createdAt}#${saleId}`,
-        saleId,
-        commerceId: COMMERCE_ID,
-        sellerId: 'seed-script', // Valor por defecto
-        createdAt,
-        day,
-        ttl: ttlSeconds,
-        items,
-        total: Math.round(total * 100) / 100, // Redondeo a 2 decimales
-        profit: Math.round(profit * 100) / 100,
-        notes: 'Generated by seed',
-        paymentMethod:
-            paymentMethods[Math.floor(Math.random() * paymentMethods.length)],
-        // Claves GSI idénticas a createSale.ts
-        GSI1PK: `COM#${COMMERCE_ID}#${day}`,
-        GSI1SK: createdAt,
+      code: '-1',
+      name: spec.name ?? 'Otros',
+      qty: spec.qty,
+      priceBuy: spec.priceBuy ?? 0,
+      priceSale: spec.priceSale ?? 0,
+      uom: spec.uom ?? 'u',
+      category: spec.category ?? 'Misceláneos',
+      brand: spec.brand,
     };
-};
+  }
 
-const seedSales = async () => {
-    try {
-        await cleanExistingSales();
+  const product = PRODUCT_BY_CODE.get(spec.code);
+  if (!product) {
+    throw new Error(`Seed product not found for code ${spec.code}`);
+  }
 
-        const products = await fetchProducts();
-        const salesToWrite = [];
+  return {
+    code: product.code,
+    name: product.name,
+    qty: spec.qty,
+    priceBuy: product.priceBuy,
+    priceSale: product.priceSale,
+    uom: product.uom,
+    category: product.category,
+    brand: product.brand,
+  };
+}
 
-        console.log('🏗️ Construyendo ventas (hasta ayer)...');
+function buildSaleItemsFromTemplate(template: SeedSaleTemplate): SaleItem[] {
+  return template.items.map((item) => buildSaleItem(item));
+}
 
-        // A. Venta masiva (Ticket largo)
-        for (let i = 0; i < 5; i++) {
-            salesToWrite.push({
-                PutRequest: { Item: createSaleItem(products, 15, true) },
-            });
-        }
+function buildDerivedItems(template: SeedDerivedSaleTemplate, sourceSale: { items: SaleItem[] }): SaleItem[] {
+  const selectedCodes = template.itemCodes?.length ? new Set(template.itemCodes) : undefined;
+  const sourceItems = selectedCodes
+    ? sourceSale.items.filter((item) => selectedCodes.has(item.code))
+    : sourceSale.items;
 
-        // B. Ventas simples
-        for (let i = 0; i < 35; i++) {
-            salesToWrite.push({
-                PutRequest: { Item: createSaleItem(products, 1) },
-            });
-        }
+  if (sourceItems.length === 0) {
+    throw new Error(`No items available to derive sale ${template.saleId} from ${template.sourceSaleId}`);
+  }
 
-        // C. Ventas variadas
-        for (let i = 0; i < 50; i++) {
-            const randomItemCount = Math.floor(Math.random() * 4) + 1;
-            salesToWrite.push({
-                PutRequest: { Item: createSaleItem(products, randomItemCount) },
-            });
-        }
+  return sourceItems.map((item) => ({
+    ...item,
+    qty: -Math.abs(item.qty),
+  }));
+}
 
-        const batches = chunkArray(salesToWrite, 25);
-        let count = 0;
-        for (const batch of batches) {
-            await docClient.send(
-                new BatchWriteCommand({
-                    RequestItems: {
-                        [TABLE_NAME]: batch,
-                    },
-                })
-            );
-            count += batch.length;
-        }
+async function cleanSeedArtifacts(): Promise<void> {
+  await cleanCommerceItems(docClient, TABLE_NAME, COMMERCE_ID, 'SALE#');
+  await cleanCommerceItems(docClient, TABLE_NAME, COMMERCE_ID, 'SUMMARY#');
+  await cleanCommerceItems(docClient, TABLE_NAME, COMMERCE_ID, 'STAT#');
+  await cleanAuditItemsByAction(docClient, TABLE_NAME, COMMERCE_ID, ['SALE_CREATE']);
+}
 
-        console.log(`✅ Seed de ventas finalizado. ${count} ventas insertadas.`);
-        console.log(
-            '⚠️ IMPORTANTE: Ejecuta el script de reportes (03) para regenerar estadísticas diarias y mensuales.'
-        );
-    } catch (err) {
-        console.error('❌ Error:', err);
+async function createBaseSales(
+  baseTemplates: SeedSaleTemplate[]
+): Promise<Map<string, { items: SaleItem[]; paymentMethod: PaymentMethod }>> {
+  const createdSales = new Map<string, { items: SaleItem[]; paymentMethod: PaymentMethod }>();
+
+  for (const [index, template] of baseTemplates.entries()) {
+    const createdAt = saleIso(template.day, template.hour, template.minute);
+    const sale = await createSaleUseCase(docClient, TABLE_NAME, {
+      commerceId: COMMERCE_ID,
+      sellerId: template.sellerId,
+      userEmail: SEED_CONFIG.seedActorEmail,
+      items: buildSaleItemsFromTemplate(template),
+      notes: template.notes,
+      paymentMethod: template.paymentMethod,
+      createdAt,
+      saleId: template.saleId,
+      retentionDays: SEED_CONFIG.retentionDays,
+      auditAt: createdAt,
+      auditId: deterministicId('audit-sale-create', index, template.saleId),
+    });
+
+    createdSales.set(template.saleId, {
+      items: sale.items,
+      paymentMethod: sale.paymentMethod ?? template.paymentMethod,
+    });
+  }
+
+  return createdSales;
+}
+
+async function createDerivedSales(
+  templates: SeedDerivedSaleTemplate[],
+  kind: 'return' | 'cancellation',
+  baseSales: Map<string, { items: SaleItem[]; paymentMethod: PaymentMethod }>
+): Promise<void> {
+  for (const [index, template] of templates.entries()) {
+    const sourceSale = baseSales.get(template.sourceSaleId);
+    if (!sourceSale) {
+      throw new Error(`Source sale ${template.sourceSaleId} not found for ${template.saleId}`);
     }
-};
 
-seedSales();
+    const createdAt = saleIso(template.day, template.hour, template.minute);
+    const sale = await createSaleUseCase(docClient, TABLE_NAME, {
+      commerceId: COMMERCE_ID,
+      sellerId: template.sellerId,
+      userEmail: SEED_CONFIG.seedActorEmail,
+      items: buildDerivedItems(template, sourceSale),
+      notes: `${template.notes} - ticket ${template.sourceSaleId}`,
+      paymentMethod: sourceSale.paymentMethod ?? template.paymentMethod,
+      createdAt,
+      saleId: template.saleId,
+      retentionDays: SEED_CONFIG.retentionDays,
+      auditAt: createdAt,
+      auditId: deterministicId(`audit-sale-${kind}`, index, template.saleId),
+    });
+
+    baseSales.set(template.saleId, {
+      items: sale.items,
+      paymentMethod: sale.paymentMethod ?? template.paymentMethod,
+    });
+  }
+}
+
+async function main(): Promise<void> {
+  console.log(`Seeding sales for COM#${COMMERCE_ID}`);
+  await cleanSeedArtifacts();
+
+  const timeline = buildSeedSalesTimeline(SEED_CONFIG.salesStartDay, SEED_CONFIG.salesEndDay);
+  const createdSales = await createBaseSales(timeline.baseSales);
+  await createDerivedSales(timeline.returnSales, 'return', createdSales);
+  await createDerivedSales(timeline.cancellationSales, 'cancellation', createdSales);
+
+  console.log('Sales seed completed');
+}
+
+main().catch((error) => {
+  console.error('Sales seed failed:', error);
+  process.exitCode = 1;
+});

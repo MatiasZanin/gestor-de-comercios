@@ -14,6 +14,7 @@ import { assertCommerceAccess } from '../helpers/assertCommerceAccess';
 import { logAudit } from '../helpers/auditLogger';
 import { Offer } from '../models/offer';
 import { formatJSONResponse } from '../utils/api-response';
+import { buildOfferRecord } from '../services/domain';
 
 const dynamoClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(dynamoClient);
@@ -82,15 +83,10 @@ export const handler = async (
 
         const now = new Date().toISOString();
         const offerId = randomUUID();
-        const pk = `COM#${commerceId}`;
-        const sk = `OFFER#${offerId}`;
-
-        const offer: Offer = {
-            PK: pk,
-            SK: sk,
-            offerId,
+        const offer: Offer = buildOfferRecord({
             commerceId,
-            name: body.name.trim(),
+            offerId,
+            name: body.name,
             discountType: body.discountType,
             discountValue: body.discountValue,
             startDate: body.startDate,
@@ -102,7 +98,7 @@ export const handler = async (
             createdAt: now,
             updatedAt: now,
             createdBy: claims.sub || 'unknown',
-        };
+        });
 
         await docClient.send(
             new PutCommand({

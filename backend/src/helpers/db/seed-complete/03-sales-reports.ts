@@ -1,212 +1,189 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import { DynamoDBDocumentClient, BatchWriteCommand } from '@aws-sdk/lib-dynamodb';
+import { buildDailySummaryDelta, monthFromIso } from '../../../services/domain';
+import { Sale } from '../../../models/sale';
+import { formatArtDay } from '../../../services/time';
 import {
-    DynamoDBDocumentClient,
-    BatchWriteCommand,
-    QueryCommand,
-    QueryCommandOutput,
-} from '@aws-sdk/lib-dynamodb';
+  cleanCommerceItems,
+  chunkArray,
+  queryAllCommerceItems,
+} from './runtime';
+import { SEED_CONFIG } from './shared';
 
-// --- CONFIGURACIÓN ---
 const TABLE_NAME = process.env.TABLE_NAME || 'GestionComercios-dev';
-const COMMERCE_ID = 'gs';
+const COMMERCE_ID = SEED_CONFIG.commerceId;
 const REGION = process.env.AWS_REGION || 'us-east-1';
 
 const client = new DynamoDBClient({ region: REGION });
 const docClient = DynamoDBDocumentClient.from(client);
 
-// --- UTILIDADES ---
-const chunkArray = <T>(arr: T[], size: number): T[][] =>
-    Array.from({ length: Math.ceil(arr.length / size) }, (_, i) =>
-        arr.slice(i * size, i * size + size)
-    );
-
-// --- TIPOS ---
-interface DailySummary {
-    totalDay: number;
-    txCount: number;
-    methods: Record<string, number>; // method_CASH, method_CARD, etc.
-    hours: Record<string, number>;   // h9, h10, h11, etc.
+interface DailySummaryAggregate {
+  totalDay: number;
+  txCount: number;
+  method_CASH: number;
+  method_CARD: number;
+  method_TRANSFER: number;
+  method_OTHER: number;
+  h0: number;
+  h1: number;
+  h2: number;
+  h3: number;
+  h4: number;
+  h5: number;
+  h6: number;
+  h7: number;
+  h8: number;
+  h9: number;
+  h10: number;
+  h11: number;
+  h12: number;
+  h13: number;
+  h14: number;
+  h15: number;
+  h16: number;
+  h17: number;
+  h18: number;
+  h19: number;
+  h20: number;
+  h21: number;
+  h22: number;
+  h23: number;
 }
 
-interface ProductStat {
-    code: string;
-    name: string;
-    uom: string;
-    priceSale: number;
-    monthlyUnits: number;
+interface MonthlyStatAggregate {
+  code: string;
+  name: string;
+  uom: string;
+  priceSale: number;
+  monthlyUnits: number;
 }
 
-// --- FUNCIONES ---
+function createEmptySummary(): DailySummaryAggregate {
+  return {
+    totalDay: 0,
+    txCount: 0,
+    method_CASH: 0,
+    method_CARD: 0,
+    method_TRANSFER: 0,
+    method_OTHER: 0,
+    h0: 0,
+    h1: 0,
+    h2: 0,
+    h3: 0,
+    h4: 0,
+    h5: 0,
+    h6: 0,
+    h7: 0,
+    h8: 0,
+    h9: 0,
+    h10: 0,
+    h11: 0,
+    h12: 0,
+    h13: 0,
+    h14: 0,
+    h15: 0,
+    h16: 0,
+    h17: 0,
+    h18: 0,
+    h19: 0,
+    h20: 0,
+    h21: 0,
+    h22: 0,
+    h23: 0,
+  };
+}
 
-const fetchAllSales = async () => {
-    console.log('📥 Leyendo todas las ventas para calcular agregaciones...');
-    let allSales: any[] = [];
-    let lastEvaluatedKey: Record<string, any> | undefined = undefined;
+async function main(): Promise<void> {
+  console.log(`Rebuilding sales reports for COM#${COMMERCE_ID}`);
 
-    do {
-        const command = new QueryCommand({
-            TableName: TABLE_NAME,
-            KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk)',
-            ExpressionAttributeValues: {
-                ':pk': `COM#${COMMERCE_ID}`,
-                ':sk': 'SALE#',
-            },
-            ExclusiveStartKey: lastEvaluatedKey,
-        });
+  await cleanCommerceItems(docClient, TABLE_NAME, COMMERCE_ID, 'SUMMARY#');
+  await cleanCommerceItems(docClient, TABLE_NAME, COMMERCE_ID, 'STAT#');
 
-        const response = (await docClient.send(command)) as QueryCommandOutput;
-        if (response.Items) allSales.push(...response.Items);
-        lastEvaluatedKey = response.LastEvaluatedKey;
-    } while (lastEvaluatedKey);
+  const sales = (await queryAllCommerceItems(docClient, TABLE_NAME, COMMERCE_ID, 'SALE#')) as Sale[];
+  if (sales.length === 0) {
+    console.log('No sales found. Nothing to aggregate.');
+    return;
+  }
 
-    console.log(`📊 Procesando ${allSales.length} ventas...`);
-    return allSales;
-};
+  const summaries = new Map<string, DailySummaryAggregate>();
+  const stats = new Map<string, MonthlyStatAggregate>();
 
-const seedAggregations = async () => {
-    try {
-        const sales = await fetchAllSales();
-        if (sales.length === 0) {
-            console.log('⚠️ No hay ventas. Ejecuta primero seedSales.ts');
-            return;
-        }
+  for (const sale of sales) {
+    const summaryKey = formatArtDay(sale.createdAt);
+    const summary = summaries.get(summaryKey) ?? createEmptySummary();
+    const delta = buildDailySummaryDelta(sale.createdAt, sale.total || 0, sale.paymentMethod ?? 'CASH');
 
-        const itemsToWrite: any[] = [];
+    summary.totalDay += delta.totalDay;
+    summary.txCount += delta.txCount;
+    summary[delta.methodKey as keyof DailySummaryAggregate] += delta.totalDay;
+    summary[delta.hourKey as keyof DailySummaryAggregate] += 1;
+    summaries.set(summaryKey, summary);
 
-        // ---------------------------------------------------------
-        // 1. CALCULAR SUMMARY#YYYY-MM-DD (Dashboard Diario)
-        // ---------------------------------------------------------
-        const dailySummaries: Record<string, DailySummary> = {};
+    const month = monthFromIso(sale.createdAt);
+    for (const item of sale.items ?? []) {
+      if (item.code === '-1') {
+        continue;
+      }
 
-        sales.forEach((sale) => {
-            const day = sale.createdAt.split('T')[0]; // YYYY-MM-DD
-            const hour = new Date(sale.createdAt).getHours();
-            const method = sale.paymentMethod || 'OTHER';
-            const total = sale.total || 0;
+      const statKey = `${month}#${item.code}`;
+      const current = stats.get(statKey) ?? {
+        code: item.code,
+        name: item.name,
+        uom: item.uom,
+        priceSale: item.priceSale,
+        monthlyUnits: 0,
+      };
 
-            if (!dailySummaries[day]) {
-                dailySummaries[day] = {
-                    totalDay: 0,
-                    txCount: 0,
-                    methods: {},
-                    hours: {},
-                };
-            }
-
-            const summary = dailySummaries[day];
-            summary.totalDay += total;
-            summary.txCount += 1;
-
-            // Sumar por método de pago
-            const methodKey = `method_${method}`;
-            summary.methods[methodKey] = (summary.methods[methodKey] || 0) + total;
-
-            // Contar por hora (mapa de calor)
-            const hourKey = `h${hour}`;
-            summary.hours[hourKey] = (summary.hours[hourKey] || 0) + 1;
-        });
-
-        // Convertir a Items de DynamoDB
-        Object.entries(dailySummaries).forEach(([day, data]) => {
-            itemsToWrite.push({
-                PutRequest: {
-                    Item: {
-                        PK: `COM#${COMMERCE_ID}`,
-                        SK: `SUMMARY#${day}`,
-                        commerceId: COMMERCE_ID,
-                        totalDay: data.totalDay,
-                        txCount: data.txCount,
-                        ...data.methods, // Spread methods (method_CASH: 100...)
-                        ...data.hours,   // Spread hours (h10: 5...)
-                        type: 'DAILY_SUMMARY' // Metadata útil
-                    },
-                },
-            });
-        });
-
-        console.log(`✅ Generados ${Object.keys(dailySummaries).length} resúmenes diarios.`);
-
-        // ---------------------------------------------------------
-        // 2. CALCULAR STAT#YYYY-MM#PRODUCT (Ranking Mensual)
-        // ---------------------------------------------------------
-        // Mapa: "YYYY-MM_PRODUCT-CODE" -> Datos acumulados
-        const productStats: Record<string, ProductStat> = {};
-
-        sales.forEach((sale) => {
-            const month = sale.createdAt.slice(0, 7); // YYYY-MM
-
-            if (sale.items && Array.isArray(sale.items)) {
-                sale.items.forEach((item: any) => {
-                    const key = `${month}#${item.code}`;
-
-                    if (!productStats[key]) {
-                        productStats[key] = {
-                            code: item.code,
-                            name: item.name,
-                            uom: item.uom,
-                            priceSale: item.priceSale,
-                            monthlyUnits: 0,
-                        };
-                    }
-
-                    productStats[key].monthlyUnits += (item.qty || 0);
-                });
-            }
-        });
-
-        // Convertir a Items de DynamoDB
-        Object.entries(productStats).forEach(([key, data]) => {
-            const [month, code] = key.split('#');
-            const ttlSeconds = Math.floor(Date.now() / 1000) + 365 * 24 * 60 * 60; // 1 año
-
-            itemsToWrite.push({
-                PutRequest: {
-                    Item: {
-                        PK: `COM#${COMMERCE_ID}`,
-                        SK: `STAT#${month}#PRODUCT#${code}`,
-
-                        // GSI Keys para "GSI-Ranking-Mensual"
-                        statPK: `COM#${COMMERCE_ID}#${month}`,
-                        monthlyUnits: data.monthlyUnits,
-
-                        // Atributos proyectados en el GSI
-                        name: data.name,
-                        code: data.code,
-                        uom: data.uom,
-                        priceSale: data.priceSale,
-
-                        ttl: ttlSeconds
-                    },
-                },
-            });
-        });
-
-        console.log(`✅ Generados ${Object.keys(productStats).length} estadísticas de productos mensuales.`);
-
-        // ---------------------------------------------------------
-        // 3. GUARDAR EN DYNAMODB
-        // ---------------------------------------------------------
-        const batches = chunkArray(itemsToWrite, 25);
-        let count = 0;
-
-        console.log(`💾 Escribiendo ${itemsToWrite.length} items de agregación...`);
-
-        for (const batch of batches) {
-            await docClient.send(
-                new BatchWriteCommand({
-                    RequestItems: {
-                        [TABLE_NAME]: batch,
-                    },
-                })
-            );
-            count += batch.length;
-        }
-
-        console.log(`🚀 Seed de agregaciones finalizado. Total items creados: ${count}`);
-
-    } catch (err) {
-        console.error('❌ Error:', err);
+      current.monthlyUnits += item.qty ?? 0;
+      stats.set(statKey, current);
     }
-};
+  }
 
-seedAggregations();
+  const summaryWrites = [...summaries.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([day, data]) => ({
+      PutRequest: {
+        Item: {
+          PK: `COM#${COMMERCE_ID}`,
+          SK: `SUMMARY#${day}`,
+          commerceId: COMMERCE_ID,
+          ...data,
+        },
+      },
+    }));
+
+  const statWrites = [...stats.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, data]) => {
+      const [month, code] = key.split('#');
+      return {
+        PutRequest: {
+          Item: {
+            PK: `COM#${COMMERCE_ID}`,
+            SK: `STAT#${month}#PRODUCT#${code}`,
+            statPK: `COM#${COMMERCE_ID}#${month}`,
+            ...data,
+            ttl: Math.floor(new Date().getTime() / 1000) + 365 * 24 * 60 * 60,
+          },
+        },
+      };
+    });
+
+  const writes = [...summaryWrites, ...statWrites];
+  for (const batch of chunkArray(writes, 25)) {
+    await docClient.send(
+      new BatchWriteCommand({
+        RequestItems: {
+          [TABLE_NAME]: batch,
+        },
+      })
+    );
+  }
+
+  console.log(`Generated ${summaries.size} daily summaries and ${stats.size} monthly stats.`);
+}
+
+main().catch((error) => {
+  console.error('Sales report seed failed:', error);
+  process.exitCode = 1;
+});

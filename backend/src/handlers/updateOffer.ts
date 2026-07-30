@@ -18,6 +18,7 @@ import { assertCommerceAccess } from '../helpers/assertCommerceAccess';
 import { logAudit, buildAuditChanges } from '../helpers/auditLogger';
 import { Offer } from '../models/offer';
 import { formatJSONResponse } from '../utils/api-response';
+import { patchOfferRecord } from '../services/domain';
 
 const dynamoClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(dynamoClient);
@@ -143,17 +144,17 @@ export const handler = async (
             throw new BadRequestError('No fields to update');
         }
 
-        // Siempre actualizar updatedAt
-        expressionParts.push('updatedAt = :updatedAt');
-        expressionValues[':updatedAt'] = now;
+        const updatedAt = now;
+        const current = existing.Item as Offer;
+        const nextOffer = patchOfferRecord(current, body, updatedAt);
 
         const result = await docClient.send(
             new UpdateCommand({
                 TableName: tableName,
                 Key: { PK: pk, SK: sk },
-                UpdateExpression: `SET ${expressionParts.join(', ')}`,
+                UpdateExpression: `SET ${expressionParts.join(', ')}, updatedAt = :updatedAt`,
                 ExpressionAttributeNames: Object.keys(expressionNames).length > 0 ? expressionNames : undefined,
-                ExpressionAttributeValues: expressionValues,
+                ExpressionAttributeValues: { ...expressionValues, ':updatedAt': updatedAt },
                 ReturnValues: 'ALL_NEW',
             })
         );
@@ -163,8 +164,8 @@ export const handler = async (
         const trackedFields = ['name', 'discountType', 'discountValue', 'startDate', 'endDate', 'scope'];
         const auditDetails = buildAuditChanges(
             existing.Item as Record<string, unknown>,
-            (result.Attributes ?? {}) as Record<string, unknown>,
-            { offerId, name: (result.Attributes ?? existing.Item as any).name },
+            (result.Attributes ?? nextOffer) as Record<string, unknown>,
+            { offerId, name: (result.Attributes ?? nextOffer as any).name },
             trackedFields
         );
         await logAudit(tableName, commerceId, userId, userEmail, 'OFFER_UPDATE', auditDetails);

@@ -1,5 +1,5 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, GetCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, GetCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
 import {
   APIGatewayProxyEventV2WithJWTAuthorizer,
   APIGatewayProxyResultV2,
@@ -15,6 +15,7 @@ import { sanitizeForRole } from '../helpers/sanitizeForRole';
 import { addCategory } from '../helpers/addCategory';
 import { logAudit, buildAuditChanges } from '../helpers/auditLogger';
 import { formatJSONResponse } from '../utils/api-response';
+import { patchProductRecord } from '../services/domain';
 
 const dynamoClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(dynamoClient);
@@ -45,41 +46,6 @@ export const handler = async (
       throw new BadRequestError('Missing body');
     }
     const body = JSON.parse(event.body);
-    const allowedFields = [
-      'name',
-      'priceBuy',
-      'priceSale',
-      'stock',
-      'notes',
-      'uom',
-      'qtyStep',
-      'isActive',
-      'category',
-      'brand',
-      'minStock',
-    ];
-    // Si se actualiza la categoría, agregarla a METADATA#CONFIG si no existe
-    if (body.category) {
-      await addCategory(tableName, commerceId, body.category);
-    }
-    const expressionParts: string[] = [];
-    const expressionNames: Record<string, string> = {};
-    const expressionValues: Record<string, any> = {};
-
-    for (const field of allowedFields) {
-      if (body[field] !== undefined) {
-        const placeholder = `:${field}`;
-        const attr = field === 'name' ? '#name' : field;
-        if (field === 'name') {
-          expressionNames['#name'] = 'name';
-        }
-        expressionParts.push(`${attr} = ${placeholder}`);
-        expressionValues[placeholder] = body[field];
-      }
-    }
-    if (expressionParts.length === 0) {
-      throw new BadRequestError('No updatable fields provided');
-    }
 
     // Obtener el item viejo antes de actualizar para auditoría
     const oldResult = await docClient.send(
@@ -88,74 +54,37 @@ export const handler = async (
         Key: { PK: `COM#${commerceId}`, SK: `PRODUCT#${code}` },
       })
     );
-    const oldItem = oldResult.Item ?? {};
-
-    const updatedAt = new Date().toISOString();
-    expressionValues[':now'] = updatedAt;
-
-    const newIsActive = body.isActive !== undefined ? body.isActive : undefined;
-    if (newIsActive !== undefined) {
-      const gsi2pk = `COM#${commerceId}`;
-      const gsi2sk = `PRODUCT#${newIsActive ? 'true' : 'false'}#${updatedAt}`;
-      expressionParts.push('GSI2PK = :gpk', 'GSI2SK = :gsk');
-      expressionValues[':gpk'] = gsi2pk;
-      expressionValues[':gsk'] = gsi2sk;
+    const oldItem = oldResult.Item as any;
+    if (!oldItem) {
+      throw new NotFoundError('Product not found');
     }
 
-    // Manejar alertStatus para Sparse Index cuando se actualiza stock o minStock
-    // Si ambos están presentes en el body, evaluamos la condición de alerta
-    let removeExpressionParts: string[] = [];
-    if (body.stock !== undefined || body.minStock !== undefined) {
-      // Si se está actualizando el stock o minStock, necesitamos evaluar la alerta
-      // Nota: Esta lógica asume que si se cambia minStock, también se provee el stock actual
-      // o se usa el valor existente. Para casos complejos, updateStock.ts maneja la lógica atomica.
-      const newStock = body.stock;
-      const newMinStock = body.minStock;
-
-      if (newStock !== undefined && newMinStock !== undefined) {
-        // Ambos valores están disponibles, podemos evaluar
-        if (newMinStock > 0 && newStock <= newMinStock) {
-          expressionParts.push('alertStatus = :alertStatus');
-          expressionValues[':alertStatus'] = 'LOW';
-        } else if (newMinStock === 0 || newStock > newMinStock) {
-          // Remover alertStatus (Sparse Index)
-          removeExpressionParts.push('alertStatus');
-        }
-      }
-    }
-
-    let updateExpression = `SET ${expressionParts.join(', ')}, updatedAt = :now`;
-    if (removeExpressionParts.length > 0) {
-      updateExpression += ` REMOVE ${removeExpressionParts.join(', ')}`;
+    // Si se actualiza la categoría, agregarla a METADATA#CONFIG si no existe
+    if (body.category) {
+      await addCategory(tableName, commerceId, body.category);
     }
 
     const pk = `COM#${commerceId}`;
     const sk = `PRODUCT#${code}`;
+    const updatedAt = new Date().toISOString();
+    const nextItem = patchProductRecord(oldItem, body, updatedAt);
+
     const result = await docClient.send(
-      new UpdateCommand({
+      new PutCommand({
         TableName: tableName,
-        Key: { PK: pk, SK: sk },
-        UpdateExpression: updateExpression,
+        Item: nextItem,
         ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)',
-        ExpressionAttributeValues: expressionValues,
-        ExpressionAttributeNames: Object.keys(expressionNames).length
-          ? expressionNames
-          : undefined,
-        ReturnValues: 'ALL_NEW',
       })
     );
-    if (!result.Attributes) {
-      throw new NotFoundError('Product not found');
-    }
-    const updatedItem = result.Attributes;
+    const updatedItem = result.Attributes ?? nextItem;
 
     const userId = claims.sub as string;
     const userEmail = (claims.email as string) || '';
     const auditDetails = buildAuditChanges(
-      oldItem,
-      updatedItem,
+      oldItem as Record<string, unknown>,
+      updatedItem as Record<string, unknown>,
       { code, name: updatedItem.name },
-      allowedFields
+      Object.keys(body)
     );
     await logAudit(tableName, commerceId, userId, userEmail, 'PRODUCT_UPDATE', auditDetails);
 

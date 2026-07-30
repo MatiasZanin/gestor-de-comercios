@@ -24,4 +24,8 @@ export interface CreateCashCloseRequest {
     expenses: number;
     initialFund: number;
     notes?: string;
+    closedAt?: string;
+    auditAt?: string;
+    closureId?: string;
+    auditId?: string;
 }

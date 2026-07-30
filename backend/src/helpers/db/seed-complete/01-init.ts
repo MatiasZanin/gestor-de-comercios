@@ -1,205 +1,280 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import { DynamoDBDocumentClient, BatchWriteCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
+import { buildOfferRecord, buildProductRecord, patchOfferRecord, patchProductRecord } from '../../../services/domain';
+import { logAudit } from '../../auditLogger';
 import {
-    DynamoDBDocumentClient,
-    BatchWriteCommand,
-    QueryCommand,
-    QueryCommandOutput,
-} from '@aws-sdk/lib-dynamodb';
+  addDaysToDay,
+  dayToIso,
+  deterministicId,
+  resolveSeedProductStock,
+  SEED_CONFIG,
+  SEED_PRODUCTS,
+} from './shared';
+import { cleanCommerceItems, chunkArray } from './runtime';
+import { buildSeedOffers } from './scenario';
 
-// --- CONFIGURACIÓN ---
 const TABLE_NAME = process.env.TABLE_NAME || 'GestionComercios-dev';
-const COMMERCE_ID = 'gs';
+const COMMERCE_ID = SEED_CONFIG.commerceId;
 const REGION = process.env.AWS_REGION || 'us-east-1';
 
 const client = new DynamoDBClient({ region: REGION });
 const docClient = DynamoDBDocumentClient.from(client);
 
-// --- UTILIDADES ---
+async function seedMetadata(): Promise<void> {
+  const categories = [...new Set(SEED_PRODUCTS.map((product) => product.category).filter(Boolean))] as string[];
 
-// DynamoDB BatchWrite tiene un límite de 25 items por request
-const chunkArray = <T>(arr: T[], size: number): T[][] =>
-    Array.from({ length: Math.ceil(arr.length / size) }, (_, i) =>
-        arr.slice(i * size, i * size + size)
+  await docClient.send(
+    new PutCommand({
+      TableName: TABLE_NAME,
+      Item: {
+        PK: `COM#${COMMERCE_ID}`,
+        SK: 'METADATA#CONFIG',
+        categories,
+        iva_rates: [0, 10.5, 21, 27],
+      },
+    })
+  );
+}
+
+async function seedProducts(): Promise<void> {
+  const createdAt = SEED_CONFIG.productCreatedAt;
+  const productRequests = SEED_PRODUCTS.map((spec) => {
+    const stock = resolveSeedProductStock(spec);
+    const item = buildProductRecord({
+      commerceId: COMMERCE_ID,
+      code: spec.code,
+      name: spec.name,
+      priceBuy: spec.priceBuy,
+      priceSale: spec.priceSale,
+      stock,
+      uom: spec.uom,
+      notes: spec.notes,
+      isActive: spec.isActive,
+      category: spec.category,
+      brand: spec.brand,
+      minStock: spec.minStock,
+      qtyStep: spec.qtyStep,
+      createdAt,
+      updatedAt: createdAt,
+      lastSaleDate: createdAt,
+    });
+
+    return {
+      PutRequest: {
+        Item: item,
+      },
+    };
+  });
+
+  for (const batch of chunkArray(productRequests, 25)) {
+    await docClient.send(
+      new BatchWriteCommand({
+        RequestItems: {
+          [TABLE_NAME]: batch,
+        },
+      })
+    );
+  }
+
+  for (const [index, spec] of SEED_PRODUCTS.entries()) {
+    await logAudit(
+      TABLE_NAME,
+      COMMERCE_ID,
+      SEED_CONFIG.seedActorId,
+      SEED_CONFIG.seedActorEmail,
+      'PRODUCT_CREATE',
+      { code: spec.code, name: spec.name },
+      createdAt,
+      deterministicId('audit-product-create', index)
+    );
+  }
+}
+
+async function applyProductTweaks(): Promise<void> {
+  const tweakDay1 = addDaysToDay(SEED_CONFIG.salesStartDay, 5);
+  const tweakDay2 = addDaysToDay(SEED_CONFIG.salesStartDay, 28);
+  const tweakDay3 = addDaysToDay(SEED_CONFIG.salesStartDay, 47);
+  const tweaks = [
+    {
+      code: 'FRE-MANTECA-200',
+      patch: { priceSale: 1410, minStock: 5, notes: 'Ajuste de precio para rotación baja' },
+      at: dayToIso(tweakDay1, 10, 0),
+    },
+    {
+      code: 'BEB-COCA-1500',
+      patch: { priceSale: 2250, notes: 'Ajuste de precio de temporada' },
+      at: dayToIso(tweakDay2, 11, 0),
+    },
+    {
+      code: 'ALM-AZUCAR-1',
+      patch: { minStock: 8, notes: 'Stock mínimo ajustado' },
+      at: dayToIso(tweakDay3, 9, 0),
+    },
+  ];
+
+  for (const [index, tweak] of tweaks.entries()) {
+    const existing = SEED_PRODUCTS.find((spec) => spec.code === tweak.code);
+    if (!existing) {
+      continue;
+    }
+
+    const baseItem = buildProductRecord({
+      commerceId: COMMERCE_ID,
+      code: existing.code,
+      name: existing.name,
+      priceBuy: existing.priceBuy,
+      priceSale: existing.priceSale,
+      stock: existing.stock,
+      uom: existing.uom,
+      notes: existing.notes,
+      isActive: existing.isActive,
+      category: existing.category,
+      brand: existing.brand,
+      minStock: existing.minStock,
+      qtyStep: existing.qtyStep,
+      createdAt: SEED_CONFIG.productCreatedAt,
+      updatedAt: SEED_CONFIG.productCreatedAt,
+      lastSaleDate: SEED_CONFIG.productCreatedAt,
+    });
+
+    const nextItem = patchProductRecord(baseItem, tweak.patch, tweak.at);
+
+    await docClient.send(
+      new PutCommand({
+        TableName: TABLE_NAME,
+        Item: nextItem,
+      })
     );
 
-const randomDate = (start: Date, end: Date) => {
-    return new Date(
-        start.getTime() + Math.random() * (end.getTime() - start.getTime())
-    ).toISOString();
-};
+    await logAudit(
+      TABLE_NAME,
+      COMMERCE_ID,
+      SEED_CONFIG.seedActorId,
+      SEED_CONFIG.seedActorEmail,
+      'PRODUCT_UPDATE',
+      { code: tweak.code, changes: tweak.patch },
+      tweak.at,
+      deterministicId('audit-product-update', index)
+    );
+  }
+}
 
-const categories = ['Bebidas', 'Almacén', 'Limpieza', 'Electrónica', 'Kiosco'];
-const brands = ['Arcor', 'Coca-Cola', 'Sony', 'Samsung', 'Generico', 'Natura'];
-const uoms = ['un', 'kg', 'lt', 'mt'];
+async function seedOffers(): Promise<void> {
+  const offers = buildSeedOffers(SEED_CONFIG.salesStartDay, SEED_CONFIG.salesEndDay);
 
-// --- FUNCIONES PRINCIPALES ---
+  for (const [index, spec] of offers.entries()) {
+    const item = buildOfferRecord({
+      commerceId: COMMERCE_ID,
+      offerId: spec.offerId,
+      name: spec.name,
+      discountType: spec.discountType,
+      discountValue: spec.discountValue,
+      startDate: spec.startDate,
+      endDate: spec.endDate,
+      scope: spec.scope,
+      createdAt: spec.createdAt,
+      updatedAt: spec.createdAt,
+      createdBy: SEED_CONFIG.seedActorId,
+    });
 
-/**
- * 1. Eliminar todos los datos existentes del comercio
- */
-const cleanGestionComercios = async () => {
-    console.log(`🧹 Buscando datos existentes para COM#${COMMERCE_ID}...`);
+    await docClient.send(
+      new PutCommand({
+        TableName: TABLE_NAME,
+        Item: item,
+      })
+    );
 
-    let itemsToDelete: any[] = [];
-    let lastEvaluatedKey: QueryCommandOutput['LastEvaluatedKey'];
+    await logAudit(
+      TABLE_NAME,
+      COMMERCE_ID,
+      SEED_CONFIG.seedActorId,
+      SEED_CONFIG.seedActorEmail,
+      'OFFER_CREATE',
+      {
+        offerId: spec.offerId,
+        name: spec.name,
+        discountType: spec.discountType,
+        discountValue: spec.discountValue,
+      },
+      spec.createdAt,
+      deterministicId('audit-offer-create', index)
+    );
+  }
+}
 
-    // Escanear/Query de todos los items con esa PK
-    while (true) {
-        const response = await docClient.send(new QueryCommand({
-            TableName: TABLE_NAME,
-            KeyConditionExpression: 'PK = :pk',
-            ExpressionAttributeValues: {
-                ':pk': `COM#${COMMERCE_ID}`,
-            },
-            ExclusiveStartKey: lastEvaluatedKey,
-        }));
-        if (response.Items) {
-            itemsToDelete.push(...response.Items);
-        }
-        if (!response.LastEvaluatedKey) break;
-        lastEvaluatedKey = response.LastEvaluatedKey;
+async function applyOfferTweaks(): Promise<void> {
+  const offers = buildSeedOffers(SEED_CONFIG.salesStartDay, SEED_CONFIG.salesEndDay);
+  const offerTweaks = [
+    {
+      offerId: 'offer-kiosco-cierre',
+      patch: { discountValue: 60 },
+      at: dayToIso(addDaysToDay(SEED_CONFIG.salesStartDay, 84), 9, 0),
+      action: 'OFFER_UPDATE' as const,
+    },
+    {
+      offerId: 'offer-bebidas-verano',
+      patch: { endDate: dayToIso(addDaysToDay(SEED_CONFIG.salesStartDay, 22), 23, 59, 59, 999) },
+      at: dayToIso(addDaysToDay(SEED_CONFIG.salesStartDay, 22), 10, 0),
+      action: 'OFFER_FINISH' as const,
+    },
+  ];
+
+  for (const [index, tweak] of offerTweaks.entries()) {
+    const existing = offers.find((spec) => spec.offerId === tweak.offerId);
+    if (!existing) {
+      continue;
     }
 
-    if (itemsToDelete.length === 0) {
-        console.log('✅ No hay datos para eliminar.');
-        return;
-    }
+    const baseItem = buildOfferRecord({
+      commerceId: COMMERCE_ID,
+      offerId: existing.offerId,
+      name: existing.name,
+      discountType: existing.discountType,
+      discountValue: existing.discountValue,
+      startDate: existing.startDate,
+      endDate: existing.endDate,
+      scope: existing.scope,
+      createdAt: existing.createdAt,
+      updatedAt: existing.createdAt,
+      createdBy: SEED_CONFIG.seedActorId,
+    });
 
-    console.log(`🗑️ Eliminando ${itemsToDelete.length} items...`);
+    const nextItem = patchOfferRecord(baseItem, tweak.patch, tweak.at);
 
-    // Convertir items a DeleteRequests
-    const deleteRequests = itemsToDelete.map((item) => ({
-        DeleteRequest: {
-            Key: {
-                PK: item.PK,
-                SK: item.SK,
-            },
-        },
-    }));
+    await docClient.send(
+      new PutCommand({
+        TableName: TABLE_NAME,
+        Item: nextItem,
+      })
+    );
 
-    // Ejecutar en lotes de 25
-    const batches = chunkArray(deleteRequests, 25);
-    for (const batch of batches) {
-        await docClient.send(
-            new BatchWriteCommand({
-                RequestItems: {
-                    [TABLE_NAME]: batch,
-                },
-            })
-        );
-    }
-    console.log('✅ Limpieza completada.');
-};
+    await logAudit(
+      TABLE_NAME,
+      COMMERCE_ID,
+      SEED_CONFIG.seedActorId,
+      SEED_CONFIG.seedActorEmail,
+      tweak.action,
+      tweak.action === 'OFFER_FINISH'
+        ? { offerId: tweak.offerId, finishedAt: tweak.at }
+        : { offerId: tweak.offerId, changes: tweak.patch },
+      tweak.at,
+      deterministicId(`audit-${tweak.action.toLowerCase()}`, index)
+    );
+  }
+}
 
-/**
- * 2. Generar y sembrar productos
- */
-const seedProducts = async () => {
-    console.log('🌱 Generando 30 productos variados...');
-    const products = [];
+async function main(): Promise<void> {
+  console.log(`Seeding base data for COM#${COMMERCE_ID}`);
+  await cleanCommerceItems(docClient, TABLE_NAME, COMMERCE_ID);
+  await seedMetadata();
+  await seedProducts();
+  await applyProductTweaks();
+  await seedOffers();
+  await applyOfferTweaks();
+  console.log('Base seed completed');
+}
 
-    for (let i = 1; i <= 30; i++) {
-        const isOdd = i % 2 !== 0;
-
-        // Variedad de Stock:
-        // - Algunos negativos (error de inventario)
-        // - Algunos en 0
-        // - Algunos bajos (para activar alerta)
-        // - Algunos altos
-        let stock;
-        if (i === 1) stock = -5; // Caso borde negativo
-        else if (i === 2) stock = 0; // Sin stock
-        else if (i <= 10) stock = Math.floor(Math.random() * 5) + 1; // Stock bajo
-        else stock = Math.floor(Math.random() * 100) + 10; // Stock normal
-
-        // MinStock: A veces definido, a veces 0
-        const minStock = i % 3 === 0 ? 0 : 5; // Cada 3, no tiene alerta configurada
-
-        // isActive: El producto 29 y 30 estarán inactivos
-        const isActive = i <= 28;
-
-        // Fechas
-        const now = new Date().toISOString();
-        const createdAt = randomDate(new Date(2023, 0, 1), new Date(2024, 0, 1));
-        // Last sale date: A veces null (nunca vendido), a veces muy vieja, a veces hoy
-        let lastSaleDate = now;
-        if (i === 30) lastSaleDate = createdAt; // Nunca se vendió desde creado (simulado)
-        else if (i % 5 === 0) lastSaleDate = randomDate(new Date(2023, 0, 1), new Date(2023, 6, 1)); // Vieja
-
-        const code = `PROD-${1000 + i}`;
-        const name = `Producto ${categories[i % categories.length]} ${i}`;
-        const priceBuy = Math.floor(Math.random() * 500) + 100;
-
-        // Calcular alertStatus (Lógica idéntica al handler)
-        const effectiveMinStock = minStock > 0 ? minStock : 0;
-        const shouldSetAlert = effectiveMinStock > 0 && stock <= effectiveMinStock;
-
-        const item = {
-            PK: `COM#${COMMERCE_ID}`,
-            SK: `PRODUCT#${code}`,
-            commerceId: COMMERCE_ID,
-            code,
-            name,
-            priceBuy,
-            priceSale: priceBuy * 1.5, // 50% margen
-            notes: isOdd ? `Nota para el producto ${i}` : undefined,
-            stock,
-            unitsSold: Math.floor(Math.random() * 500),
-            revenue: 0, // Simplificado
-            profit: 0,  // Simplificado
-            createdAt: createdAt,
-            updatedAt: now,
-            lastSaleDate,
-            uom: uoms[i % uoms.length],
-            isActive,
-            qtyStep: 1,
-            category: categories[i % categories.length],
-            brand: brands[i % brands.length],
-
-            // Índices Secundarios (Crítico para que funcionen los filtros)
-            GSI2PK: `COM#${COMMERCE_ID}`,
-            GSI2SK: `PRODUCT#${isActive ? 'true' : 'false'}#${createdAt}`, // Ordenado por fecha creación
-
-            minStock: effectiveMinStock > 0 ? effectiveMinStock : undefined,
-
-            // Sparse Index para alertas
-            ...(shouldSetAlert && { alertStatus: 'LOW' }),
-        };
-
-        products.push({
-            PutRequest: {
-                Item: item,
-            },
-        });
-    }
-
-    // Insertar en lotes
-    const batches = chunkArray(products, 25);
-    let count = 0;
-    for (const batch of batches) {
-        await docClient.send(
-            new BatchWriteCommand({
-                RequestItems: {
-                    [TABLE_NAME]: batch,
-                },
-            })
-        );
-        count += batch.length;
-        console.log(`   ... insertado lote de ${batch.length} productos.`);
-    }
-
-    console.log(`✅ ${count} productos insertados exitosamente.`);
-};
-
-// --- EJECUCIÓN ---
-const run = async () => {
-    try {
-        await cleanGestionComercios();
-        await seedProducts();
-        console.log('🚀 Seed finalizado correctamente.');
-    } catch (error) {
-        console.error('❌ Error ejecutando el seed:', error);
-    }
-};
-
-run();
+main().catch((error) => {
+  console.error('Seed init failed:', error);
+  process.exitCode = 1;
+});
