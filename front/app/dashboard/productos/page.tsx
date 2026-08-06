@@ -520,6 +520,7 @@ export default function ProductsPage() {
                           variant="outline"
                           size="sm"
                           onClick={() => handleEditProduct(product)}
+                          aria-label={`Editar ${product.name}`}
                           className="hover:bg-emerald-50 hover:border-emerald-300"
                         >
                           <Edit className="w-4 h-4" />
@@ -528,6 +529,7 @@ export default function ProductsPage() {
                           variant="outline"
                           size="sm"
                           onClick={() => handleDeleteProduct(product)}
+                          aria-label={`Eliminar ${product.name}`}
                           className="text-red-600 hover:text-red-700 hover:bg-red-50 hover:border-red-300"
                         >
                           <Trash2 className="w-4 h-4" />
