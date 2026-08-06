@@ -1,12 +1,12 @@
 "use client"
 
-import { useState } from "react"
-import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/lib/hooks/use-auth"
-import { Store, Package, ShoppingCart, BarChart3, LogOut, Menu, X, User, Banknote, ClipboardList, Tag } from "lucide-react"
+import { cn } from "@/lib/utils"
+import { Banknote, BarChart3, ClipboardList, LogOut, Menu, Package, ShoppingCart, Tag, User, X } from "lucide-react"
+import Link from "next/link"
+import { usePathname } from "next/navigation"
+import { useState } from "react"
 
 const navigation = [
   {
@@ -83,7 +83,7 @@ export function Sidebar() {
           <div className="p-6 border-b border-gray-200">
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center">
-                <Store className="w-6 h-6 text-white" />
+                <img src="/logo.png" alt="Logo" className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center" />
               </div>
               <div>
                 <h1 className="font-bold text-gray-900">Sistema de Ventas</h1>
