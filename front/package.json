@@ -7,6 +7,10 @@
     "dev": "next dev",
     "lint": "next lint",
     "start": "next start",
+    "test:e2e": "cd ../backend && npm run clean-db && npm run seed-complete && cd ../front && npx playwright test --project=chromium",
+    "test:e2e:headed": "cd ../backend && npm run clean-db && npm run seed-complete && cd ../front && npx playwright test --headed --project=chromium",
+    "test:e2e:ui": "cd ../backend && npm run clean-db && npm run seed-complete && cd ../front && npx playwright test --ui --project=chromium",
+    "test:e2e:debug": "cd ../backend && npm run clean-db && npm run seed-complete && cd ../front && npx playwright test --debug --project=chromium",
     "test": "cd ../backend && npm run clean-db && cd ../front && npx playwright test --ui --headed --project=chromium"
   },
   "dependencies": {

@@ -1,34 +1,16 @@
-import { test as setup, expect } from '@playwright/test';
+import { test } from "@playwright/test"
+import { ensureAuthDir, loginAndSaveState, ADMIN_CREDENTIALS, VENDOR_CREDENTIALS } from "./helpers/auth"
+import { ADMIN_STATE_PATH, VENDOR_STATE_PATH } from "./helpers/paths"
 
-const authFile = 'tests/.auth/user.json';
+test.describe.serial("auth setup", () => {
+  test("save admin storage state", async ({ page }) => {
+    await ensureAuthDir()
+    await loginAndSaveState(page, ADMIN_CREDENTIALS, ADMIN_STATE_PATH)
+  })
 
-setup('authenticate', async ({ page }) => {
-    // Navigate to login page
-    await page.goto('/login');
+  test("save vendor storage state", async ({ page }) => {
+    await ensureAuthDir()
+    await loginAndSaveState(page, VENDOR_CREDENTIALS, VENDOR_STATE_PATH)
+  })
+})
 
-    // Wait for the login form to load
-    await expect(page.getByText('Sistema de Ventas')).toBeVisible();
-
-    // Fill login credentials
-    // Note: The login form has default values re-filled (Matias / Pass_2025)
-    // We'll clear and fill to ensure correct values
-    await page.locator('#username').clear();
-    await page.locator('#username').fill('Matias');
-
-    await page.locator('#password').clear();
-    await page.locator('#password').fill('Pass_2025');
-
-    // Click login button
-    await page.getByRole('button', { name: 'Iniciar Sesión' }).click();
-
-    // Wait for navigation to dashboard after successful login
-    await expect(page).toHaveURL(/.*dashboard/, { timeout: 15000 });
-
-    // Verify we're on the dashboard
-    await expect(page.locator('body')).toContainText('Dashboard', { timeout: 5000 });
-
-    console.log('✓ Login successful, saving auth state');
-
-    // Save the storage state (cookies, localStorage, etc.)
-    await page.context().storageState({ path: authFile });
-});
