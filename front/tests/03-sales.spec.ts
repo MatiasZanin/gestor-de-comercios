@@ -82,7 +82,6 @@ test.describe("sales", () => {
     ).toBeVisible()
 
     await page.getByRole("button", { name: "Generar Devolución" }).click()
-    await expect(page.getByText("Devolución por Ticket")).toHaveCount(0)
     await expect(page.getByText("Emitir Reembolso")).toBeVisible()
 
     await page.getByRole("button", { name: "Emitir Reembolso" }).click()

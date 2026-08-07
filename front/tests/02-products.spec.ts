@@ -1,10 +1,9 @@
 import { test, expect } from "@playwright/test"
 import { ADMIN_STATE_PATH, VENDOR_STATE_PATH } from "./helpers/paths"
-import { createProduct } from "./helpers/api"
+import { createProduct, listProducts } from "./helpers/api"
 import { productPayload, makeRunId } from "./helpers/data"
 
-async function createCatalogProducts() {
-  const runId = makeRunId("CAT").toUpperCase()
+async function createCatalogProducts(runId: string) {
   const products = []
 
   for (let index = 0; index < 12; index += 1) {
@@ -45,22 +44,23 @@ test.describe("products", () => {
   test.use({ storageState: ADMIN_STATE_PATH })
 
   test("supports search, inactive items and pagination", async ({ page }) => {
-    await createCatalogProducts()
+    const runId = makeRunId("CAT").toUpperCase()
+    await createCatalogProducts(runId)
 
     await page.goto("/dashboard/productos")
     await expect(page.getByText("Lista de Productos")).toBeVisible()
     await expect(page.getByPlaceholder("Buscar por nombre...")).toBeVisible()
 
-    await page.getByPlaceholder("Buscar por nombre...").fill("Catalog A 03")
-    await expect(page.getByText(/Catalog A 03/)).toBeVisible()
+    await page.getByPlaceholder("Buscar por nombre...").fill(runId)
+    await expect(page.getByRole("heading", { name: new RegExp(`Catalog A 03 ${runId}`) })).toBeVisible()
 
-    await page.getByRole("button", { name: "Limpiar filtros" }).click()
     await page.getByRole("button", { name: "2", exact: true }).click()
-    await expect(page.getByText(/Catalog A 11/)).toBeVisible()
+    await expect(page.getByRole("heading", { name: new RegExp(`Catalog A 11 ${runId}`) })).toBeVisible()
 
     await page.locator('[data-slot="switch"]').click()
-    await expect(page.getByText(/Catalog Inactive 01/)).toBeVisible()
-    await expect(page.getByText(/Catalog A 01/)).toHaveCount(0)
+    await page.getByPlaceholder("Buscar por nombre...").fill(`Catalog Inactive 01 ${runId}`)
+    await expect(page.getByRole("heading", { name: new RegExp(`Catalog Inactive 01 ${runId}`) })).toBeVisible()
+    await expect(page.getByRole("heading", { name: new RegExp(`Catalog A 01 ${runId}`) })).toHaveCount(0)
   })
 
   test("can edit and delete a product from the UI", async ({ page }) => {
@@ -98,7 +98,12 @@ test.describe("products", () => {
     await expect(page.getByText("Confirmar Eliminación")).toBeVisible()
     await page.getByRole("button", { name: "Eliminar", exact: true }).click()
 
-    await expect(page.locator('div.rounded-xl').filter({ hasText: updatedName })).toHaveCount(0)
+    await expect
+      .poll(async () => {
+        const response = await listProducts({ isActive: true, name: updatedName })
+        return response.items.some((item: { name: string }) => item.name === updatedName)
+      })
+      .toBe(false)
   })
 })
 

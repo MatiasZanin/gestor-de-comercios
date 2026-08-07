@@ -7,6 +7,7 @@ test.describe("offers", () => {
   test.use({ storageState: ADMIN_STATE_PATH })
 
   test("shows offers, filters by status and opens the detail modal", async ({ page }) => {
+    const runId = makeRunId("OFF").toUpperCase()
     const product = await createProduct(
       productPayload({
         code: `OFF-${makeRunId("P").toUpperCase()}`,
@@ -20,21 +21,21 @@ test.describe("offers", () => {
 
     await createOffer(
       offerPayload("PRODUCT", [product.code], "active", {
-        name: "Offer Active 01",
+        name: `Offer Active 01 ${runId}`,
         discountType: "PERCENTAGE",
         discountValue: 20,
       })
     )
     await createOffer(
       offerPayload("PRODUCT", [product.code], "scheduled", {
-        name: "Offer Scheduled 01",
+        name: `Offer Scheduled 01 ${runId}`,
         discountType: "FIXED",
         discountValue: 300,
       })
     )
     await createOffer(
       offerPayload("PRODUCT", [product.code], "expired", {
-        name: "Offer Expired 01",
+        name: `Offer Expired 01 ${runId}`,
         discountType: "PERCENTAGE",
         discountValue: 10,
       })
@@ -42,35 +43,39 @@ test.describe("offers", () => {
 
     await page.goto("/dashboard/ofertas")
     await expect(page.getByText("Lista de Ofertas")).toBeVisible()
-    const activeRow = page.locator("tbody tr").filter({ hasText: "Offer Active 01" }).first()
-    const scheduledRow = page.locator("tbody tr").filter({ hasText: "Offer Scheduled 01" }).first()
-    const expiredRow = page.locator("tbody tr").filter({ hasText: "Offer Expired 01" }).first()
+    const activeName = `Offer Active 01 ${runId}`
+    const scheduledName = `Offer Scheduled 01 ${runId}`
+    const expiredName = `Offer Expired 01 ${runId}`
+    const activeRow = page.locator("tbody tr").filter({ hasText: activeName }).first()
+    const scheduledRow = page.locator("tbody tr").filter({ hasText: scheduledName }).first()
+    const expiredRow = page.locator("tbody tr").filter({ hasText: expiredName }).first()
     await expect(activeRow).toBeVisible()
     await expect(scheduledRow).toBeVisible()
     await expect(expiredRow).toBeVisible()
 
     await page.getByRole("combobox").click()
     await page.getByRole("option", { name: "Activas" }).click()
-    await expect(page.locator("tbody tr").filter({ hasText: "Offer Active 01" }).first()).toBeVisible()
-    await expect(page.locator("tbody tr").filter({ hasText: "Offer Scheduled 01" })).toHaveCount(0)
-    await expect(page.locator("tbody tr").filter({ hasText: "Offer Expired 01" })).toHaveCount(0)
+    await expect(page.locator("tbody tr").filter({ hasText: activeName }).first()).toBeVisible()
+    await expect(page.locator("tbody tr").filter({ hasText: scheduledName })).toHaveCount(0)
+    await expect(page.locator("tbody tr").filter({ hasText: expiredName })).toHaveCount(0)
 
     await page.getByRole("combobox").click()
     await page.getByRole("option", { name: "Todas" }).click()
 
-    const firstRow = page.locator("tbody tr").filter({ hasText: "Offer Active 01" }).first()
+    const firstRow = page.locator("tbody tr").filter({ hasText: activeName }).first()
     await expect(firstRow).toBeVisible()
     await firstRow.click()
 
-    await expect(page.getByText("Descuento")).toBeVisible()
+    await expect(page.locator("div.fixed").getByText("Descuento", { exact: true })).toBeVisible()
     await expect(page.getByRole("button", { name: "Editar Oferta" })).toBeVisible()
     await expect(page.getByRole("button", { name: "Finalizar Oferta" })).toBeVisible()
 
     await page.getByRole("button", { name: "Finalizar Oferta" }).click()
     await page.getByRole("button", { name: "Confirmar" }).click()
-    await expect(page.getByText("Descuento")).toHaveCount(0)
-    await expect(page.locator("tbody tr").filter({ hasText: "Offer Active 01" }).first()).toBeVisible()
-    await expect(page.getByText("Expirada")).toBeVisible()
+    await expect(page.locator("div.fixed").getByText("Descuento", { exact: true })).toHaveCount(0)
+    const finishedRow = page.locator("tbody tr").filter({ hasText: activeName }).first()
+    await expect(finishedRow).toBeVisible()
+    await expect(finishedRow.getByText("Expirada", { exact: true })).toBeVisible()
   })
 })
 

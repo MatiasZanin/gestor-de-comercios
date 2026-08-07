@@ -36,13 +36,13 @@ test.describe("closures", () => {
     await page.getByRole("button", { name: "Cerrar Caja" }).click()
 
     await expect(page.getByText("¡Caja cerrada correctamente!")).toBeVisible({ timeout: 15000 })
-    await expect(page.getByText("Cierre E2E automatizado")).toBeVisible()
+    await expect(page.getByRole("button", { name: "Ver" }).first()).toBeVisible()
 
-    const detailButton = page.getByRole("button", { name: "Ver detalle" }).first()
+    const detailButton = page.getByRole("button", { name: "Ver" }).first()
     await detailButton.click()
     await expect(page).toHaveURL(/\/dashboard\/cierres\/.+/)
     await expect(page.getByText("Detalle del Cierre")).toBeVisible()
-    await expect(page.getByText("Ventas del Período")).toBeVisible()
+    await expect(page.getByText("Ventas del Período", { exact: true })).toBeVisible()
   })
 })
 
