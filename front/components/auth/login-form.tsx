@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useAuth } from "@/lib/hooks/use-auth"
 import { ArrowRight, Loader2, Store } from "lucide-react"
+import { authenticatedHome } from "@/lib/auth/account-access"
 
 export function LoginForm() {
   const [username, setUsername] = useState("")
@@ -19,20 +20,15 @@ export function LoginForm() {
   const [newPassword, setNewPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [passwordError, setPasswordError] = useState("")
-  const { login, completeNewPassword, loading, error, requiresNewPassword, isAuthenticated, accountStatus, user } =
+  const { login, completeNewPassword, loading, error, requiresNewPassword, isAuthenticated, accountStatus, commerceId, role } =
     useAuth()
   const router = useRouter()
 
   useEffect(() => {
     if (!loading && isAuthenticated) {
-      if (accountStatus === "pending_subscription") {
-        router.replace(`/estado-cuenta${user?.registrationId ? `?registrationId=${encodeURIComponent(user.registrationId)}` : ""}`)
-        return
-      }
-
-      router.replace("/dashboard")
+      router.replace(authenticatedHome({ accountStatus, commerceId, role }))
     }
-  }, [accountStatus, isAuthenticated, loading, router, user?.registrationId])
+  }, [accountStatus, commerceId, isAuthenticated, loading, role, router])
 
   const validatePassword = (pass: string): boolean => {
     if (pass.length < 8) {
@@ -63,13 +59,9 @@ export function LoginForm() {
     e.preventDefault()
     try {
       const nextAuth = await login({ username, password })
-      if (nextAuth.accountStatus === "pending_subscription") {
-        router.replace(
-          `/estado-cuenta${nextAuth.user?.registrationId ? `?registrationId=${encodeURIComponent(nextAuth.user.registrationId)}` : ""}`,
-        )
-        return
-      }
-      router.replace("/dashboard")
+      const requested = new URLSearchParams(window.location.search).get("next")
+      const destination = authenticatedHome(nextAuth)
+      router.replace(requested === "/suscripcion" && destination === "/suscripcion" ? requested : destination)
     } catch {
       // El estado de error se muestra inline.
     }
@@ -90,13 +82,7 @@ export function LoginForm() {
 
     try {
       const nextAuth = await completeNewPassword(newPassword)
-      if (nextAuth.accountStatus === "pending_subscription") {
-        router.replace(
-          `/estado-cuenta${nextAuth.user?.registrationId ? `?registrationId=${encodeURIComponent(nextAuth.user.registrationId)}` : ""}`,
-        )
-        return
-      }
-      router.replace("/dashboard")
+      router.replace(authenticatedHome(nextAuth))
     } catch {
       // Error inline.
     }

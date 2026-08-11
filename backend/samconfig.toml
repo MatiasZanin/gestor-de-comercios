@@ -7,5 +7,5 @@ s3_prefix = "gestor-stock-ventas-dev"
 region = "us-east-1"
 confirm_changeset = true
 capabilities = "CAPABILITY_IAM CAPABILITY_NAMED_IAM"
-parameter_overrides = "CommerceStage=\"dev\" RetentionDays=\"90\" FrontendBaseUrl=\"http://localhost:3001\" BillingMonthlyAmount=\"42000\" BillingCurrencyId=\"ARS\" BillingTrialDays=\"30\" BillingGraceDays=\"3\" BillingPlanReason=\"G&S Comercios\" BillingPublicRegistrationPath=\"/estado-cuenta\" MercadoPagoAccessToken=\"TEST-6135434379834665-081014-82ab956d8e9cbf1db233609af953dc5d-134472590\" MercadoPagoWebhookSecret=\"ab97d8221873a954c49e3537e22096b7e61d0e308c9e7c4bf5f024d349c9ec64\" MercadoPagoPreapprovalPlanId=\"648371d03d8f475b8dfde3b9a3f7a61a\""
+parameter_overrides = "CommerceStage=\"dev\" RetentionDays=\"90\" FrontendBaseUrl=\"http://localhost:3001\" BillingMonthlyAmount=\"42000\" BillingCurrencyId=\"ARS\" BillingTrialDays=\"30\" BillingGraceDays=\"3\" BillingPlanReason=\"G&S Comercios\" BillingPublicRegistrationPath=\"/suscripcion\" MercadoPagoPreapprovalPlanId=\"648371d03d8f475b8dfde3b9a3f7a61a\" MercadoPagoReactivationPlanId=\"\""
 image_repositories = []

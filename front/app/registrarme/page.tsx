@@ -8,9 +8,10 @@ import { useAuth } from "@/lib/hooks/use-auth"
 import type { PublicBillingConfig } from "@/lib/types/api"
 import { getPublicBillingConfig } from "@/lib/api/public"
 import { TrialSignupForm } from "@/components/auth/trial-signup-form"
+import { authenticatedHome } from "@/lib/auth/account-access"
 
 export default function RegistrarmePage() {
-  const { isAuthenticated, loading, accountStatus, user } = useAuth()
+  const { isAuthenticated, loading, accountStatus, commerceId, role } = useAuth()
   const router = useRouter()
   const [config, setConfig] = useState<PublicBillingConfig | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -18,15 +19,9 @@ export default function RegistrarmePage() {
 
   useEffect(() => {
     if (!loading && isAuthenticated) {
-      if (accountStatus === "pending_subscription") {
-        router.replace(
-          `/estado-cuenta${user?.registrationId ? `?registrationId=${encodeURIComponent(user.registrationId)}` : ""}`,
-        )
-      } else {
-        router.replace("/dashboard")
-      }
+      router.replace(authenticatedHome({ accountStatus, commerceId, role }))
     }
-  }, [accountStatus, isAuthenticated, loading, router, user?.registrationId])
+  }, [accountStatus, commerceId, isAuthenticated, loading, role, router])
 
   useEffect(() => {
     let mounted = true

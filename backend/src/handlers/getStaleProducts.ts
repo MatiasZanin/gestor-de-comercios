@@ -151,7 +151,7 @@ export const handler = async (
         }
 
         // Validar acceso del usuario al comercio
-        assertCommerceAccess(event, commerceId);
+        await assertCommerceAccess(event, commerceId);
 
         const now = new Date();
 

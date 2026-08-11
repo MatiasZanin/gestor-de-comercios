@@ -39,7 +39,7 @@ export const handler = async (
             throw new BadRequestError('Missing offerId');
         }
 
-        assertCommerceAccess(event, commerceId);
+        await assertCommerceAccess(event, commerceId);
 
         // Solo admin puede finalizar ofertas
         const claims = (event.requestContext.authorizer as any)?.jwt?.claims ?? {};

@@ -40,6 +40,12 @@ export class ConflictError extends HttpError {
   }
 }
 
+export class PaymentRequiredError extends HttpError {
+  constructor(message = 'Subscription required') {
+    super(message, 402);
+  }
+}
+
 export class NotFoundError extends HttpError {
   constructor(message = 'Not found') {
     super(message, 404);
@@ -56,7 +62,7 @@ export class InternalServerError extends HttpError {
  * Dado un error, construye una respuesta estándar para API Gateway HTTP.
  */
 export function buildErrorResponse(err: unknown) {
-  console.log('🚀 ~ ', err);
+  console.error('Request failed', err instanceof Error ? { name: err.name, message: err.message } : 'Unknown error');
   if (err instanceof HttpError) {
     return formatJSONResponse({ error: err.message }, err.statusCode);
   }

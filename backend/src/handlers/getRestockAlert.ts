@@ -30,7 +30,7 @@ export const handler = async (
         }
 
         // Validate user has access to this commerce
-        assertCommerceAccess(event, commerceId);
+        await assertCommerceAccess(event, commerceId);
 
         const pk = `COM#${commerceId}`;
 

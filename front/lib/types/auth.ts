@@ -4,7 +4,7 @@ export interface CognitoUser {
   sub: string
   email: string
   "cognito:groups": string[]
-  commerceId: string
+  commerceId: string | null
   commerceList: string[]
   registrationId?: string | null
   accountStatus?: "pending_subscription" | "trial" | "active" | "past_due" | "cancelled" | string

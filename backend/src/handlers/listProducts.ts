@@ -26,7 +26,7 @@ export const handler = async (
     }
 
     // Validate user has access to this commerce
-    assertCommerceAccess(event, commerceId);
+    await assertCommerceAccess(event, commerceId);
     const claims = event.requestContext.authorizer?.jwt?.claims ?? {};
     const role: any = claims['cognito:groups'];
     const queryParams = event.queryStringParameters || {};

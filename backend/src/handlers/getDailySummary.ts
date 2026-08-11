@@ -52,7 +52,7 @@ export const handler = async (
         }
 
         // Validate user has access to this commerce
-        assertCommerceAccess(event, commerceId);
+        await assertCommerceAccess(event, commerceId);
 
         // Obtener claims del JWT para verificación de roles
         const claims = (event.requestContext.authorizer as any)?.jwt?.claims ?? {};

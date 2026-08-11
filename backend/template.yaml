@@ -44,7 +44,7 @@ Parameters:
     Description: Texto descriptivo del plan en Mercado Pago.
   BillingPublicRegistrationPath:
     Type: String
-    Default: /estado-cuenta
+    Default: /suscripcion
     Description: Ruta pública de retorno tras la autorización.
   MercadoPagoAccessToken:
     Type: String
@@ -58,10 +58,14 @@ Parameters:
     Type: String
     Default: ''
     Description: ID del plan recurrente creado en Mercado Pago.
+  MercadoPagoReactivationPlanId:
+    Type: String
+    Default: ''
+    Description: ID del plan mensual sin trial para reactivaciones.
 
 Globals:
   Function:
-    Runtime: nodejs18.x
+    Runtime: nodejs22.x
     Architectures:
       - x86_64
     Timeout: 10
@@ -83,7 +87,9 @@ Globals:
         MERCADO_PAGO_ACCESS_TOKEN: !Ref MercadoPagoAccessToken
         MERCADO_PAGO_WEBHOOK_SECRET: !Ref MercadoPagoWebhookSecret
         MERCADO_PAGO_PREAPPROVAL_PLAN_ID: !Ref MercadoPagoPreapprovalPlanId
+        MERCADO_PAGO_REACTIVATION_PLAN_ID: !Ref MercadoPagoReactivationPlanId
         COGNITO_USER_POOL_ID: !Ref UserPool
+        COGNITO_CLIENT_ID: !Ref UserPoolClient
 
 Resources:
   ## DynamoDB single-table para productos y ventas
@@ -184,6 +190,14 @@ Resources:
           AttributeDataType: String
           Mutable: true
         - Name: commerceIds
+          AttributeDataType: String
+          Mutable: true
+        # Correct names. Entries prefixed with custom: above are retained because
+        # Cognito custom attributes are immutable once created.
+        - Name: accountStatus
+          AttributeDataType: String
+          Mutable: true
+        - Name: regId
           AttributeDataType: String
           Mutable: true
       Policies:
@@ -302,6 +316,10 @@ Resources:
                   - cognito-idp:AdminGetUser
                   - cognito-idp:AdminSetUserPassword
                   - cognito-idp:AdminUpdateUserAttributes
+                  - cognito-idp:AdminAddUserToGroup
+                  - cognito-idp:ListUsers
+                  - cognito-idp:ConfirmSignUp
+                  - cognito-idp:ResendConfirmationCode
                 Resource: !Sub arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${UserPool}
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
@@ -721,6 +739,40 @@ Resources:
             Auth:
               Authorizer: NONE
 
+  ConfirmRegistrationEmailFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub confirmRegistrationEmail-${CommerceStage}
+      CodeUri: ./dist
+      Handler: handlers/confirmRegistrationEmail.handler
+      Role: !GetAtt LambdaDynamoRole.Arn
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: '/public/registrations/{registrationId}/confirm-email'
+            Method: POST
+            Auth:
+              Authorizer: NONE
+
+  ResendRegistrationCodeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub resendRegistrationCode-${CommerceStage}
+      CodeUri: ./dist
+      Handler: handlers/resendRegistrationCode.handler
+      Role: !GetAtt LambdaDynamoRole.Arn
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: '/public/registrations/{registrationId}/resend-code'
+            Method: POST
+            Auth:
+              Authorizer: NONE
+
   MercadoPagoWebhookFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -769,14 +821,21 @@ Resources:
             Path: '/{commerceId}/billing/cancel'
             Method: POST
 
-  JwtAuthorizerFunction:
+  CreateSubscriptionFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub jwtAuthorizer-${CommerceStage}
+      FunctionName: !Sub createSubscription-${CommerceStage}
       CodeUri: ./dist
-      Handler: authorizers/jwtAuthorizer.handler
+      Handler: handlers/createSubscription.handler
       Role: !GetAtt LambdaDynamoRole.Arn
-      Events: {}
+      Timeout: 30
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: '/{commerceId}/billing/subscribe'
+            Method: POST
 
 Outputs:
   HttpApiUrl:

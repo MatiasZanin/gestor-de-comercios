@@ -145,10 +145,7 @@ export interface PublicBillingConfig {
   currencyId: string
   trialDays: number
   graceDays: number
-  planId: string
   planReason: string
-  frontendBaseUrl: string
-  publicRegistrationPath: string
 }
 
 export interface PublicRegistrationRequest {
@@ -162,10 +159,8 @@ export interface PublicRegistrationRequest {
 
 export interface PublicRegistrationResponse {
   registrationId: string
-  commerceId: string
-  checkoutUrl: string
   status: string
-  email: string
+  maskedEmail: string
 }
 
 export interface BillingProfile {
@@ -179,6 +174,9 @@ export interface BillingProfile {
   merchantName: string
   mercadoPagoPlanId: string
   mercadoPagoSubscriptionId?: string
+  currentSubscriptionId?: string
+  billingPayerEmail?: string
+  trialConsumedAt?: string
   trialStartedAt?: string
   trialEndsAt?: string
   currentPeriodEndsAt?: string
@@ -191,17 +189,29 @@ export interface BillingProfile {
 
 export interface RegistrationStatusResponse {
   registrationId: string
-  commerceId: string
   status: string
+  maskedEmail: string
+  merchantName: string
+}
+
+export interface BillingStatusResponse {
+  commerceId: string
+  merchantName: string
+  status: BillingStatus
+  trialConsumed: boolean
+  trialEndsAt?: string
+  currentPeriodEndsAt?: string
+  graceUntil?: string
+  lastPaymentStatus?: string
   checkoutUrl?: string
-  billingProfile?: BillingProfile
-  registration?: {
-    email: string
-    merchantName: string
-    status: string
-    checkoutUrl?: string
-    registrationId: string
-  }
+  billingPayerEmail?: string
+}
+
+export interface CreateSubscriptionResponse {
+  subscriptionId: string
+  checkoutUrl: string
+  status: BillingStatus
+  includesTrial: boolean
 }
 
 // Common API Parameters

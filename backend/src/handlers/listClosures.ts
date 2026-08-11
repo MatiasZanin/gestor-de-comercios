@@ -12,6 +12,7 @@ import {
 import { sanitizeForRole } from '../helpers/sanitizeForRole';
 import { formatJSONResponse } from '../utils/api-response';
 import { getNextCursor, hasNextPage, removeLastItem } from '../helpers/nextPage';
+import { assertCommerceAccess } from '../helpers/assertCommerceAccess';
 
 const dynamoClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(dynamoClient);
@@ -33,6 +34,8 @@ export const handler = async (
         if (!commerceId) {
             throw new BadRequestError('Missing commerceId');
         }
+
+        await assertCommerceAccess(event, commerceId);
 
         // Verify permissions: ADMIN ONLY
         const claims = (event.requestContext.authorizer as any)?.jwt?.claims ?? {};

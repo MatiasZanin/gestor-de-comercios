@@ -1,5 +1,5 @@
 import { authService } from "@/lib/auth/cognito"
-import type { ApiError, Product } from "@/lib/types/api"
+import type { ApiError, BillingStatusResponse, CreateSubscriptionResponse, Product } from "@/lib/types/api"
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL!
 
@@ -53,6 +53,10 @@ export class ApiClient {
     })
 
     if (!response.ok) {
+      if (response.status === 402) {
+        if (typeof window !== "undefined") window.location.href = "/suscripcion"
+        throw new Error("La suscripción no habilita el acceso al comercio")
+      }
       if (response.status === 401) {
         // Intentar refresh explícito y reintentar una vez
         const refreshedToken = await authService.refreshToken()
@@ -71,10 +75,10 @@ export class ApiClient {
         throw new Error("Sesión expirada. Redirigiendo al login...")
       }
 
-      const errorData: ApiError = await response.json().catch(() => ({
+      const errorData: ApiError | { error?: string } = await response.json().catch(() => ({
         error: { message: "Unknown error occurred" },
       }))
-      throw new Error(errorData.error.message)
+      throw new Error(typeof errorData.error === "string" ? errorData.error : errorData.error?.message || "Unexpected error")
     }
 
     return response.json()
@@ -94,6 +98,10 @@ export class ApiClient {
     })
 
     if (!response.ok) {
+      if (response.status === 402) {
+        if (typeof window !== "undefined") window.location.href = "/suscripcion"
+        throw new Error("La suscripción no habilita el acceso al comercio")
+      }
       if (response.status === 401) {
         const reauthed = await this.handleUnauthorized()
         if (reauthed) {
@@ -105,10 +113,10 @@ export class ApiClient {
         throw new Error("Sesión expirada. Redirigiendo al login...")
       }
 
-      const errorData: ApiError = await response.json().catch(() => ({
+      const errorData: ApiError | { error?: string } = await response.json().catch(() => ({
         error: { message: "Unknown error occurred" },
       }))
-      throw new Error(errorData.error.message)
+      throw new Error(typeof errorData.error === "string" ? errorData.error : errorData.error?.message || "Unexpected error")
     }
 
     return response.json()
@@ -268,6 +276,21 @@ export class ApiClient {
   // Metadata endpoints
   async getMetadata(): Promise<any> {
     return this.makeRequest("/metadata")
+  }
+
+  async getBillingStatus(): Promise<BillingStatusResponse> {
+    return this.makeRequest("/billing/status")
+  }
+
+  async createSubscription(payerEmail: string): Promise<CreateSubscriptionResponse> {
+    return this.makeRequest("/billing/subscribe", {
+      method: "POST",
+      body: JSON.stringify({ payerEmail }),
+    })
+  }
+
+  async cancelSubscription(): Promise<BillingStatusResponse> {
+    return this.makeRequest("/billing/cancel", { method: "POST" })
   }
 
   // Closure endpoints

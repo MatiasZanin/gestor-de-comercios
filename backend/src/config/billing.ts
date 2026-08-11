@@ -32,9 +32,10 @@ export const billingConfig = {
   trialDays: readNumberEnv("BILLING_TRIAL_DAYS", 30),
   graceDays: readNumberEnv("BILLING_GRACE_DAYS", 3),
   planId: readStringEnv("MERCADO_PAGO_PREAPPROVAL_PLAN_ID"),
+  reactivationPlanId: readStringEnv("MERCADO_PAGO_REACTIVATION_PLAN_ID"),
   planReason: readStringEnv("BILLING_PLAN_REASON", "G&S Comercios"),
   frontendBaseUrl: readStringEnv("FRONTEND_BASE_URL", "http://localhost:3000"),
-  publicRegistrationPath: readStringEnv("BILLING_PUBLIC_REGISTRATION_PATH", "/estado-cuenta"),
+  publicRegistrationPath: readStringEnv("BILLING_PUBLIC_REGISTRATION_PATH", "/suscripcion"),
 }
 
 export function getBillingConfig() {
@@ -44,6 +45,7 @@ export function getBillingConfig() {
     trialDays: billingConfig.trialDays,
     graceDays: billingConfig.graceDays,
     planId: billingConfig.planId,
+    reactivationPlanId: billingConfig.reactivationPlanId,
     planReason: billingConfig.planReason,
     frontendBaseUrl: billingConfig.frontendBaseUrl,
     publicRegistrationPath: billingConfig.publicRegistrationPath,

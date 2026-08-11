@@ -1,120 +1,43 @@
 import { expect, test } from "@playwright/test"
 
 const billingConfig = {
-  monthlyAmount: 12000,
+  monthlyAmount: 42000,
   currencyId: "ARS",
   trialDays: 30,
   graceDays: 3,
-  planId: "plan_123",
   planReason: "G&S Comercios",
-  frontendBaseUrl: "http://localhost:3000",
-  publicRegistrationPath: "/estado-cuenta",
 }
 
 test.describe("public signup", () => {
   test.use({ storageState: { cookies: [], origins: [] } })
 
-  test("anonymous users can open the public signup page", async ({ page }) => {
-    await page.route("**/public/billing/config", async (route) => {
-      await route.fulfill({ json: billingConfig })
-    })
-
+  test("anonymous users can open signup and reach OTP", async ({ page }) => {
+    await page.route("**/public/billing/config", (route) => route.fulfill({ json: billingConfig }))
+    await page.route("**/public/registrations", (route) => route.fulfill({
+      status: 201,
+      json: { registrationId: "reg-1", status: "email_verification_pending", maskedEmail: "d***@example.com" },
+    }))
     await page.goto("/registrarme")
-
-    await expect(page.getByRole("heading", { name: "Crear cuenta y probar gratis" })).toBeVisible()
-    await expect(page.getByText("30 días gratis. Luego")).toBeVisible()
+    await expect(page.getByText("Crear cuenta", { exact: true }).first()).toBeVisible()
+    await page.locator("#firstName").fill("Demo")
+    await page.locator("#lastName").fill("Usuario")
+    await page.locator("#email").fill("demo@example.com")
+    await page.locator("#merchantName").fill("Mi comercio")
+    await page.locator("#password").fill("Password1!")
+    await page.locator("#acceptTerms").click()
+    await page.getByRole("button", { name: "Crear cuenta" }).click()
+    await expect(page.getByText("Verificá tu email", { exact: true })).toBeVisible()
+    await expect(page.getByText("d***@example.com")).toBeVisible()
   })
 
-  test("authenticated users are redirected away from /registrarme", async ({ page }) => {
-    await page.addInitScript((state) => {
-      window.localStorage.setItem("authState", JSON.stringify(state))
-    }, {
+  test("authenticated active users are redirected to dashboard", async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem("authState", JSON.stringify({
       isAuthenticated: true,
-      user: {
-        username: "demo",
-        email_verified: true,
-        sub: "sub-1",
-        email: "demo@example.com",
-        "cognito:groups": ["admin"],
-        commerceId: "com_demo",
-        commerceList: ["com_demo"],
-        registrationId: "reg-1",
-        accountStatus: "active",
-        role: "admin",
-      },
-      token: "token",
-      commerceId: "com_demo",
-      accountStatus: "active",
-      role: "admin",
-    })
-
+      user: { username: "demo", email_verified: true, sub: "sub", email: "demo@example.com", "cognito:groups": ["admin"], commerceId: "commerce", commerceList: ["commerce"], accountStatus: "active", role: "admin" },
+      token: "token", commerceId: "commerce", accountStatus: "active", role: "admin",
+    })))
+    await page.route("**/public/billing/config", (route) => route.fulfill({ json: billingConfig }))
     await page.goto("/registrarme")
     await expect(page).toHaveURL(/\/dashboard/)
-  })
-})
-
-test.describe("account status page", () => {
-  test.use({ storageState: { cookies: [], origins: [] } })
-
-  test("shows pending subscription status and offers retry", async ({ page }) => {
-    await page.addInitScript((state) => {
-      window.localStorage.setItem("authState", JSON.stringify(state))
-    }, {
-      isAuthenticated: true,
-      user: {
-        username: "demo",
-        email_verified: true,
-        sub: "sub-2",
-        email: "pending@example.com",
-        "cognito:groups": [],
-        commerceId: null,
-        commerceList: [],
-        registrationId: "reg-pending",
-        accountStatus: "pending_subscription",
-      },
-      token: "token",
-      commerceId: null,
-      accountStatus: "pending_subscription",
-      role: null,
-    })
-
-    await page.route("**/public/billing/config", async (route) => {
-      await route.fulfill({ json: billingConfig })
-    })
-
-    await page.route("**/public/registrations/reg-pending", async (route) => {
-      await route.fulfill({
-        json: {
-          registrationId: "reg-pending",
-          commerceId: "com_pending",
-          status: "pending_subscription",
-          checkoutUrl: "https://checkout.mercadopago.com/test",
-          registration: {
-            email: "pending@example.com",
-            merchantName: "Mi Comercio",
-            status: "pending_subscription",
-            checkoutUrl: "https://checkout.mercadopago.com/test",
-            registrationId: "reg-pending",
-          },
-          billingProfile: {
-            PK: "COM#com_pending",
-            SK: "BILLING#PROFILE",
-            type: "BILLING_PROFILE",
-            commerceId: "com_pending",
-            status: "pending_subscription",
-            ownerEmail: "pending@example.com",
-            ownerCognitoSub: "",
-            merchantName: "Mi Comercio",
-            mercadoPagoPlanId: "plan_123",
-            createdAt: "2026-08-10T00:00:00.000Z",
-            updatedAt: "2026-08-10T00:00:00.000Z",
-          },
-        },
-      })
-    })
-
-    await page.goto("/estado-cuenta?registrationId=reg-pending")
-    await expect(page.getByText("Esperando autorización de Mercado Pago")).toBeVisible()
-    await expect(page.getByRole("button", { name: "Reintentar" })).toBeVisible()
   })
 })

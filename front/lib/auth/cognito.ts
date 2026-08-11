@@ -147,13 +147,16 @@ export class AuthService {
         return
       }
 
+      const username = credentials.username.includes("@")
+        ? credentials.username.trim().toLowerCase()
+        : credentials.username.trim()
       const cognitoUser = new CognitoUser({
-        Username: credentials.username,
+        Username: username,
         Pool: userPool,
       })
 
       const authenticationDetails = new AuthenticationDetails({
-        Username: credentials.username,
+        Username: username,
         Password: credentials.password,
       })
 
@@ -281,6 +284,23 @@ export class AuthService {
         this.authState = buildAuthStateFromPayload(payload, newToken)
         this.saveToStorage()
         resolve(newToken)
+      })
+    })
+  }
+
+  async forceRefreshToken(): Promise<string | null> {
+    return new Promise((resolve) => {
+      const cognitoUser = userPool?.getCurrentUser()
+      if (!cognitoUser) return resolve(null)
+      cognitoUser.getSession((error: Error | null, session: CognitoUserSession | null) => {
+        if (error || !session) return resolve(null)
+        cognitoUser.refreshSession(session.getRefreshToken(), (refreshError, refreshedSession) => {
+          if (refreshError || !refreshedSession) return resolve(null)
+          const idToken = refreshedSession.getIdToken()
+          this.authState = buildAuthStateFromPayload(idToken.payload, idToken.getJwtToken())
+          this.saveToStorage()
+          resolve(idToken.getJwtToken())
+        })
       })
     })
   }

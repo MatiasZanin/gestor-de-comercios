@@ -7,25 +7,24 @@ import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/hooks/use-auth"
 import { Sidebar } from "./sidebar"
 import { Loader2 } from "lucide-react"
+import { hasApplicationAccess } from "@/lib/auth/account-access"
 
 interface DashboardLayoutProps {
   children: React.ReactNode
 }
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
-  const { isAuthenticated, loading, accountStatus, user } = useAuth()
+  const { isAuthenticated, loading, accountStatus, commerceId, role } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
     if (!loading && !isAuthenticated) {
       router.push("/login")
     }
-    if (!loading && isAuthenticated && accountStatus === "pending_subscription") {
-      router.replace(
-        `/estado-cuenta${user?.registrationId ? `?registrationId=${encodeURIComponent(user.registrationId)}` : ""}`,
-      )
+    if (!loading && isAuthenticated && !hasApplicationAccess({ accountStatus, commerceId, role })) {
+      router.replace("/suscripcion")
     }
-  }, [accountStatus, isAuthenticated, loading, router, user?.registrationId])
+  }, [accountStatus, commerceId, isAuthenticated, loading, role, router])
 
   if (loading) {
     return (
@@ -35,7 +34,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     )
   }
 
-  if (!isAuthenticated || accountStatus === "pending_subscription") {
+  if (!isAuthenticated || !hasApplicationAccess({ accountStatus, commerceId, role })) {
     return null
   }
 

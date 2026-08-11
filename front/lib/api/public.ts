@@ -46,6 +46,20 @@ export async function getPublicRegistrationStatus(
   return request<RegistrationStatusResponse>(`/public/registrations/${encodeURIComponent(registrationId)}`)
 }
 
+export async function confirmRegistrationEmail(registrationId: string, code: string) {
+  return request<{ registrationId: string; status: string; loginUrl: string }>(
+    `/public/registrations/${encodeURIComponent(registrationId)}/confirm-email`,
+    { method: "POST", body: JSON.stringify({ code }) },
+  )
+}
+
+export async function resendRegistrationCode(registrationId: string) {
+  return request<{ sent: boolean }>(
+    `/public/registrations/${encodeURIComponent(registrationId)}/resend-code`,
+    { method: "POST", body: "{}" },
+  )
+}
+
 export function getBillingCopy(config: PublicBillingConfig): string {
   const price = new Intl.NumberFormat("es-AR", {
     style: "currency",
@@ -59,6 +73,7 @@ export function getBillingCopy(config: PublicBillingConfig): string {
 export function getStatusLabel(status: BillingStatus | string): string {
   switch (status) {
     case "checkout_created":
+    case "email_verification_pending":
     case "pending_subscription":
       return "Pendiente de suscripción"
     case "trial":

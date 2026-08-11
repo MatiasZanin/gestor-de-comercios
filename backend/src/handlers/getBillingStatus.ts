@@ -13,7 +13,7 @@ export const handler = async (
       throw new BadRequestError("Missing commerceId")
     }
 
-    assertCommerceAccess(event, commerceId)
+    await assertCommerceAccess(event, commerceId, { requireSubscription: false })
 
     const status = await getProtectedBillingStatus(commerceId)
     if (!status) {

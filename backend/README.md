@@ -9,8 +9,6 @@ commerce-mvp/
 ├── sam/               # Plantilla SAM para desplegar la infraestructura
 │   └── template.yaml
 ├── src/
-│   ├── authorizers/
-│   │   └── jwtAuthorizer.ts
 │   ├── handlers/
 │   │   ├── createProduct.ts
 │   │   ├── updateProduct.ts
@@ -67,23 +65,17 @@ La plantilla `sam/template.yaml` crea una tabla DynamoDB denominada `GestionCome
    sam deploy --guided
    ```
 
-### Configuración de Cognito
+   `MercadoPagoAccessToken` y `MercadoPagoWebhookSecret` no se guardan en `samconfig`. Entréguelos desde el gestor de secretos del CI o como `--parameter-overrides` al desplegar.
 
-La plantilla crea un User Pool con un atributo personalizado `custom:commerceIds` y dos grupos (`admin` y `vendedor`). Para crear usuarios y asignarles comercios, utilice AWS CLI. Ejemplo:
+### Registro, Cognito y billing
 
-```bash
-aws cognito-idp admin-create-user \
-  --user-pool-id <POOL_ID> \
-  --username juan@example.com \
-  --user-attributes Name="email",Value="juan@example.com" \
-  --user-attributes Name="custom:commerceIds",Value="1,2" \
-  --temporary-password "Contraseña123!"
+Las altas públicas usan el email normalizado como username y confirman su propiedad mediante el código OTP de Cognito. Al crear la identidad se genera un comercio UUID, se escriben `custom:commerceIds`, `custom:accountStatus` y `custom:regId`, y el usuario se incorpora a `admin`.
 
-aws cognito-idp admin-add-user-to-group \
-  --user-pool-id <POOL_ID> \
-  --username juan@example.com \
-  --group-name admin
-```
+El grupo define permisos, pero no habilita el producto. Todas las rutas comerciales consultan `COM#<commerceId>/BILLING#PROFILE`; las rutas `/{commerceId}/billing/*` siguen disponibles cuando la cuenta está bloqueada.
+
+Mercado Pago requiere dos planes por ambiente: `MERCADO_PAGO_PREAPPROVAL_PLAN_ID`, con un mes de trial, y `MERCADO_PAGO_REACTIVATION_PLAN_ID`, sin trial. Cada cliente crea su propio `/preapproval`; el checkout y la captura de tarjeta ocurren exclusivamente en Mercado Pago.
+
+Después de desplegar los atributos correctos puede auditar las altas existentes con `npm run reconcile-billing-users`. Para aplicar la reconciliación, agregue `-- --apply`; el comando no elimina registros ni usuarios.
 
 ### Uso de la API
 
@@ -100,6 +92,10 @@ Endpoints principales:
 | **GET /{commerceId}/sales**           | Listar ventas. Acepta filtros por día (`day=YYYY-MM-DD`), rango (`start` y `end`) y `lastKey`. |
 | **GET /{commerceId}/reports/daily**   | Reporte diario por comercio y día.                                                             |
 | **GET /{commerceId}/reports/range**   | Reporte por rango de fechas.                                                                   |
+| **POST /public/registrations** | Crear cuenta, comercio y enviar OTP. |
+| **POST /public/registrations/{id}/confirm-email** | Confirmar el email. |
+| **POST /{commerceId}/billing/subscribe** | Iniciar trial o reactivación. |
+| **GET /{commerceId}/billing/status** | Consultar entitlement, incluso bloqueado. |
 
 ### Testing
 

@@ -4,26 +4,21 @@ import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/hooks/use-auth"
 import { Loader2 } from "lucide-react"
+import { authenticatedHome } from "@/lib/auth/account-access"
 
 export default function HomePage() {
-  const { isAuthenticated, loading, accountStatus, user } = useAuth()
+  const { isAuthenticated, loading, accountStatus, commerceId, role } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
     if (!loading) {
       if (isAuthenticated) {
-        if (accountStatus === "pending_subscription") {
-          router.replace(
-            `/estado-cuenta${user?.registrationId ? `?registrationId=${encodeURIComponent(user.registrationId)}` : ""}`,
-          )
-        } else {
-          router.replace("/dashboard")
-        }
+        router.replace(authenticatedHome({ accountStatus, commerceId, role }))
       } else {
-        router.replace("/registrarme")
+        router.replace("/login")
       }
     }
-  }, [accountStatus, isAuthenticated, loading, router, user?.registrationId])
+  }, [accountStatus, commerceId, isAuthenticated, loading, role, router])
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 to-orange-50">

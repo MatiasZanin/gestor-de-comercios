@@ -30,7 +30,7 @@ export const handler = async (
       throw new BadRequestError('Missing commerceId');
     }
 
-    assertCommerceAccess(event, commerceId);
+    await assertCommerceAccess(event, commerceId);
 
     const claims = (event.requestContext.authorizer as any)?.jwt?.claims ?? {};
     const roles: string[] | undefined = claims['cognito:groups'];

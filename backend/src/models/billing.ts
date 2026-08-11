@@ -1,5 +1,13 @@
 import type { BillingStatus } from "../config/billing"
 
+export type RegistrationStatus =
+  | "email_verification_pending"
+  | "pending_subscription"
+  | "trial"
+  | "active"
+  | "past_due"
+  | "cancelled"
+
 export interface BillingProfile {
   PK: string
   SK: "BILLING#PROFILE"
@@ -10,7 +18,10 @@ export interface BillingProfile {
   ownerCognitoSub: string
   merchantName: string
   mercadoPagoPlanId: string
+  currentSubscriptionId?: string
   mercadoPagoSubscriptionId?: string
+  billingPayerEmail?: string
+  trialConsumedAt?: string
   trialStartedAt?: string
   trialEndsAt?: string
   currentPeriodEndsAt?: string
@@ -19,6 +30,22 @@ export interface BillingProfile {
   lastWebhookAt?: string
   updatedAt: string
   createdAt: string
+}
+
+export interface SubscriptionRecord {
+  PK: string
+  SK: string
+  type: "BILLING_SUBSCRIPTION"
+  commerceId: string
+  subscriptionId: string
+  planId: string
+  payerEmail: string
+  status: string
+  includesTrial: boolean
+  checkoutUrl?: string
+  replacedAt?: string
+  createdAt: string
+  updatedAt: string
 }
 
 export interface RegistrationRecord {
@@ -31,14 +58,14 @@ export interface RegistrationRecord {
   firstName: string
   lastName: string
   merchantName: string
-  status: BillingStatus | "checkout_created" | "processing" | "expired"
-  checkoutUrl?: string
-  mercadoPagoSubscriptionId?: string
-  userPoolUsername?: string
+  status: RegistrationStatus
+  userPoolUsername: string
+  ownerCognitoSub?: string
   createdAt: string
   updatedAt: string
-  expiresAt: number
   retryCount: number
+  // Legacy records may contain expiresAt. Registration reuse intentionally ignores it.
+  expiresAt?: number
 }
 
 export interface WebhookEventRecord {
@@ -46,10 +73,9 @@ export interface WebhookEventRecord {
   SK: string
   type: "MP_WEBHOOK_EVENT"
   eventId: string
-  commerceId?: string
+  eventType?: string
   subscriptionId?: string
   paymentId?: string
-  eventType?: string
   processedAt: string
   rawRequestId?: string
 }
@@ -59,10 +85,7 @@ export interface PublicBillingConfigResponse {
   currencyId: string
   trialDays: number
   graceDays: number
-  planId: string
   planReason: string
-  frontendBaseUrl: string
-  publicRegistrationPath: string
 }
 
 export interface PublicRegistrationRequest {
@@ -76,17 +99,33 @@ export interface PublicRegistrationRequest {
 
 export interface PublicRegistrationResponse {
   registrationId: string
-  commerceId: string
-  checkoutUrl: string
-  status: string
-  email: string
+  status: RegistrationStatus
+  maskedEmail: string
 }
 
 export interface RegistrationStatusResponse {
   registrationId: string
+  status: RegistrationStatus
+  maskedEmail: string
+  merchantName: string
+}
+
+export interface BillingStatusResponse {
   commerceId: string
-  status: string
+  merchantName: string
+  status: BillingStatus
+  trialConsumed: boolean
+  trialEndsAt?: string
+  currentPeriodEndsAt?: string
+  graceUntil?: string
+  lastPaymentStatus?: string
   checkoutUrl?: string
-  billingProfile?: BillingProfile
-  registration?: RegistrationRecord
+  billingPayerEmail?: string
+}
+
+export interface CreateSubscriptionResponse {
+  subscriptionId: string
+  checkoutUrl: string
+  status: BillingStatus
+  includesTrial: boolean
 }

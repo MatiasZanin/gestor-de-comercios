@@ -1,54 +1,44 @@
 import { createHash, randomUUID } from "crypto"
 import {
-  AdminCreateUserCommand,
+  AdminAddUserToGroupCommand,
   AdminGetUserCommand,
-  AdminSetUserPasswordCommand,
   AdminUpdateUserAttributesCommand,
   CognitoIdentityProviderClient,
+  ConfirmSignUpCommand,
+  ListUsersCommand,
+  ResendConfirmationCodeCommand,
+  SignUpCommand,
 } from "@aws-sdk/client-cognito-identity-provider"
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb"
 import { DynamoDBDocumentClient, GetCommand, PutCommand } from "@aws-sdk/lib-dynamodb"
 import { BadRequestError, ConflictError, NotFoundError } from "../helpers/errors"
-import {
-  addDays,
-  billingConfig,
-  BILLING_STATUS,
-  nowIso,
-  type BillingStatus,
-} from "../config/billing"
+import { addDays, billingConfig, BILLING_STATUS, nowIso, type BillingStatus } from "../config/billing"
 import type {
   BillingProfile,
+  BillingStatusResponse,
+  CreateSubscriptionResponse,
   PublicBillingConfigResponse,
   PublicRegistrationRequest,
   PublicRegistrationResponse,
   RegistrationRecord,
   RegistrationStatusResponse,
+  SubscriptionRecord,
   WebhookEventRecord,
 } from "../models/billing"
+import type { CommerceProfile } from "../models/commerce"
 import {
   MercadoPagoClient,
   type MercadoPagoPayment,
   type MercadoPagoSubscription,
 } from "./mercadoPagoClient"
 
-const dynamoClient = new DynamoDBClient({})
-const docClient = DynamoDBDocumentClient.from(dynamoClient)
+const docClient = DynamoDBDocumentClient.from(new DynamoDBClient({}))
 const cognitoClient = new CognitoIdentityProviderClient({})
 
-function requireTableName() {
-  const tableName = process.env.TABLE_NAME
-  if (!tableName) {
-    throw new Error("TABLE_NAME env var is required")
-  }
-  return tableName
-}
-
-function requireUserPoolId() {
-  const userPoolId = process.env.COGNITO_USER_POOL_ID
-  if (!userPoolId) {
-    throw new Error("COGNITO_USER_POOL_ID is required")
-  }
-  return userPoolId
+function requireEnv(name: string): string {
+  const value = process.env[name]
+  if (!value) throw new Error(`${name} is required`)
+  return value
 }
 
 function normalizeEmail(email: string): string {
@@ -56,194 +46,368 @@ function normalizeEmail(email: string): string {
 }
 
 function normalizeMerchantName(name: string): string {
-  return name.trim().replace(/\s+/g, " ")
+  return name.replace(/[\u0000-\u001f\u007f]/g, "").trim().replace(/\s+/g, " ")
 }
 
-function buildRegistrationId(email: string): string {
+function registrationIdForEmail(email: string): string {
   return createHash("sha256").update(normalizeEmail(email)).digest("hex").slice(0, 24)
 }
 
-function buildCommerceId(email: string): string {
-  const hash = createHash("sha256").update(normalizeEmail(email)).digest("hex").slice(0, 10)
-  return `com_${hash}`
+function maskEmail(email: string): string {
+  const [local, domain] = email.split("@")
+  return `${local.slice(0, 1)}***@${domain}`
 }
 
 function registrationKey(registrationId: string) {
   return { PK: `REG#${registrationId}`, SK: "REGISTRATION" as const }
 }
 
+function commerceKey(commerceId: string) {
+  return { PK: `COM#${commerceId}`, SK: "PROFILE" as const }
+}
+
 function billingKey(commerceId: string) {
   return { PK: `COM#${commerceId}`, SK: "BILLING#PROFILE" as const }
+}
+
+function subscriptionKey(commerceId: string, subscriptionId: string) {
+  return { PK: `COM#${commerceId}`, SK: `SUBSCRIPTION#${subscriptionId}` }
 }
 
 function webhookEventKey(eventId: string) {
   return { PK: "MP#WEBHOOK", SK: `EVENT#${eventId}` }
 }
 
-function publicConfigResponse(): PublicBillingConfigResponse {
-  return {
-    monthlyAmount: billingConfig.monthlyAmount,
-    currencyId: billingConfig.currencyId,
-    trialDays: billingConfig.trialDays,
-    graceDays: billingConfig.graceDays,
-    planId: billingConfig.planId,
-    planReason: billingConfig.planReason,
-    frontendBaseUrl: billingConfig.frontendBaseUrl,
-    publicRegistrationPath: billingConfig.publicRegistrationPath,
-  }
+async function getItem<T>(key: { PK: string; SK: string }): Promise<T | null> {
+  const result = await docClient.send(new GetCommand({ TableName: requireEnv("TABLE_NAME"), Key: key }))
+  return (result.Item as T | undefined) ?? null
 }
 
-function assertBillingEnv() {
-  if (!billingConfig.planId) {
-    throw new Error("MERCADO_PAGO_PREAPPROVAL_PLAN_ID is required")
-  }
-  if (!process.env.MERCADO_PAGO_ACCESS_TOKEN) {
-    throw new Error("MERCADO_PAGO_ACCESS_TOKEN is required")
-  }
-  requireUserPoolId()
-  requireTableName()
+async function putItem(item: object, createOnly = false) {
+  await docClient.send(
+    new PutCommand({
+      TableName: requireEnv("TABLE_NAME"),
+      Item: item as Record<string, unknown>,
+      ...(createOnly ? { ConditionExpression: "attribute_not_exists(PK) AND attribute_not_exists(SK)" } : {}),
+    })
+  )
+}
+
+async function getRegistration(registrationId: string) {
+  return getItem<RegistrationRecord>(registrationKey(registrationId))
+}
+
+async function getBillingProfile(commerceId: string) {
+  return getItem<BillingProfile>(billingKey(commerceId))
+}
+
+async function getSubscriptionRecord(commerceId: string, subscriptionId: string) {
+  return getItem<SubscriptionRecord>(subscriptionKey(commerceId, subscriptionId))
 }
 
 function getMpClient() {
-  const accessToken = process.env.MERCADO_PAGO_ACCESS_TOKEN
-  if (!accessToken) {
-    throw new Error("MERCADO_PAGO_ACCESS_TOKEN is required")
-  }
-  return new MercadoPagoClient(accessToken)
+  return new MercadoPagoClient(requireEnv("MERCADO_PAGO_ACCESS_TOKEN"))
 }
 
-async function getRegistrationById(registrationId: string): Promise<RegistrationRecord | null> {
-  const result = await docClient.send(
-    new GetCommand({
-      TableName: requireTableName(),
-      Key: registrationKey(registrationId),
+async function findCognitoUsersByEmail(email: string) {
+  const escaped = email.replace(/\\/g, "\\\\").replace(/\"/g, '\\"')
+  const result = await cognitoClient.send(
+    new ListUsersCommand({
+      UserPoolId: requireEnv("COGNITO_USER_POOL_ID"),
+      Filter: `email = "${escaped}"`,
+      Limit: 2,
     })
   )
-  return (result.Item as RegistrationRecord | undefined) ?? null
+  return result.Users ?? []
 }
 
-async function getBillingProfileByCommerceId(commerceId: string): Promise<BillingProfile | null> {
-  const result = await docClient.send(
-    new GetCommand({
-      TableName: requireTableName(),
-      Key: billingKey(commerceId),
-    })
-  )
-  return (result.Item as BillingProfile | undefined) ?? null
-}
-
-async function saveRegistration(record: RegistrationRecord) {
-  await docClient.send(
-    new PutCommand({
-      TableName: requireTableName(),
-      Item: record,
-      ConditionExpression: "attribute_not_exists(PK) AND attribute_not_exists(SK)",
-    })
-  )
-}
-
-async function upsertRegistration(record: RegistrationRecord) {
-  await docClient.send(
-    new PutCommand({
-      TableName: requireTableName(),
-      Item: record,
-    })
-  )
-}
-
-async function saveBillingProfile(record: BillingProfile) {
-  await docClient.send(
-    new PutCommand({
-      TableName: requireTableName(),
-      Item: record,
-    })
-  )
-}
-
-async function saveWebhookEvent(record: WebhookEventRecord) {
-  await docClient.send(
-    new PutCommand({
-      TableName: requireTableName(),
-      Item: record,
-      ConditionExpression: "attribute_not_exists(PK) AND attribute_not_exists(SK)",
-    })
-  )
-}
-
-async function ensureCognitoUser(input: {
-  email: string
-  password: string
-  firstName: string
-  lastName: string
-}) {
-  const userPoolId = requireUserPoolId()
-  const username = input.email
-
-  try {
-    await cognitoClient.send(
-      new AdminGetUserCommand({
-        UserPoolId: userPoolId,
-        Username: username,
-      })
-    )
-  } catch (err: any) {
-    const notFound = err?.name === "UserNotFoundException"
-    if (!notFound) {
-      throw err
-    }
-
-    await cognitoClient.send(
-      new AdminCreateUserCommand({
-        UserPoolId: userPoolId,
-        Username: username,
-        MessageAction: "SUPPRESS",
-        UserAttributes: [
-          { Name: "email", Value: input.email },
-          { Name: "given_name", Value: input.firstName },
-          { Name: "family_name", Value: input.lastName },
-          { Name: "email_verified", Value: "true" },
-        ],
-      })
-    )
-  }
-
-  await cognitoClient.send(
-    new AdminSetUserPasswordCommand({
-      UserPoolId: userPoolId,
-      Username: username,
-      Password: input.password,
-      Permanent: true,
-    })
-  )
-}
-
-async function updateCognitoBillingAttrs(input: {
-  email: string
+async function updateCognitoAttributes(input: {
+  username: string
   status: BillingStatus
   commerceId?: string
+  registrationId?: string
 }) {
-  const userPoolId = requireUserPoolId()
-  const attributes: Array<{ Name: string; Value: string }> = []
-
-  if (input.commerceId) {
-    attributes.push({ Name: "custom:commerceIds", Value: input.commerceId })
-  }
-
-  if (attributes.length === 0) {
-    return
-  }
+  const attributes: Array<{ Name: string; Value: string }> = [
+    { Name: "custom:accountStatus", Value: input.status },
+  ]
+  if (input.commerceId) attributes.push({ Name: "custom:commerceIds", Value: input.commerceId })
+  if (input.registrationId) attributes.push({ Name: "custom:regId", Value: input.registrationId })
 
   await cognitoClient.send(
     new AdminUpdateUserAttributesCommand({
-      UserPoolId: userPoolId,
-      Username: input.email,
+      UserPoolId: requireEnv("COGNITO_USER_POOL_ID"),
+      Username: input.username,
       UserAttributes: attributes,
     })
   )
 }
 
-function buildPlanCheckoutUrl(planId: string) {
-  return `https://www.mercadopago.com.ar/subscriptions/checkout?preapproval_plan_id=${encodeURIComponent(planId)}`
+async function createCognitoUser(input: PublicRegistrationRequest, registrationId: string, commerceId: string) {
+  const email = normalizeEmail(input.email)
+  const result = await cognitoClient.send(
+    new SignUpCommand({
+      ClientId: requireEnv("COGNITO_CLIENT_ID"),
+      Username: email,
+      Password: input.password,
+      UserAttributes: [
+        { Name: "email", Value: email },
+        { Name: "given_name", Value: input.firstName.trim() },
+        { Name: "family_name", Value: input.lastName.trim() },
+      ],
+    })
+  )
+
+  await updateCognitoAttributes({
+    username: email,
+    status: BILLING_STATUS.PENDING_SUBSCRIPTION,
+    commerceId,
+    registrationId,
+  })
+  await cognitoClient.send(
+    new AdminAddUserToGroupCommand({
+      UserPoolId: requireEnv("COGNITO_USER_POOL_ID"),
+      Username: email,
+      GroupName: "admin",
+    })
+  )
+  return result.UserSub ?? ""
+}
+
+export async function getPublicBillingConfig(): Promise<PublicBillingConfigResponse> {
+  return {
+    monthlyAmount: billingConfig.monthlyAmount,
+    currencyId: billingConfig.currencyId,
+    trialDays: billingConfig.trialDays,
+    graceDays: billingConfig.graceDays,
+    planReason: billingConfig.planReason,
+  }
+}
+
+export async function createPublicRegistration(
+  input: PublicRegistrationRequest
+): Promise<PublicRegistrationResponse> {
+  if (!input.acceptTerms) throw new BadRequestError("Debe aceptar los términos y condiciones")
+
+  requireEnv("TABLE_NAME")
+  requireEnv("COGNITO_USER_POOL_ID")
+  requireEnv("COGNITO_CLIENT_ID")
+
+  const email = normalizeEmail(input.email)
+  const registrationId = registrationIdForEmail(email)
+  const existingRegistration = await getRegistration(registrationId)
+  const cognitoUsers = await findCognitoUsersByEmail(email)
+
+  if (existingRegistration) {
+    return {
+      registrationId,
+      status: existingRegistration.status,
+      maskedEmail: maskEmail(email),
+    }
+  }
+  if (cognitoUsers.length > 0) throw new ConflictError("Ya existe una cuenta para ese email")
+
+  const commerceId = randomUUID()
+  const createdAt = nowIso()
+  const merchantName = normalizeMerchantName(input.merchantName)
+  const registration: RegistrationRecord = {
+    ...registrationKey(registrationId),
+    type: "REGISTRATION",
+    registrationId,
+    commerceId,
+    email,
+    firstName: input.firstName.trim(),
+    lastName: input.lastName.trim(),
+    merchantName,
+    status: "email_verification_pending",
+    userPoolUsername: email,
+    createdAt,
+    updatedAt: createdAt,
+    retryCount: 1,
+  }
+
+  await putItem(registration, true)
+  try {
+    const ownerCognitoSub = await createCognitoUser(input, registrationId, commerceId)
+    const commerce: CommerceProfile = {
+      ...commerceKey(commerceId),
+      type: "COMMERCE",
+      commerceId,
+      merchantName,
+      ownerCognitoSub,
+      ownerEmail: email,
+      createdAt,
+      updatedAt: createdAt,
+    }
+    const billing: BillingProfile = {
+      ...billingKey(commerceId),
+      type: "BILLING_PROFILE",
+      commerceId,
+      merchantName,
+      ownerEmail: email,
+      ownerCognitoSub,
+      status: BILLING_STATUS.PENDING_SUBSCRIPTION,
+      mercadoPagoPlanId: billingConfig.planId,
+      createdAt,
+      updatedAt: createdAt,
+    }
+    await Promise.all([
+      putItem({ ...registration, ownerCognitoSub }),
+      putItem(commerce),
+      putItem(billing),
+    ])
+  } catch (error) {
+    // The durable registration makes a partial signup observable and recoverable.
+    throw error
+  }
+
+  return { registrationId, status: registration.status, maskedEmail: maskEmail(email) }
+}
+
+export async function confirmRegistrationEmail(registrationId: string, code: string) {
+  const registration = await getRegistration(registrationId)
+  if (!registration) throw new NotFoundError("Registration not found")
+
+  try {
+    await cognitoClient.send(
+      new ConfirmSignUpCommand({
+        ClientId: requireEnv("COGNITO_CLIENT_ID"),
+        Username: registration.email,
+        ConfirmationCode: code,
+      })
+    )
+  } catch (error: any) {
+    if (error?.name !== "NotAuthorizedException") throw error
+    const user = await cognitoClient.send(
+      new AdminGetUserCommand({
+        UserPoolId: requireEnv("COGNITO_USER_POOL_ID"),
+        Username: registration.email,
+      })
+    )
+    if (user.UserStatus !== "CONFIRMED") throw error
+  }
+
+  const updated: RegistrationRecord = {
+    ...registration,
+    status: "pending_subscription",
+    updatedAt: nowIso(),
+  }
+  await putItem(updated)
+  return { registrationId, status: updated.status, loginUrl: "/login?next=/suscripcion" }
+}
+
+export async function resendRegistrationCode(registrationId: string) {
+  const registration = await getRegistration(registrationId)
+  if (!registration) throw new NotFoundError("Registration not found")
+  if (registration.status !== "email_verification_pending") {
+    throw new ConflictError("El email ya fue confirmado")
+  }
+  await cognitoClient.send(
+    new ResendConfirmationCodeCommand({
+      ClientId: requireEnv("COGNITO_CLIENT_ID"),
+      Username: registration.email,
+    })
+  )
+}
+
+export async function getRegistrationStatus(registrationId: string): Promise<RegistrationStatusResponse> {
+  const registration = await getRegistration(registrationId)
+  if (!registration) throw new NotFoundError("Registration not found")
+  return {
+    registrationId,
+    status: registration.status,
+    maskedEmail: maskEmail(registration.email),
+    merchantName: registration.merchantName,
+  }
+}
+
+export async function createBillingSubscription(
+  commerceId: string,
+  payerEmailInput: string
+): Promise<CreateSubscriptionResponse> {
+  const payerEmail = normalizeEmail(payerEmailInput)
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payerEmail)) {
+    throw new BadRequestError("Invalid Mercado Pago email")
+  }
+  const profile = await getBillingProfile(commerceId)
+  if (!profile) throw new NotFoundError("Billing profile not found")
+  if (profile.status === BILLING_STATUS.TRIAL || profile.status === BILLING_STATUS.ACTIVE) {
+    throw new ConflictError("La suscripción ya está habilitada")
+  }
+
+  if (profile.currentSubscriptionId) {
+    const current = await getSubscriptionRecord(commerceId, profile.currentSubscriptionId)
+    if (current?.status === "pending" && current.checkoutUrl) {
+      return {
+        subscriptionId: current.subscriptionId,
+        checkoutUrl: current.checkoutUrl,
+        status: BILLING_STATUS.PENDING_SUBSCRIPTION,
+        includesTrial: current.includesTrial,
+      }
+    }
+    if (current && !["cancelled", "canceled"].includes(current.status)) {
+      try {
+        await getMpClient().cancelSubscription(current.subscriptionId)
+      } catch {
+        // A remote subscription may already be terminal; the new preapproval remains authoritative.
+      }
+      await putItem({ ...current, replacedAt: nowIso(), updatedAt: nowIso() })
+    }
+  }
+
+  const includesTrial = !profile.trialConsumedAt
+  const planId = includesTrial ? billingConfig.planId : billingConfig.reactivationPlanId
+  if (!planId) {
+    throw new Error(
+      includesTrial
+        ? "MERCADO_PAGO_PREAPPROVAL_PLAN_ID is required"
+        : "MERCADO_PAGO_REACTIVATION_PLAN_ID is required"
+    )
+  }
+
+  const attemptId = randomUUID()
+  const subscription = await getMpClient().createSubscription({
+    planId,
+    payerEmail,
+    externalReference: commerceId,
+    backUrl: `${billingConfig.frontendBaseUrl.replace(/\/$/, "")}/suscripcion`,
+    idempotencyKey: `${commerceId}:${attemptId}`,
+  })
+  if (!subscription.id || !subscription.init_point) {
+    throw new Error("Mercado Pago did not return a checkout URL")
+  }
+
+  const now = nowIso()
+  const record: SubscriptionRecord = {
+    ...subscriptionKey(commerceId, subscription.id),
+    type: "BILLING_SUBSCRIPTION",
+    commerceId,
+    subscriptionId: subscription.id,
+    planId,
+    payerEmail,
+    status: subscription.status ?? "pending",
+    includesTrial,
+    checkoutUrl: subscription.init_point,
+    createdAt: now,
+    updatedAt: now,
+  }
+  const updatedProfile: BillingProfile = {
+    ...profile,
+    status: BILLING_STATUS.PENDING_SUBSCRIPTION,
+    billingPayerEmail: payerEmail,
+    mercadoPagoPlanId: planId,
+    mercadoPagoSubscriptionId: subscription.id,
+    currentSubscriptionId: subscription.id,
+    updatedAt: now,
+  }
+  await Promise.all([putItem(record), putItem(updatedProfile)])
+  await updateCognitoAttributes({ username: profile.ownerEmail, status: updatedProfile.status })
+
+  return {
+    subscriptionId: subscription.id,
+    checkoutUrl: subscription.init_point,
+    status: updatedProfile.status,
+    includesTrial,
+  }
 }
 
 interface SubscriptionState {
@@ -255,314 +419,147 @@ interface SubscriptionState {
   lastPaymentStatus?: string
 }
 
-function parseIso(value?: string): number | null {
-  if (!value) return null
-  const time = new Date(value).getTime()
-  return Number.isFinite(time) ? time : null
-}
-
 function mapSubscriptionToStatus(
   subscription: MercadoPagoSubscription,
-  existingProfile?: BillingProfile | null
+  profile: BillingProfile,
+  includesTrial: boolean
 ): SubscriptionState {
   const now = nowIso()
-  const subscriptionStatus = (subscription.status ?? "").toLowerCase()
-  const nextPaymentDate = subscription.next_payment_date
-  const hasTrialDates = !!existingProfile?.trialStartedAt || !!existingProfile?.trialEndsAt
-
-  if (subscriptionStatus === "cancelled" || subscriptionStatus === "canceled") {
+  const status = (subscription.status ?? "").toLowerCase()
+  if (status === "cancelled" || status === "canceled") {
     return {
       status: BILLING_STATUS.CANCELLED,
-      currentPeriodEndsAt: nextPaymentDate ?? existingProfile?.currentPeriodEndsAt,
-      lastPaymentStatus: subscriptionStatus,
+      currentPeriodEndsAt: subscription.next_payment_date ?? profile.currentPeriodEndsAt,
+      lastPaymentStatus: status,
     }
   }
-
-  if (subscriptionStatus === "paused" || subscriptionStatus === "rejected") {
+  if (status === "paused" || status === "rejected") {
     return {
       status: BILLING_STATUS.PAST_DUE,
-      currentPeriodEndsAt: nextPaymentDate ?? existingProfile?.currentPeriodEndsAt,
       graceUntil: addDays(now, billingConfig.graceDays),
-      lastPaymentStatus: subscriptionStatus,
+      currentPeriodEndsAt: subscription.next_payment_date ?? profile.currentPeriodEndsAt,
+      lastPaymentStatus: status,
     }
   }
-
-  if (subscriptionStatus === "pending") {
+  if (status === "authorized" || status === "active") {
+    if (includesTrial && !profile.trialConsumedAt) {
+      return {
+        status: BILLING_STATUS.TRIAL,
+        trialStartedAt: now,
+        trialEndsAt: subscription.next_payment_date ?? addDays(now, billingConfig.trialDays),
+        currentPeriodEndsAt: subscription.next_payment_date,
+        lastPaymentStatus: status,
+      }
+    }
     return {
-      status: BILLING_STATUS.PENDING_SUBSCRIPTION,
-      lastPaymentStatus: subscriptionStatus,
+      status: BILLING_STATUS.ACTIVE,
+      currentPeriodEndsAt: subscription.next_payment_date ?? profile.currentPeriodEndsAt,
+      lastPaymentStatus: status,
     }
   }
-
-  if (subscriptionStatus === "authorized" || subscriptionStatus === "active") {
-    const trialEndsAt = existingProfile?.trialEndsAt ?? nextPaymentDate ?? addDays(now, billingConfig.trialDays)
-    const trialStartedAt = existingProfile?.trialStartedAt ?? now
-    const trialEndsAtTime = parseIso(trialEndsAt)
-    const isTrialActive = !hasTrialDates || (trialEndsAtTime !== null && trialEndsAtTime > Date.now())
-
-    return {
-      status: isTrialActive ? BILLING_STATUS.TRIAL : BILLING_STATUS.ACTIVE,
-      trialStartedAt,
-      trialEndsAt: trialEndsAt ?? undefined,
-      currentPeriodEndsAt: nextPaymentDate ?? existingProfile?.currentPeriodEndsAt,
-      lastPaymentStatus: subscriptionStatus,
-    }
-  }
-
-  return {
-    status: BILLING_STATUS.PENDING_SUBSCRIPTION,
-    lastPaymentStatus: subscriptionStatus || "unknown",
-  }
-}
-
-function buildRegistrationResponse(
-  registrationId: string,
-  commerceId: string,
-  registration: RegistrationRecord,
-  checkoutUrl: string
-): PublicRegistrationResponse {
-  return {
-    registrationId,
-    commerceId,
-    checkoutUrl,
-    status: registration.status,
-    email: registration.email,
-  }
-}
-
-function isRegistrationReusable(registration: RegistrationRecord | null | undefined) {
-  if (!registration) return false
-  if (registration.expiresAt && registration.expiresAt < Math.floor(Date.now() / 1000)) {
-    return false
-  }
-  return registration.status === "checkout_created" || registration.status === "pending_subscription"
-}
-
-function buildWebhookId(input: { eventId?: string | null; requestId?: string | null; dataId?: string | null }) {
-  return (
-    input.eventId ??
-    input.requestId ??
-    (input.dataId ? createHash("sha256").update(input.dataId).digest("hex").slice(0, 24) : randomUUID())
-  )
-}
-
-async function syncBillingFromPayment(payment: MercadoPagoPayment) {
-  const subscriptionId = payment.preapproval_id
-  if (!subscriptionId) {
-    return { ignored: true as const }
-  }
-
-  const mp = getMpClient()
-  const subscription = await mp.getSubscription(subscriptionId)
-  return syncBillingFromSubscription(subscription)
-}
-
-export async function getPublicBillingConfig(): Promise<PublicBillingConfigResponse> {
-  return publicConfigResponse()
-}
-
-export async function createPublicRegistration(
-  input: PublicRegistrationRequest
-): Promise<PublicRegistrationResponse> {
-  assertBillingEnv()
-
-  if (!input.acceptTerms) {
-    throw new BadRequestError("Debe aceptar los términos y condiciones")
-  }
-
-  const email = normalizeEmail(input.email)
-  const firstName = input.firstName.trim()
-  const lastName = input.lastName.trim()
-  const merchantName = normalizeMerchantName(input.merchantName)
-  const registrationId = buildRegistrationId(email)
-  const commerceId = buildCommerceId(email)
-  const createdAt = nowIso()
-  const existingRegistration = await getRegistrationById(registrationId)
-  const existingBillingProfile = await getBillingProfileByCommerceId(commerceId)
-
-  if (existingBillingProfile && existingBillingProfile.status !== BILLING_STATUS.PENDING_SUBSCRIPTION) {
-    throw new ConflictError("Email already registered")
-  }
-
-  if (isRegistrationReusable(existingRegistration) && existingRegistration?.checkoutUrl) {
-    return buildRegistrationResponse(
-      registrationId,
-      commerceId,
-      existingRegistration,
-      existingRegistration.checkoutUrl
-    )
-  }
-
-  const registration: RegistrationRecord = {
-    ...registrationKey(registrationId),
-    type: "REGISTRATION",
-    registrationId,
-    commerceId,
-    email,
-    firstName,
-    lastName,
-    merchantName,
-    status: "pending_subscription",
-    checkoutUrl: existingRegistration?.checkoutUrl,
-    mercadoPagoSubscriptionId: existingRegistration?.mercadoPagoSubscriptionId,
-    userPoolUsername: email,
-    createdAt: existingRegistration?.createdAt ?? createdAt,
-    updatedAt: createdAt,
-    expiresAt: Math.floor(Date.now() / 1000) + 60 * 60 * 24,
-    retryCount: (existingRegistration?.retryCount ?? 0) + 1,
-  }
-
-  try {
-    await saveRegistration(registration)
-  } catch (err: any) {
-    if (err?.name !== "ConditionalCheckFailedException") {
-      throw err
-    }
-  }
-
-  await ensureCognitoUser({
-    email,
-    password: input.password,
-    firstName,
-    lastName,
-  })
-
-  const checkoutUrl = buildPlanCheckoutUrl(billingConfig.planId)
-
-  const nextRegistration: RegistrationRecord = {
-    ...registration,
-    status: "checkout_created",
-    checkoutUrl,
-    updatedAt: nowIso(),
-  }
-
-  const billingProfile: BillingProfile = {
-    ...billingKey(commerceId),
-    type: "BILLING_PROFILE",
-    commerceId,
-    status: BILLING_STATUS.PENDING_SUBSCRIPTION,
-    ownerEmail: email,
-    ownerCognitoSub: "",
-    merchantName,
-    mercadoPagoPlanId: billingConfig.planId,
-    createdAt,
-    updatedAt: createdAt,
-  }
-
-  await upsertRegistration(nextRegistration)
-  await saveBillingProfile(billingProfile)
-
-  await updateCognitoBillingAttrs({
-    email,
-    status: BILLING_STATUS.PENDING_SUBSCRIPTION,
-  })
-
-  return buildRegistrationResponse(
-    registrationId,
-    commerceId,
-    nextRegistration,
-    nextRegistration.checkoutUrl ?? `${billingConfig.frontendBaseUrl}${billingConfig.publicRegistrationPath}`
-  )
-}
-
-export async function getRegistrationStatus(registrationId: string): Promise<RegistrationStatusResponse> {
-  const registration = await getRegistrationById(registrationId)
-  if (!registration) {
-    throw new NotFoundError("Registration not found")
-  }
-
-  const billingProfile = await getBillingProfileByCommerceId(registration.commerceId)
-  const fallbackStatus = registration.status === "checkout_created" ? BILLING_STATUS.PENDING_SUBSCRIPTION : registration.status
-
-  return {
-    registrationId,
-    commerceId: registration.commerceId,
-    status: billingProfile?.status ?? fallbackStatus,
-    checkoutUrl: registration.checkoutUrl ?? buildPlanCheckoutUrl(billingConfig.planId),
-    billingProfile: billingProfile ?? undefined,
-    registration,
-  }
+  return { status: BILLING_STATUS.PENDING_SUBSCRIPTION, lastPaymentStatus: status || "unknown" }
 }
 
 export async function syncBillingFromSubscription(subscription: MercadoPagoSubscription) {
-  const payerEmail = subscription.payer_email ? normalizeEmail(subscription.payer_email) : ""
-  const commerceId = subscription.external_reference || (payerEmail ? buildCommerceId(payerEmail) : "")
-  if (!commerceId) {
-    throw new BadRequestError("Missing external_reference or payer_email on Mercado Pago subscription")
+  const commerceId = subscription.external_reference
+  if (!commerceId) throw new BadRequestError("Missing external_reference on Mercado Pago subscription")
+  const profile = await getBillingProfile(commerceId)
+  if (!profile) throw new NotFoundError(`Billing profile not found for commerce ${commerceId}`)
+
+  const existingRecord = await getSubscriptionRecord(commerceId, subscription.id)
+  const includesTrial = existingRecord?.includesTrial ?? subscription.preapproval_plan_id === billingConfig.planId
+  const now = nowIso()
+  const record: SubscriptionRecord = {
+    ...subscriptionKey(commerceId, subscription.id),
+    type: "BILLING_SUBSCRIPTION",
+    commerceId,
+    subscriptionId: subscription.id,
+    planId: subscription.preapproval_plan_id ?? existingRecord?.planId ?? profile.mercadoPagoPlanId,
+    payerEmail: subscription.payer_email ?? existingRecord?.payerEmail ?? profile.billingPayerEmail ?? "",
+    status: subscription.status ?? "unknown",
+    includesTrial,
+    checkoutUrl: subscription.init_point ?? existingRecord?.checkoutUrl,
+    createdAt: existingRecord?.createdAt ?? now,
+    updatedAt: now,
+  }
+  await putItem(record)
+
+  if (profile.currentSubscriptionId && profile.currentSubscriptionId !== subscription.id) {
+    return profile
   }
 
-  let billingProfile = await getBillingProfileByCommerceId(commerceId)
-  if (!billingProfile && payerEmail) {
-    const registration = await getRegistrationById(buildRegistrationId(payerEmail))
-    if (registration) {
-      billingProfile = await getBillingProfileByCommerceId(registration.commerceId)
-    }
-  }
-
-  if (!billingProfile) {
-    throw new NotFoundError(`Billing profile not found for commerce ${commerceId}`)
-  }
-
-  const next = mapSubscriptionToStatus(subscription, billingProfile)
-  const updatedAt = nowIso()
-  const updatedBillingProfile: BillingProfile = {
-    ...billingProfile,
+  const next = mapSubscriptionToStatus(subscription, profile, includesTrial)
+  const updated: BillingProfile = {
+    ...profile,
     status: next.status,
+    currentSubscriptionId: subscription.id,
     mercadoPagoSubscriptionId: subscription.id,
-    trialStartedAt: next.trialStartedAt ?? billingProfile.trialStartedAt,
-    trialEndsAt: next.trialEndsAt ?? billingProfile.trialEndsAt,
-    currentPeriodEndsAt: next.currentPeriodEndsAt ?? billingProfile.currentPeriodEndsAt,
-    graceUntil: next.graceUntil ?? billingProfile.graceUntil,
-    lastPaymentStatus: next.lastPaymentStatus ?? billingProfile.lastPaymentStatus,
-    lastWebhookAt: updatedAt,
-    updatedAt,
+    mercadoPagoPlanId: record.planId,
+    billingPayerEmail: record.payerEmail,
+    trialConsumedAt:
+      next.status === BILLING_STATUS.TRIAL ? profile.trialConsumedAt ?? now : profile.trialConsumedAt,
+    trialStartedAt: next.trialStartedAt ?? profile.trialStartedAt,
+    trialEndsAt: next.trialEndsAt ?? profile.trialEndsAt,
+    currentPeriodEndsAt: next.currentPeriodEndsAt ?? profile.currentPeriodEndsAt,
+    graceUntil: next.graceUntil ?? profile.graceUntil,
+    lastPaymentStatus: next.lastPaymentStatus,
+    lastWebhookAt: now,
+    updatedAt: now,
   }
+  await putItem(updated)
+  await updateCognitoAttributes({ username: profile.ownerEmail, status: updated.status })
+  return updated
+}
 
-  await saveBillingProfile(updatedBillingProfile)
-  await updateCognitoBillingAttrs({
-    email: billingProfile.ownerEmail,
-    status: next.status,
-    commerceId: next.status === BILLING_STATUS.PENDING_SUBSCRIPTION ? undefined : billingProfile.commerceId,
-  })
+async function syncBillingFromPayment(payment: MercadoPagoPayment) {
+  if (!payment.preapproval_id) return { ignored: true as const }
+  const subscription = await getMpClient().getSubscription(payment.preapproval_id)
+  const profile = await syncBillingFromSubscription(subscription)
+  if (payment.status === "rejected" && "commerceId" in profile) {
+    const updated: BillingProfile = {
+      ...profile,
+      status: BILLING_STATUS.PAST_DUE,
+      graceUntil: addDays(nowIso(), billingConfig.graceDays),
+      lastPaymentStatus: payment.status,
+      updatedAt: nowIso(),
+    }
+    await putItem(updated)
+    await updateCognitoAttributes({ username: profile.ownerEmail, status: updated.status })
+    return updated
+  }
+  return profile
+}
 
-  return updatedBillingProfile
+export async function getProtectedBillingStatus(commerceId: string): Promise<BillingStatusResponse | null> {
+  const profile = await getBillingProfile(commerceId)
+  if (!profile) return null
+  const current = profile.currentSubscriptionId
+    ? await getSubscriptionRecord(commerceId, profile.currentSubscriptionId)
+    : null
+  return {
+    commerceId,
+    merchantName: profile.merchantName,
+    status: profile.status,
+    trialConsumed: !!profile.trialConsumedAt,
+    trialEndsAt: profile.trialEndsAt,
+    currentPeriodEndsAt: profile.currentPeriodEndsAt,
+    graceUntil: profile.graceUntil,
+    lastPaymentStatus: profile.lastPaymentStatus,
+    checkoutUrl: current?.status === "pending" ? current.checkoutUrl : undefined,
+    billingPayerEmail: profile.billingPayerEmail,
+  }
 }
 
 export async function cancelBilling(commerceId: string) {
-  const billingProfile = await getBillingProfileByCommerceId(commerceId)
-  if (!billingProfile) {
-    throw new NotFoundError("Billing profile not found")
-  }
-  if (!billingProfile.mercadoPagoSubscriptionId) {
-    throw new BadRequestError("Missing Mercado Pago subscription id")
-  }
-
-  const mp = getMpClient()
-  const cancelled = await mp.cancelSubscription(billingProfile.mercadoPagoSubscriptionId)
-  const next = mapSubscriptionToStatus(cancelled, billingProfile)
-  const updatedAt = nowIso()
-  const updatedBillingProfile: BillingProfile = {
-    ...billingProfile,
-    status: next.status,
-    currentPeriodEndsAt: next.currentPeriodEndsAt ?? cancelled.next_payment_date ?? billingProfile.currentPeriodEndsAt,
-    graceUntil: next.graceUntil ?? billingProfile.graceUntil,
-    lastPaymentStatus: next.lastPaymentStatus ?? cancelled.status ?? billingProfile.lastPaymentStatus,
-    lastWebhookAt: updatedAt,
-    updatedAt,
-  }
-
-  await saveBillingProfile(updatedBillingProfile)
-  await updateCognitoBillingAttrs({
-    email: billingProfile.ownerEmail,
-    status: updatedBillingProfile.status,
-    commerceId,
-  })
-
-  return updatedBillingProfile
+  const profile = await getBillingProfile(commerceId)
+  if (!profile) throw new NotFoundError("Billing profile not found")
+  if (!profile.currentSubscriptionId) throw new BadRequestError("Missing Mercado Pago subscription id")
+  const cancelled = await getMpClient().cancelSubscription(profile.currentSubscriptionId)
+  return syncBillingFromSubscription({ ...cancelled, external_reference: commerceId })
 }
 
-export async function getProtectedBillingStatus(commerceId: string) {
-  return getBillingProfileByCommerceId(commerceId)
+function webhookId(input: { eventId?: string | null; requestId?: string | null; dataId?: string | null }) {
+  return input.eventId ?? input.requestId ?? input.dataId ?? randomUUID()
 }
 
 export async function processMercadoPagoWebhook(input: {
@@ -573,53 +570,33 @@ export async function processMercadoPagoWebhook(input: {
   topic?: string | null
   action?: string | null
 }) {
-  assertBillingEnv()
+  const eventId = webhookId(input)
+  const existing = await getItem<WebhookEventRecord>(webhookEventKey(eventId))
+  if (existing) return { duplicate: true }
 
-  const eventId = buildWebhookId(input)
-  const eventRecord: WebhookEventRecord = {
+  const mp = getMpClient()
+  let result: unknown = { ignored: true }
+  if (input.topic === "payment" && input.dataId) {
+    result = await syncBillingFromPayment(await mp.getPayment(input.dataId))
+  } else if (input.dataId) {
+    result = await syncBillingFromSubscription(await mp.getSubscription(input.dataId))
+  }
+
+  const event: WebhookEventRecord = {
     ...webhookEventKey(eventId),
     type: "MP_WEBHOOK_EVENT",
     eventId,
     eventType: input.eventType ?? input.topic ?? input.action ?? "unknown",
     paymentId: input.topic === "payment" ? input.dataId ?? undefined : undefined,
-    subscriptionId: input.topic === "preapproval" ? input.dataId ?? undefined : undefined,
+    subscriptionId: input.topic !== "payment" ? input.dataId ?? undefined : undefined,
     processedAt: nowIso(),
     rawRequestId: input.requestId ?? undefined,
   }
-
   try {
-    await saveWebhookEvent(eventRecord)
-  } catch (err: any) {
-    if (err?.name === "ConditionalCheckFailedException") {
-      return { duplicate: true }
-    }
-    throw err
+    await putItem(event, true)
+  } catch (error: any) {
+    if (error?.name === "ConditionalCheckFailedException") return { duplicate: true }
+    throw error
   }
-
-  const mp = getMpClient()
-
-  if (input.topic === "preapproval" && input.dataId) {
-    const subscription = await mp.getSubscription(input.dataId)
-    const billingProfile = await syncBillingFromSubscription(subscription)
-    return { duplicate: false, billingProfile }
-  }
-
-  if (input.topic === "payment" && input.dataId) {
-    const payment = await mp.getPayment(input.dataId)
-    if (payment.preapproval_id) {
-      const subscription = await mp.getSubscription(payment.preapproval_id)
-      const billingProfile = await syncBillingFromSubscription(subscription)
-      return { duplicate: false, billingProfile }
-    }
-
-    return { duplicate: false, ignored: true, paymentStatus: payment.status ?? "unknown" }
-  }
-
-  if (input.dataId) {
-    const subscription = await mp.getSubscription(input.dataId)
-    const billingProfile = await syncBillingFromSubscription(subscription)
-    return { duplicate: false, billingProfile }
-  }
-
-  return { duplicate: false, ignored: true }
+  return { duplicate: false, result }
 }
