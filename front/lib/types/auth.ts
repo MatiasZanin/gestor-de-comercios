@@ -6,6 +6,8 @@ export interface CognitoUser {
   "cognito:groups": string[]
   commerceId: string
   commerceList: string[]
+  registrationId?: string | null
+  accountStatus?: "pending_subscription" | "trial" | "active" | "past_due" | "cancelled" | string
   role?: "admin" | "vendedor"
 }
 
@@ -14,6 +16,7 @@ export interface AuthState {
   user: CognitoUser | null
   token: string | null
   commerceId: string | null
+  accountStatus: "pending_subscription" | "trial" | "active" | "past_due" | "cancelled" | string | null
   role: "admin" | "vendedor" | null
 }
 

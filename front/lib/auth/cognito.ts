@@ -15,10 +15,65 @@ if (!userPoolId || !clientId) {
   )
 }
 
-const userPool = new CognitoUserPool({
-  UserPoolId: userPoolId,
-  ClientId: clientId,
-})
+let userPool: CognitoUserPool | null = null
+
+try {
+  if (userPoolId && clientId) {
+    userPool = new CognitoUserPool({
+      UserPoolId: userPoolId,
+      ClientId: clientId,
+    })
+  }
+} catch {
+  userPool = null
+}
+
+const BILLING_STATUSES = new Set(["pending_subscription", "trial", "active", "past_due", "cancelled"])
+
+function normalizeAccountStatus(value: unknown): AuthState["accountStatus"] {
+  return typeof value === "string" && BILLING_STATUSES.has(value) ? value : null
+}
+
+function splitCommerceIds(value: unknown): string[] {
+  if (typeof value !== "string" || !value.trim()) {
+    return []
+  }
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+function buildUserFromPayload(payload: any): CognitoUserType {
+  const commerceIds = splitCommerceIds(payload["custom:commerceIds"])
+  const commerceId = commerceIds[0] || null
+  const groups = Array.isArray(payload["cognito:groups"]) ? payload["cognito:groups"] : []
+
+  return {
+    username: typeof payload["cognito:username"] === "string" ? payload["cognito:username"] : "",
+    email_verified: payload.email_verified === true || payload.email_verified === "true",
+    sub: typeof payload.sub === "string" ? payload.sub : "",
+    email: typeof payload.email === "string" ? payload.email : "",
+    "cognito:groups": groups,
+    commerceId,
+    commerceList: commerceIds.length > 0 ? commerceIds : commerceId ? [commerceId] : [],
+    registrationId: typeof payload["custom:regId"] === "string" ? payload["custom:regId"] : null,
+    accountStatus: normalizeAccountStatus(payload["custom:accountStatus"]) ?? undefined,
+    role: groups.includes("admin") ? "admin" : groups.includes("vendedor") ? "vendedor" : undefined,
+  }
+}
+
+function buildAuthStateFromPayload(payload: any, token: string): AuthState {
+  const user = buildUserFromPayload(payload)
+  return {
+    isAuthenticated: true,
+    user,
+    token,
+    commerceId: user.commerceId,
+    accountStatus: user.accountStatus ?? null,
+    role: user.role ?? null,
+  }
+}
 
 // Evento global para notificar que la sesión expiró
 export const sessionEvents = new EventTarget()
@@ -30,9 +85,12 @@ export class AuthService {
     user: null,
     token: null,
     commerceId: null,
+    accountStatus: null,
     role: null,
   }
   private pendingReauth: { resolve: (value: boolean) => void } | null = null
+  private tempCognitoUser: CognitoUser | null = null
+  private tempUserAttributes: any = null
 
   static getInstance(): AuthService {
     if (!AuthService.instance) {
@@ -51,7 +109,15 @@ export class AuthService {
     try {
       const storedAuth = localStorage.getItem("authState")
       if (storedAuth) {
-        this.authState = JSON.parse(storedAuth)
+        const parsed = JSON.parse(storedAuth)
+        this.authState = {
+          isAuthenticated: !!parsed.isAuthenticated,
+          user: parsed.user ?? null,
+          token: parsed.token ?? null,
+          commerceId: parsed.commerceId ?? null,
+          accountStatus: normalizeAccountStatus(parsed.accountStatus),
+          role: parsed.role ?? null,
+        }
       }
     } catch (error) {
       console.error("Error loading auth state from storage:", error)
@@ -76,6 +142,11 @@ export class AuthService {
 
   async login(credentials: LoginCredentials): Promise<AuthState> {
     return new Promise((resolve, reject) => {
+      if (!userPool) {
+        reject(new Error("Missing required Cognito configuration"))
+        return
+      }
+
       const cognitoUser = new CognitoUser({
         Username: credentials.username,
         Pool: userPool,
@@ -89,32 +160,8 @@ export class AuthService {
       cognitoUser.authenticateUser(authenticationDetails, {
         onSuccess: (session: CognitoUserSession) => {
           const idToken = session.getIdToken()
-          console.log("🚀 ~ AuthService ~ login ~ idToken:", idToken)
           const payload = idToken.payload as any
-
-          const user: CognitoUserType = {
-            username: payload["cognito:username"],
-            email_verified: payload.email_verified,
-            sub: payload.sub,
-            email: payload.email,
-            "cognito:groups": payload["cognito:groups"] || [],
-            role: payload["cognito:groups"]?.includes("admin") ? "admin" : "vendedor",
-            commerceId: payload["custom:commerceIds"].split(",")[0] || null,
-            commerceList: payload["custom:commerceIds"]
-              ? payload["custom:commerceIds"].split(",")
-              : [payload["custom:commerceId"]],
-          }
-
-          const role = user["cognito:groups"].includes("admin") ? "admin" : "vendedor"
-
-          this.authState = {
-            isAuthenticated: true,
-            user,
-            token: idToken.getJwtToken(),
-            commerceId: user.commerceId,
-            role,
-          }
-
+          this.authState = buildAuthStateFromPayload(payload, idToken.getJwtToken())
           this.saveToStorage()
           resolve(this.authState)
         },
@@ -122,11 +169,8 @@ export class AuthService {
           reject(error)
         },
         newPasswordRequired: (userAttributes, requiredAttributes) => {
-          // Guardamos el usuario temporalmente para usarlo en completeNewPassword
           this.tempCognitoUser = cognitoUser
           this.tempUserAttributes = userAttributes
-
-          // Rechazamos con un error especial para que el frontend sepa que necesita nueva contraseña
           reject({
             code: "NewPasswordRequired",
             name: "NewPasswordRequired",
@@ -139,10 +183,6 @@ export class AuthService {
     })
   }
 
-  // Propiedades temporales para manejar el cambio de contraseña
-  private tempCognitoUser: CognitoUser | null = null
-  private tempUserAttributes: any = null
-
   async completeNewPassword(newPassword: string): Promise<AuthState> {
     return new Promise((resolve, reject) => {
       if (!this.tempCognitoUser) {
@@ -150,7 +190,6 @@ export class AuthService {
         return
       }
 
-      // Removemos los atributos que no se pueden modificar
       const attributesData = { ...this.tempUserAttributes }
       delete attributesData.email_verified
       delete attributesData.email
@@ -162,36 +201,10 @@ export class AuthService {
           onSuccess: (session: CognitoUserSession) => {
             const idToken = session.getIdToken()
             const payload = idToken.payload as any
-
-            const user: CognitoUserType = {
-              username: payload["cognito:username"],
-              email_verified: payload.email_verified,
-              sub: payload.sub,
-              email: payload.email,
-              "cognito:groups": payload["cognito:groups"] || [],
-              role: payload["cognito:groups"]?.includes("admin") ? "admin" : "vendedor",
-              commerceId: payload["custom:commerceIds"]?.split(",")[0] || null,
-              commerceList: payload["custom:commerceIds"]
-                ? payload["custom:commerceIds"].split(",")
-                : [payload["custom:commerceId"]],
-            }
-
-            const role = user["cognito:groups"]?.includes("admin") ? "admin" : "vendedor"
-
-            this.authState = {
-              isAuthenticated: true,
-              user,
-              token: idToken.getJwtToken(),
-              commerceId: user.commerceId,
-              role,
-            }
-
+            this.authState = buildAuthStateFromPayload(payload, idToken.getJwtToken())
             this.saveToStorage()
-
-            // Limpiamos las referencias temporales
             this.tempCognitoUser = null
             this.tempUserAttributes = null
-
             resolve(this.authState)
           },
           onFailure: (error) => {
@@ -203,7 +216,7 @@ export class AuthService {
   }
 
   logout(): void {
-    const cognitoUser = userPool.getCurrentUser()
+    const cognitoUser = userPool?.getCurrentUser()
     if (cognitoUser) {
       cognitoUser.signOut()
     }
@@ -213,34 +226,31 @@ export class AuthService {
       user: null,
       token: null,
       commerceId: null,
+      accountStatus: null,
       role: null,
     }
 
     this.clearStorage()
   }
 
-  // Intenta obtener un token válido, refrescando automáticamente si es necesario
   async getValidToken(): Promise<string | null> {
     return new Promise((resolve) => {
-      const cognitoUser = userPool.getCurrentUser()
+      const cognitoUser = userPool?.getCurrentUser()
       if (!cognitoUser) {
-        resolve(this.authState.token) // fallback al token almacenado
+        resolve(this.authState.token)
         return
       }
 
       cognitoUser.getSession((err: Error | null, session: CognitoUserSession | null) => {
         if (err || !session || !session.isValid()) {
           console.warn("No se pudo obtener sesión válida:", err?.message)
-          resolve(this.authState.token) // fallback, el API client manejará el 401
+          resolve(this.authState.token)
           return
         }
 
         const idToken = session.getIdToken()
         const newToken = idToken.getJwtToken()
-
-        // Actualizar el estado interno si el token cambió
         if (newToken !== this.authState.token) {
-          console.info("🔄 Token refrescado exitosamente")
           this.authState.token = newToken
           this.saveToStorage()
         }
@@ -250,10 +260,9 @@ export class AuthService {
     })
   }
 
-  // Intenta refrescar el token explícitamente. Retorna el nuevo token o null si falla.
   async refreshToken(): Promise<string | null> {
     return new Promise((resolve) => {
-      const cognitoUser = userPool.getCurrentUser()
+      const cognitoUser = userPool?.getCurrentUser()
       if (!cognitoUser) {
         resolve(null)
         return
@@ -269,55 +278,25 @@ export class AuthService {
         const idToken = session.getIdToken()
         const newToken = idToken.getJwtToken()
         const payload = idToken.payload as any
-
-        // Actualizar authState completo con el nuevo token
-        const user: CognitoUserType = {
-          username: payload["cognito:username"],
-          email_verified: payload.email_verified,
-          sub: payload.sub,
-          email: payload.email,
-          "cognito:groups": payload["cognito:groups"] || [],
-          role: payload["cognito:groups"]?.includes("admin") ? "admin" : "vendedor",
-          commerceId: payload["custom:commerceIds"]?.split(",")[0] || null,
-          commerceList: payload["custom:commerceIds"]
-            ? payload["custom:commerceIds"].split(",")
-            : [payload["custom:commerceId"]],
-        }
-
-        const role = user["cognito:groups"]?.includes("admin") ? "admin" : "vendedor"
-
-        this.authState = {
-          isAuthenticated: true,
-          user,
-          token: newToken,
-          commerceId: user.commerceId,
-          role,
-        }
-
+        this.authState = buildAuthStateFromPayload(payload, newToken)
         this.saveToStorage()
-        console.info("🔄 Token refrescado exitosamente (refresh explícito)")
         resolve(newToken)
       })
     })
   }
 
-  // Maneja tokens expirados: intenta refresh, si falla emite evento para mostrar LoginModal
   async handleTokenExpired(): Promise<boolean> {
-    console.warn("Token expirado, intentando refresh...")
     const newToken = await this.refreshToken()
     if (newToken) {
-      return true // refresh exitoso
+      return true
     }
-    console.warn("Refresh falló, mostrando modal de re-autenticación")
-    // Emitir evento para que el LoginModal se muestre
+
     sessionEvents.dispatchEvent(new Event("session-expired"))
-    // Esperar a que el usuario se re-autentique o elija salir
     return new Promise((resolve) => {
       this.pendingReauth = { resolve }
     })
   }
 
-  // Llamado cuando el usuario se re-autentica exitosamente en el modal
   resolveReauth(): void {
     if (this.pendingReauth) {
       this.pendingReauth.resolve(true)
@@ -325,7 +304,6 @@ export class AuthService {
     }
   }
 
-  // Llamado cuando el usuario elige "Salir" en el modal
   rejectReauth(): void {
     if (this.pendingReauth) {
       this.pendingReauth.resolve(false)
@@ -347,6 +325,10 @@ export class AuthService {
 
   getCommerceId(): string | null {
     return this.authState.commerceId
+  }
+
+  getAccountStatus(): AuthState["accountStatus"] {
+    return this.authState.accountStatus
   }
 
   getRole(): "admin" | "vendedor" | null {

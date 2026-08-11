@@ -138,6 +138,72 @@ export interface ApiError {
   }
 }
 
+export type BillingStatus = "pending_subscription" | "trial" | "active" | "past_due" | "cancelled"
+
+export interface PublicBillingConfig {
+  monthlyAmount: number
+  currencyId: string
+  trialDays: number
+  graceDays: number
+  planId: string
+  planReason: string
+  frontendBaseUrl: string
+  publicRegistrationPath: string
+}
+
+export interface PublicRegistrationRequest {
+  firstName: string
+  lastName: string
+  email: string
+  password: string
+  merchantName: string
+  acceptTerms: boolean
+}
+
+export interface PublicRegistrationResponse {
+  registrationId: string
+  commerceId: string
+  checkoutUrl: string
+  status: string
+  email: string
+}
+
+export interface BillingProfile {
+  PK: string
+  SK: "BILLING#PROFILE"
+  type: "BILLING_PROFILE"
+  commerceId: string
+  status: BillingStatus
+  ownerEmail: string
+  ownerCognitoSub: string
+  merchantName: string
+  mercadoPagoPlanId: string
+  mercadoPagoSubscriptionId?: string
+  trialStartedAt?: string
+  trialEndsAt?: string
+  currentPeriodEndsAt?: string
+  graceUntil?: string
+  lastPaymentStatus?: string
+  lastWebhookAt?: string
+  updatedAt: string
+  createdAt: string
+}
+
+export interface RegistrationStatusResponse {
+  registrationId: string
+  commerceId: string
+  status: string
+  checkoutUrl?: string
+  billingProfile?: BillingProfile
+  registration?: {
+    email: string
+    merchantName: string
+    status: string
+    checkoutUrl?: string
+    registrationId: string
+  }
+}
+
 // Common API Parameters
 export interface PaginationParams {
   lastKey?: string

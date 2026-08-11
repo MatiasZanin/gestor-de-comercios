@@ -13,14 +13,19 @@ interface DashboardLayoutProps {
 }
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
-  const { isAuthenticated, loading } = useAuth()
+  const { isAuthenticated, loading, accountStatus, user } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
     if (!loading && !isAuthenticated) {
       router.push("/login")
     }
-  }, [isAuthenticated, loading, router])
+    if (!loading && isAuthenticated && accountStatus === "pending_subscription") {
+      router.replace(
+        `/estado-cuenta${user?.registrationId ? `?registrationId=${encodeURIComponent(user.registrationId)}` : ""}`,
+      )
+    }
+  }, [accountStatus, isAuthenticated, loading, router, user?.registrationId])
 
   if (loading) {
     return (
@@ -30,7 +35,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     )
   }
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated || accountStatus === "pending_subscription") {
     return null
   }
 

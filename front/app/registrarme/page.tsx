@@ -1,0 +1,78 @@
+"use client"
+
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Loader2 } from "lucide-react"
+import { useAuth } from "@/lib/hooks/use-auth"
+import type { PublicBillingConfig } from "@/lib/types/api"
+import { getPublicBillingConfig } from "@/lib/api/public"
+import { TrialSignupForm } from "@/components/auth/trial-signup-form"
+
+export default function RegistrarmePage() {
+  const { isAuthenticated, loading, accountStatus, user } = useAuth()
+  const router = useRouter()
+  const [config, setConfig] = useState<PublicBillingConfig | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [configLoading, setConfigLoading] = useState(true)
+
+  useEffect(() => {
+    if (!loading && isAuthenticated) {
+      if (accountStatus === "pending_subscription") {
+        router.replace(
+          `/estado-cuenta${user?.registrationId ? `?registrationId=${encodeURIComponent(user.registrationId)}` : ""}`,
+        )
+      } else {
+        router.replace("/dashboard")
+      }
+    }
+  }, [accountStatus, isAuthenticated, loading, router, user?.registrationId])
+
+  useEffect(() => {
+    let mounted = true
+    setConfigLoading(true)
+
+    getPublicBillingConfig()
+      .then((value) => {
+        if (!mounted) return
+        setConfig(value)
+        setError(null)
+      })
+      .catch((err: any) => {
+        if (!mounted) return
+        setError(err?.message || "No se pudo cargar la configuración de alta")
+      })
+      .finally(() => {
+        if (!mounted) return
+        setConfigLoading(false)
+      })
+
+    return () => {
+      mounted = false
+    }
+  }, [])
+
+  if (loading || isAuthenticated || configLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.18),_transparent_45%),linear-gradient(180deg,_#f8fafc_0%,_#fff7ed_100%)]">
+        <div className="text-center">
+          <Loader2 className="mx-auto mb-4 h-8 w-8 animate-spin text-emerald-600" />
+          <p className="text-slate-600">Preparando alta pública...</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.18),_transparent_45%),linear-gradient(180deg,_#f8fafc_0%,_#fff7ed_100%)] px-4 py-10">
+      <div className="mx-auto max-w-6xl">
+        {error ? (
+          <Alert className="mb-6 border-red-200 bg-red-50">
+            <AlertDescription className="text-red-700">{error}</AlertDescription>
+          </Alert>
+        ) : null}
+        {config ? <TrialSignupForm config={config} /> : null}
+      </div>
+    </main>
+  )
+}

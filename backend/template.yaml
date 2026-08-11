@@ -18,6 +18,46 @@ Parameters:
     Type: Number
     Default: 90
     Description: Número de dias que se retendrán las ventas antes de expirar (TTL).
+  FrontendBaseUrl:
+    Type: String
+    Default: http://localhost:3000
+    Description: URL base del frontend para construir enlaces públicos.
+  BillingMonthlyAmount:
+    Type: Number
+    Default: 0
+    Description: Precio mensual de la suscripción en moneda local.
+  BillingCurrencyId:
+    Type: String
+    Default: ARS
+    Description: Moneda de la suscripción de Mercado Pago.
+  BillingTrialDays:
+    Type: Number
+    Default: 30
+    Description: Duración del trial inicial.
+  BillingGraceDays:
+    Type: Number
+    Default: 3
+    Description: Días de gracia ante pago fallido.
+  BillingPlanReason:
+    Type: String
+    Default: G&S Comercios
+    Description: Texto descriptivo del plan en Mercado Pago.
+  BillingPublicRegistrationPath:
+    Type: String
+    Default: /estado-cuenta
+    Description: Ruta pública de retorno tras la autorización.
+  MercadoPagoAccessToken:
+    Type: String
+    NoEcho: true
+    Description: Access token privado de Mercado Pago.
+  MercadoPagoWebhookSecret:
+    Type: String
+    NoEcho: true
+    Description: Secret para validar firmas de webhooks.
+  MercadoPagoPreapprovalPlanId:
+    Type: String
+    Default: ''
+    Description: ID del plan recurrente creado en Mercado Pago.
 
 Globals:
   Function:
@@ -33,6 +73,17 @@ Globals:
         COMMERCE_STAGE: !Ref CommerceStage
         RETENTION_DAYS: !Ref RetentionDays
         SALES_BY_DAY_GSI: GSI-Ventas-Por-Dia
+        FRONTEND_BASE_URL: !Ref FrontendBaseUrl
+        BILLING_MONTHLY_AMOUNT: !Ref BillingMonthlyAmount
+        BILLING_CURRENCY_ID: !Ref BillingCurrencyId
+        BILLING_TRIAL_DAYS: !Ref BillingTrialDays
+        BILLING_GRACE_DAYS: !Ref BillingGraceDays
+        BILLING_PLAN_REASON: !Ref BillingPlanReason
+        BILLING_PUBLIC_REGISTRATION_PATH: !Ref BillingPublicRegistrationPath
+        MERCADO_PAGO_ACCESS_TOKEN: !Ref MercadoPagoAccessToken
+        MERCADO_PAGO_WEBHOOK_SECRET: !Ref MercadoPagoWebhookSecret
+        MERCADO_PAGO_PREAPPROVAL_PLAN_ID: !Ref MercadoPagoPreapprovalPlanId
+        COGNITO_USER_POOL_ID: !Ref UserPool
 
 Resources:
   ## DynamoDB single-table para productos y ventas
@@ -124,6 +175,12 @@ Resources:
           Required: true
           Mutable: true
         - Name: custom:commerceIds
+          AttributeDataType: String
+          Mutable: true
+        - Name: custom:accountStatus
+          AttributeDataType: String
+          Mutable: true
+        - Name: custom:regId
           AttributeDataType: String
           Mutable: true
         - Name: commerceIds
@@ -238,6 +295,13 @@ Resources:
                 Action:
                   - dynamodb:Query
                 Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/GestionComercios-${CommerceStage}/index/GSI-Ranking-Mensual
+              - Effect: Allow
+                Action:
+                  - cognito-idp:AdminCreateUser
+                  - cognito-idp:AdminGetUser
+                  - cognito-idp:AdminSetUserPassword
+                  - cognito-idp:AdminUpdateUserAttributes
+                Resource: !Sub arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${UserPool}
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
 
@@ -602,6 +666,106 @@ Resources:
           Properties:
             ApiId: !Ref HttpApi
             Path: '/{commerceId}/offers/{offerId}/finish'
+            Method: POST
+
+  PublicBillingConfigFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub publicBillingConfig-${CommerceStage}
+      CodeUri: ./dist
+      Handler: handlers/publicBillingConfig.handler
+      Role: !GetAtt LambdaDynamoRole.Arn
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: '/public/billing/config'
+            Method: GET
+            Auth:
+              Authorizer: NONE
+
+  PublicSignupFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub publicSignup-${CommerceStage}
+      CodeUri: ./dist
+      Handler: handlers/publicSignup.handler
+      Role: !GetAtt LambdaDynamoRole.Arn
+      Timeout: 30
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: '/public/registrations'
+            Method: POST
+            Auth:
+              Authorizer: NONE
+
+  PublicRegistrationStatusFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub publicRegistrationStatus-${CommerceStage}
+      CodeUri: ./dist
+      Handler: handlers/publicRegistrationStatus.handler
+      Role: !GetAtt LambdaDynamoRole.Arn
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: '/public/registrations/{registrationId}'
+            Method: GET
+            Auth:
+              Authorizer: NONE
+
+  MercadoPagoWebhookFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub mercadoPagoWebhook-${CommerceStage}
+      CodeUri: ./dist
+      Handler: handlers/mercadoPagoWebhook.handler
+      Role: !GetAtt LambdaDynamoRole.Arn
+      Timeout: 30
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: '/webhooks/mercadopago'
+            Method: POST
+            Auth:
+              Authorizer: NONE
+
+  GetBillingStatusFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub getBillingStatus-${CommerceStage}
+      CodeUri: ./dist
+      Handler: handlers/getBillingStatus.handler
+      Role: !GetAtt LambdaDynamoRole.Arn
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: '/{commerceId}/billing/status'
+            Method: GET
+
+  CancelSubscriptionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub cancelSubscription-${CommerceStage}
+      CodeUri: ./dist
+      Handler: handlers/cancelSubscription.handler
+      Role: !GetAtt LambdaDynamoRole.Arn
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: '/{commerceId}/billing/cancel'
             Method: POST
 
   JwtAuthorizerFunction:

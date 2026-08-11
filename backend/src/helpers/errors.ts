@@ -34,6 +34,12 @@ export class ForbiddenError extends HttpError {
   }
 }
 
+export class ConflictError extends HttpError {
+  constructor(message = 'Conflict') {
+    super(message, 409);
+  }
+}
+
 export class NotFoundError extends HttpError {
   constructor(message = 'Not found') {
     super(message, 404);

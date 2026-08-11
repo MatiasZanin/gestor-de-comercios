@@ -19,6 +19,7 @@
     "seed-complete": "tsx src/helpers/db/seed-complete/01-init.ts && tsx src/helpers/db/seed-complete/02-sales.ts && tsx src/helpers/db/seed-complete/03-sales-reports.ts && tsx src/helpers/db/seed-complete/04-cierres-caja.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-cognito-identity-provider": "^3.591.0",
     "@aws-sdk/client-dynamodb": "^3.591.0",
     "@aws-sdk/lib-dynamodb": "^3.591.0",
     "@aws-sdk/util-dynamodb": "^3.591.0",
@@ -26,6 +27,7 @@
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.122",
+    "@types/jest": "^30.0.0",
     "@types/node": "^20.11.9",
     "jest": "^29.7.0",
     "prettier": "^3.6.2",

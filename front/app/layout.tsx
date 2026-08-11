@@ -2,12 +2,12 @@ import type { Metadata } from 'next'
 import { GeistSans } from 'geist/font/sans'
 import { GeistMono } from 'geist/font/mono'
 import { ApiProvider } from '@/components/providers/api-provider'
+import { Toaster } from '@/components/ui/sonner'
 import './globals.css'
 
 export const metadata: Metadata = {
   title: 'G&S Comercios',
-  description: 'Created with v0',
-  generator: 'v0.app',
+  description: 'Sistema de gestión con alta pública, trial y suscripción automática.',
 }
 
 export default function RootLayout({
@@ -16,7 +16,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
+    <html lang="es">
       <head>
         <style>{`
 html {
@@ -28,6 +28,7 @@ html {
       </head>
       <body>
         <ApiProvider>
+          <Toaster />
           {children}
         </ApiProvider>
       </body>
