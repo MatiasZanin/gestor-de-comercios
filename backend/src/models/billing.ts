@@ -21,6 +21,8 @@ export interface BillingProfile {
   currentSubscriptionId?: string
   mercadoPagoSubscriptionId?: string
   billingPayerEmail?: string
+  pendingCheckoutUrl?: string
+  pendingIncludesTrial?: boolean
   trialConsumedAt?: string
   trialStartedAt?: string
   trialEndsAt?: string
@@ -124,8 +126,17 @@ export interface BillingStatusResponse {
 }
 
 export interface CreateSubscriptionResponse {
-  subscriptionId: string
   checkoutUrl: string
   status: BillingStatus
   includesTrial: boolean
+}
+
+export interface BillingPayerLink {
+  PK: string
+  SK: "BILLING"
+  type: "BILLING_PAYER_LINK"
+  payerEmail: string
+  commerceId: string
+  createdAt: string
+  updatedAt: string
 }

@@ -208,7 +208,6 @@ export interface BillingStatusResponse {
 }
 
 export interface CreateSubscriptionResponse {
-  subscriptionId: string
   checkoutUrl: string
   status: BillingStatus
   includesTrial: boolean

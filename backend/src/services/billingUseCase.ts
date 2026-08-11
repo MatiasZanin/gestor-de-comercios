@@ -15,6 +15,7 @@ import { BadRequestError, ConflictError, NotFoundError } from "../helpers/errors
 import { addDays, billingConfig, BILLING_STATUS, nowIso, type BillingStatus } from "../config/billing"
 import type {
   BillingProfile,
+  BillingPayerLink,
   BillingStatusResponse,
   CreateSubscriptionResponse,
   PublicBillingConfigResponse,
@@ -32,7 +33,9 @@ import {
   type MercadoPagoSubscription,
 } from "./mercadoPagoClient"
 
-const docClient = DynamoDBDocumentClient.from(new DynamoDBClient({}))
+const docClient = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
+  marshallOptions: { removeUndefinedValues: true },
+})
 const cognitoClient = new CognitoIdentityProviderClient({})
 
 function requireEnv(name: string): string {
@@ -68,6 +71,11 @@ function commerceKey(commerceId: string) {
 
 function billingKey(commerceId: string) {
   return { PK: `COM#${commerceId}`, SK: "BILLING#PROFILE" as const }
+}
+
+function payerLinkKey(payerEmail: string) {
+  const emailHash = createHash("sha256").update(normalizeEmail(payerEmail)).digest("hex")
+  return { PK: `MP_PAYER#${emailHash}`, SK: "BILLING" as const }
 }
 
 function subscriptionKey(commerceId: string, subscriptionId: string) {
@@ -107,6 +115,10 @@ async function getSubscriptionRecord(commerceId: string, subscriptionId: string)
 
 function getMpClient() {
   return new MercadoPagoClient(requireEnv("MERCADO_PAGO_ACCESS_TOKEN"))
+}
+
+function planCheckoutUrl(planId: string) {
+  return `https://www.mercadopago.com.ar/subscriptions/checkout?preapproval_plan_id=${encodeURIComponent(planId)}`
 }
 
 async function findCognitoUsersByEmail(email: string) {
@@ -338,7 +350,6 @@ export async function createBillingSubscription(
     const current = await getSubscriptionRecord(commerceId, profile.currentSubscriptionId)
     if (current?.status === "pending" && current.checkoutUrl) {
       return {
-        subscriptionId: current.subscriptionId,
         checkoutUrl: current.checkoutUrl,
         status: BILLING_STATUS.PENDING_SUBSCRIPTION,
         includesTrial: current.includesTrial,
@@ -354,6 +365,14 @@ export async function createBillingSubscription(
     }
   }
 
+  if (profile.pendingCheckoutUrl && profile.billingPayerEmail === payerEmail) {
+    return {
+      checkoutUrl: profile.pendingCheckoutUrl,
+      status: BILLING_STATUS.PENDING_SUBSCRIPTION,
+      includesTrial: profile.pendingIncludesTrial ?? !profile.trialConsumedAt,
+    }
+  }
+
   const includesTrial = !profile.trialConsumedAt
   const planId = includesTrial ? billingConfig.planId : billingConfig.reactivationPlanId
   if (!planId) {
@@ -364,30 +383,19 @@ export async function createBillingSubscription(
     )
   }
 
-  const attemptId = randomUUID()
-  const subscription = await getMpClient().createSubscription({
-    planId,
-    payerEmail,
-    externalReference: commerceId,
-    backUrl: `${billingConfig.frontendBaseUrl.replace(/\/$/, "")}/suscripcion`,
-    idempotencyKey: `${commerceId}:${attemptId}`,
-  })
-  if (!subscription.id || !subscription.init_point) {
-    throw new Error("Mercado Pago did not return a checkout URL")
-  }
-
   const now = nowIso()
-  const record: SubscriptionRecord = {
-    ...subscriptionKey(commerceId, subscription.id),
-    type: "BILLING_SUBSCRIPTION",
-    commerceId,
-    subscriptionId: subscription.id,
-    planId,
+  const checkoutUrl = planCheckoutUrl(planId)
+  const payerKey = payerLinkKey(payerEmail)
+  const existingPayerLink = await getItem<BillingPayerLink>(payerKey)
+  if (existingPayerLink && existingPayerLink.commerceId !== commerceId) {
+    throw new ConflictError("Ese email de Mercado Pago ya está asociado a otro comercio")
+  }
+  const payerLink: BillingPayerLink = {
+    ...payerKey,
+    type: "BILLING_PAYER_LINK",
     payerEmail,
-    status: subscription.status ?? "pending",
-    includesTrial,
-    checkoutUrl: subscription.init_point,
-    createdAt: now,
+    commerceId,
+    createdAt: existingPayerLink?.createdAt ?? now,
     updatedAt: now,
   }
   const updatedProfile: BillingProfile = {
@@ -395,16 +403,17 @@ export async function createBillingSubscription(
     status: BILLING_STATUS.PENDING_SUBSCRIPTION,
     billingPayerEmail: payerEmail,
     mercadoPagoPlanId: planId,
-    mercadoPagoSubscriptionId: subscription.id,
-    currentSubscriptionId: subscription.id,
+    currentSubscriptionId: undefined,
+    mercadoPagoSubscriptionId: undefined,
+    pendingCheckoutUrl: checkoutUrl,
+    pendingIncludesTrial: includesTrial,
     updatedAt: now,
   }
-  await Promise.all([putItem(record), putItem(updatedProfile)])
+  await Promise.all([putItem(payerLink), putItem(updatedProfile)])
   await updateCognitoAttributes({ username: profile.ownerEmail, status: updatedProfile.status })
 
   return {
-    subscriptionId: subscription.id,
-    checkoutUrl: subscription.init_point,
+    checkoutUrl,
     status: updatedProfile.status,
     includesTrial,
   }
@@ -461,10 +470,21 @@ function mapSubscriptionToStatus(
 }
 
 export async function syncBillingFromSubscription(subscription: MercadoPagoSubscription) {
-  const commerceId = subscription.external_reference
-  if (!commerceId) throw new BadRequestError("Missing external_reference on Mercado Pago subscription")
-  const profile = await getBillingProfile(commerceId)
+  let commerceId = subscription.external_reference ?? ""
+  let profile = commerceId ? await getBillingProfile(commerceId) : null
+  if (!profile && subscription.payer_email) {
+    const payerLink = await getItem<BillingPayerLink>(payerLinkKey(subscription.payer_email))
+    commerceId = payerLink?.commerceId ?? ""
+    profile = commerceId ? await getBillingProfile(commerceId) : null
+  }
   if (!profile) throw new NotFoundError(`Billing profile not found for commerce ${commerceId}`)
+
+  if (profile.billingPayerEmail && subscription.payer_email && normalizeEmail(subscription.payer_email) !== normalizeEmail(profile.billingPayerEmail)) {
+    throw new BadRequestError("Mercado Pago payer does not match the pending checkout")
+  }
+  if (subscription.preapproval_plan_id && subscription.preapproval_plan_id !== profile.mercadoPagoPlanId) {
+    throw new BadRequestError("Mercado Pago plan does not match the pending checkout")
+  }
 
   const existingRecord = await getSubscriptionRecord(commerceId, subscription.id)
   const includesTrial = existingRecord?.includesTrial ?? subscription.preapproval_plan_id === billingConfig.planId
@@ -496,6 +516,8 @@ export async function syncBillingFromSubscription(subscription: MercadoPagoSubsc
     mercadoPagoSubscriptionId: subscription.id,
     mercadoPagoPlanId: record.planId,
     billingPayerEmail: record.payerEmail,
+    pendingCheckoutUrl: undefined,
+    pendingIncludesTrial: undefined,
     trialConsumedAt:
       next.status === BILLING_STATUS.TRIAL ? profile.trialConsumedAt ?? now : profile.trialConsumedAt,
     trialStartedAt: next.trialStartedAt ?? profile.trialStartedAt,

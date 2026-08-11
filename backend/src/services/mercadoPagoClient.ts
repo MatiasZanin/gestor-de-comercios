@@ -55,14 +55,6 @@ export interface MercadoPagoPlan {
   init_point?: string
 }
 
-export interface CreateMercadoPagoSubscriptionInput {
-  planId: string
-  payerEmail: string
-  externalReference: string
-  backUrl: string
-  idempotencyKey: string
-}
-
 export class MercadoPagoClient {
   constructor(private readonly accessToken: string) {}
 
@@ -89,19 +81,6 @@ export class MercadoPagoClient {
 
   getSubscription(id: string) {
     return this.request<MercadoPagoSubscription>(`/preapproval/${encodeURIComponent(id)}`)
-  }
-
-  createSubscription(input: CreateMercadoPagoSubscriptionInput) {
-    return this.request<MercadoPagoSubscription>("/preapproval", {
-      method: "POST",
-      headers: { "X-Idempotency-Key": input.idempotencyKey },
-      body: JSON.stringify({
-        preapproval_plan_id: input.planId,
-        payer_email: input.payerEmail,
-        external_reference: input.externalReference,
-        back_url: input.backUrl,
-      }),
-    })
   }
 
   getPayment(id: string) {
