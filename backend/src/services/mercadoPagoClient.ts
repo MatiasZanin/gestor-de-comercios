@@ -79,25 +79,6 @@ export class MercadoPagoClient {
     return body as T
   }
 
-  createSubscription(input: {
-    planId: string
-    payerEmail: string
-    externalReference: string
-    reason: string
-    backUrl: string
-  }) {
-    return this.request<MercadoPagoSubscription>("/preapproval", {
-      method: "POST",
-      body: JSON.stringify({
-        preapproval_plan_id: input.planId,
-        payer_email: input.payerEmail,
-        external_reference: input.externalReference,
-        reason: input.reason,
-        back_url: input.backUrl,
-      }),
-    })
-  }
-
   getSubscription(id: string) {
     return this.request<MercadoPagoSubscription>(`/preapproval/${encodeURIComponent(id)}`)
   }

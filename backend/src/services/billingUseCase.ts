@@ -175,7 +175,6 @@ async function ensureCognitoUser(input: {
   password: string
   firstName: string
   lastName: string
-  registrationId: string
 }) {
   const userPoolId = requireUserPoolId()
   const username = input.email
@@ -203,8 +202,6 @@ async function ensureCognitoUser(input: {
           { Name: "given_name", Value: input.firstName },
           { Name: "family_name", Value: input.lastName },
           { Name: "email_verified", Value: "true" },
-          { Name: "custom:accountStatus", Value: BILLING_STATUS.PENDING_SUBSCRIPTION },
-          { Name: "custom:regId", Value: input.registrationId },
         ],
       })
     )
@@ -224,19 +221,16 @@ async function updateCognitoBillingAttrs(input: {
   email: string
   status: BillingStatus
   commerceId?: string
-  registrationId?: string
 }) {
   const userPoolId = requireUserPoolId()
-  const attributes: Array<{ Name: string; Value: string }> = [
-    { Name: "custom:accountStatus", Value: input.status },
-  ]
+  const attributes: Array<{ Name: string; Value: string }> = []
 
   if (input.commerceId) {
     attributes.push({ Name: "custom:commerceIds", Value: input.commerceId })
   }
 
-  if (input.registrationId) {
-    attributes.push({ Name: "custom:regId", Value: input.registrationId })
+  if (attributes.length === 0) {
+    return
   }
 
   await cognitoClient.send(
@@ -246,6 +240,10 @@ async function updateCognitoBillingAttrs(input: {
       UserAttributes: attributes,
     })
   )
+}
+
+function buildPlanCheckoutUrl(planId: string) {
+  return `https://www.mercadopago.com.ar/subscriptions/checkout?preapproval_plan_id=${encodeURIComponent(planId)}`
 }
 
 interface SubscriptionState {
@@ -427,23 +425,14 @@ export async function createPublicRegistration(
     password: input.password,
     firstName,
     lastName,
-    registrationId,
   })
 
-  const mp = getMpClient()
-  const subscription = await mp.createSubscription({
-    planId: billingConfig.planId,
-    payerEmail: email,
-    externalReference: commerceId,
-    reason: billingConfig.planReason,
-    backUrl: `${billingConfig.frontendBaseUrl}${billingConfig.publicRegistrationPath}`,
-  })
+  const checkoutUrl = buildPlanCheckoutUrl(billingConfig.planId)
 
   const nextRegistration: RegistrationRecord = {
     ...registration,
     status: "checkout_created",
-    checkoutUrl: subscription.init_point ?? subscription.back_url ?? registration.checkoutUrl,
-    mercadoPagoSubscriptionId: subscription.id,
+    checkoutUrl,
     updatedAt: nowIso(),
   }
 
@@ -456,7 +445,6 @@ export async function createPublicRegistration(
     ownerCognitoSub: "",
     merchantName,
     mercadoPagoPlanId: billingConfig.planId,
-    mercadoPagoSubscriptionId: subscription.id,
     createdAt,
     updatedAt: createdAt,
   }
@@ -467,7 +455,6 @@ export async function createPublicRegistration(
   await updateCognitoBillingAttrs({
     email,
     status: BILLING_STATUS.PENDING_SUBSCRIPTION,
-    registrationId,
   })
 
   return buildRegistrationResponse(
@@ -485,24 +472,33 @@ export async function getRegistrationStatus(registrationId: string): Promise<Reg
   }
 
   const billingProfile = await getBillingProfileByCommerceId(registration.commerceId)
+  const fallbackStatus = registration.status === "checkout_created" ? BILLING_STATUS.PENDING_SUBSCRIPTION : registration.status
 
   return {
     registrationId,
     commerceId: registration.commerceId,
-    status: billingProfile?.status ?? registration.status,
-    checkoutUrl: registration.checkoutUrl,
+    status: billingProfile?.status ?? fallbackStatus,
+    checkoutUrl: registration.checkoutUrl ?? buildPlanCheckoutUrl(billingConfig.planId),
     billingProfile: billingProfile ?? undefined,
     registration,
   }
 }
 
 export async function syncBillingFromSubscription(subscription: MercadoPagoSubscription) {
-  const commerceId = subscription.external_reference
+  const payerEmail = subscription.payer_email ? normalizeEmail(subscription.payer_email) : ""
+  const commerceId = subscription.external_reference || (payerEmail ? buildCommerceId(payerEmail) : "")
   if (!commerceId) {
-    throw new BadRequestError("Missing external_reference on Mercado Pago subscription")
+    throw new BadRequestError("Missing external_reference or payer_email on Mercado Pago subscription")
   }
 
-  const billingProfile = await getBillingProfileByCommerceId(commerceId)
+  let billingProfile = await getBillingProfileByCommerceId(commerceId)
+  if (!billingProfile && payerEmail) {
+    const registration = await getRegistrationById(buildRegistrationId(payerEmail))
+    if (registration) {
+      billingProfile = await getBillingProfileByCommerceId(registration.commerceId)
+    }
+  }
+
   if (!billingProfile) {
     throw new NotFoundError(`Billing profile not found for commerce ${commerceId}`)
   }
@@ -526,7 +522,7 @@ export async function syncBillingFromSubscription(subscription: MercadoPagoSubsc
   await updateCognitoBillingAttrs({
     email: billingProfile.ownerEmail,
     status: next.status,
-    commerceId: next.status === BILLING_STATUS.PENDING_SUBSCRIPTION ? undefined : commerceId,
+    commerceId: next.status === BILLING_STATUS.PENDING_SUBSCRIPTION ? undefined : billingProfile.commerceId,
   })
 
   return updatedBillingProfile

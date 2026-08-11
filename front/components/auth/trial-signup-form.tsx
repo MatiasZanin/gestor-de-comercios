@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import type { PublicBillingConfig } from "@/lib/types/api"
 import { createPublicRegistration, getBillingCopy } from "@/lib/api/public"
-import { Loader2, ArrowRight, ShieldCheck, Sparkles } from "lucide-react"
+import { ArrowRight, Loader2, ShieldCheck, Sparkles } from "lucide-react"
 
 const signupSchema = z.object({
   firstName: z.string().trim().min(2, "Ingresá tu nombre"),
@@ -86,8 +86,8 @@ export function TrialSignupForm({ config }: TrialSignupFormProps) {
             Probá el sistema un mes gratis y dejá la suscripción corriendo sola.
           </h1>
           <p className="max-w-2xl text-base leading-7 text-slate-600 sm:text-lg">
-            Creás tu comercio, autorizás la suscripción recurrente en Mercado Pago y recién entonces la cuenta queda
-            habilitada. Si no autorizás la suscripción, no se activa nada.
+            Creás tu comercio, te redirigimos al checkout de Mercado Pago y recién entonces la cuenta queda
+            habilitada. Si no completás la autorización, no se activa nada.
           </p>
         </div>
         <div className="grid gap-3 sm:grid-cols-3">
@@ -96,7 +96,10 @@ export function TrialSignupForm({ config }: TrialSignupFormProps) {
             "Trial activado por webhook confirmado",
             `Luego ${priceLabel} por mes`,
           ].map((item) => (
-            <div key={item} className="rounded-2xl border border-white/70 bg-white/70 p-4 text-sm text-slate-700 shadow-sm backdrop-blur">
+            <div
+              key={item}
+              className="rounded-2xl border border-white/70 bg-white/70 p-4 text-sm text-slate-700 shadow-sm backdrop-blur"
+            >
               {item}
             </div>
           ))}
@@ -210,7 +213,7 @@ export function TrialSignupForm({ config }: TrialSignupFormProps) {
                 </>
               ) : (
                 <>
-                  Crear cuenta y probar gratis
+                  Crear cuenta y autorizar suscripción
                   <ArrowRight className="h-4 w-4" />
                 </>
               )}

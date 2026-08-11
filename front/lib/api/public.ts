@@ -58,6 +58,7 @@ export function getBillingCopy(config: PublicBillingConfig): string {
 
 export function getStatusLabel(status: BillingStatus | string): string {
   switch (status) {
+    case "checkout_created":
     case "pending_subscription":
       return "Pendiente de suscripción"
     case "trial":

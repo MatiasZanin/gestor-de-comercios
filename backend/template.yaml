@@ -229,6 +229,7 @@ Resources:
         AllowOrigins:
           - https://comercios.gestionystock.com
           - http://localhost:3000
+          - http://localhost:3001
           - https://v0-gestion-comercios.vercel.app
         AllowHeaders:
           - Content-Type
