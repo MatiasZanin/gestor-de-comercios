@@ -32,8 +32,30 @@ export interface MercadoPagoPayment {
   status_detail?: string
   preapproval_id?: string
   external_reference?: string
+  payer?: { email?: string; id?: string | number }
   metadata?: Record<string, unknown>
   date_created?: string
+}
+
+export interface MercadoPagoAuthorizedPayment {
+  id: string | number
+  status?: string
+  status_detail?: string
+  preapproval_id?: string
+  payment?: { id?: string | number; status?: string; status_detail?: string }
+  date_created?: string
+  last_modified?: string
+  debit_date?: string
+}
+
+export interface MercadoPagoSubscriptionSearchResult {
+  paging?: { offset?: number; limit?: number; total?: number }
+  results?: MercadoPagoSubscription[]
+}
+
+export interface MercadoPagoAuthorizedPaymentSearchResult {
+  paging?: { offset?: number; limit?: number; total?: number }
+  results?: MercadoPagoAuthorizedPayment[]
 }
 
 export interface MercadoPagoPlan {
@@ -55,6 +77,17 @@ export interface MercadoPagoPlan {
   init_point?: string
 }
 
+export class MercadoPagoApiError extends Error {
+  constructor(
+    message: string,
+    public readonly statusCode: number,
+    public readonly path: string
+  ) {
+    super(message)
+    this.name = "MercadoPagoApiError"
+  }
+}
+
 export class MercadoPagoClient {
   constructor(private readonly accessToken: string) {}
 
@@ -73,7 +106,11 @@ export class MercadoPagoClient {
 
     if (!response.ok) {
       const message = body?.message || body?.error || `Mercado Pago error ${response.status}`
-      throw new Error(typeof message === "string" ? message : JSON.stringify(message))
+      throw new MercadoPagoApiError(
+        typeof message === "string" ? message : JSON.stringify(message),
+        response.status,
+        path
+      )
     }
 
     return body as T
@@ -85,6 +122,26 @@ export class MercadoPagoClient {
 
   getPayment(id: string) {
     return this.request<MercadoPagoPayment>(`/v1/payments/${encodeURIComponent(id)}`)
+  }
+
+  getAuthorizedPayment(id: string) {
+    return this.request<MercadoPagoAuthorizedPayment>(`/authorized_payments/${encodeURIComponent(id)}`)
+  }
+
+  searchAuthorizedPayments(preapprovalId: string) {
+    const query = new URLSearchParams({ preapproval_id: preapprovalId, limit: "20" })
+    return this.request<MercadoPagoAuthorizedPaymentSearchResult>(
+      `/authorized_payments/search?${query.toString()}`
+    )
+  }
+
+  searchSubscriptions(input: { payerEmail: string; planId?: string }) {
+    const query = new URLSearchParams({
+      payer_email: input.payerEmail,
+      limit: "20",
+    })
+    if (input.planId) query.set("preapproval_plan_id", input.planId)
+    return this.request<MercadoPagoSubscriptionSearchResult>(`/preapproval/search?${query.toString()}`)
   }
 
   cancelSubscription(id: string) {

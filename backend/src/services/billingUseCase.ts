@@ -28,7 +28,9 @@ import type {
 } from "../models/billing"
 import type { CommerceProfile } from "../models/commerce"
 import {
+  MercadoPagoApiError,
   MercadoPagoClient,
+  type MercadoPagoAuthorizedPayment,
   type MercadoPagoPayment,
   type MercadoPagoSubscription,
 } from "./mercadoPagoClient"
@@ -469,16 +471,33 @@ function mapSubscriptionToStatus(
   return { status: BILLING_STATUS.PENDING_SUBSCRIPTION, lastPaymentStatus: status || "unknown" }
 }
 
-export async function syncBillingFromSubscription(subscription: MercadoPagoSubscription) {
-  let commerceId = subscription.external_reference ?? ""
+async function resolveBillingProfileFromSubscription(subscription: MercadoPagoSubscription) {
+  const commerceId = subscription.external_reference ?? ""
   let profile = commerceId ? await getBillingProfile(commerceId) : null
   if (!profile && subscription.payer_email) {
     const payerLink = await getItem<BillingPayerLink>(payerLinkKey(subscription.payer_email))
-    commerceId = payerLink?.commerceId ?? ""
-    profile = commerceId ? await getBillingProfile(commerceId) : null
+    const linkedCommerceId = payerLink?.commerceId ?? ""
+    profile = linkedCommerceId ? await getBillingProfile(linkedCommerceId) : null
   }
-  if (!profile) throw new NotFoundError(`Billing profile not found for commerce ${commerceId}`)
+  return profile
+}
 
+async function resolveBillingProfileFromPayment(payment: MercadoPagoPayment) {
+  const commerceId = payment.external_reference ?? ""
+  let profile = commerceId ? await getBillingProfile(commerceId) : null
+  if (!profile && payment.payer?.email) {
+    const payerLink = await getItem<BillingPayerLink>(payerLinkKey(payment.payer.email))
+    const linkedCommerceId = payerLink?.commerceId ?? ""
+    profile = linkedCommerceId ? await getBillingProfile(linkedCommerceId) : null
+  }
+  return profile
+}
+
+async function syncBillingFromSubscriptionForProfile(
+  subscription: MercadoPagoSubscription,
+  profile: BillingProfile,
+  source: "webhook" | "reconciliation" | "action" = "action"
+) {
   if (profile.billingPayerEmail && subscription.payer_email && normalizeEmail(subscription.payer_email) !== normalizeEmail(profile.billingPayerEmail)) {
     throw new BadRequestError("Mercado Pago payer does not match the pending checkout")
   }
@@ -486,13 +505,13 @@ export async function syncBillingFromSubscription(subscription: MercadoPagoSubsc
     throw new BadRequestError("Mercado Pago plan does not match the pending checkout")
   }
 
-  const existingRecord = await getSubscriptionRecord(commerceId, subscription.id)
+  const existingRecord = await getSubscriptionRecord(profile.commerceId, subscription.id)
   const includesTrial = existingRecord?.includesTrial ?? subscription.preapproval_plan_id === billingConfig.planId
   const now = nowIso()
   const record: SubscriptionRecord = {
-    ...subscriptionKey(commerceId, subscription.id),
+    ...subscriptionKey(profile.commerceId, subscription.id),
     type: "BILLING_SUBSCRIPTION",
-    commerceId,
+    commerceId: profile.commerceId,
     subscriptionId: subscription.id,
     planId: subscription.preapproval_plan_id ?? existingRecord?.planId ?? profile.mercadoPagoPlanId,
     payerEmail: subscription.payer_email ?? existingRecord?.payerEmail ?? profile.billingPayerEmail ?? "",
@@ -525,7 +544,8 @@ export async function syncBillingFromSubscription(subscription: MercadoPagoSubsc
     currentPeriodEndsAt: next.currentPeriodEndsAt ?? profile.currentPeriodEndsAt,
     graceUntil: next.graceUntil ?? profile.graceUntil,
     lastPaymentStatus: next.lastPaymentStatus,
-    lastWebhookAt: now,
+    lastWebhookAt: source === "webhook" ? now : profile.lastWebhookAt,
+    lastReconciledAt: source === "reconciliation" ? now : profile.lastReconciledAt,
     updatedAt: now,
   }
   await putItem(updated)
@@ -533,28 +553,164 @@ export async function syncBillingFromSubscription(subscription: MercadoPagoSubsc
   return updated
 }
 
-async function syncBillingFromPayment(payment: MercadoPagoPayment) {
-  if (!payment.preapproval_id) return { ignored: true as const }
-  const subscription = await getMpClient().getSubscription(payment.preapproval_id)
-  const profile = await syncBillingFromSubscription(subscription)
-  if (payment.status === "rejected" && "commerceId" in profile) {
+export async function syncBillingFromSubscription(
+  subscription: MercadoPagoSubscription,
+  source: "webhook" | "reconciliation" | "action" = "action"
+) {
+  const profile = await resolveBillingProfileFromSubscription(subscription)
+  if (!profile) {
+    const commerceId = subscription.external_reference ?? subscription.payer_email ?? ""
+    throw new NotFoundError(`Billing profile not found for commerce ${commerceId}`)
+  }
+  return syncBillingFromSubscriptionForProfile(subscription, profile, source)
+}
+
+async function syncBillingFromPayment(payment: MercadoPagoPayment, source: "webhook" | "reconciliation" | "action") {
+  const profile = await resolveBillingProfileFromPayment(payment)
+  if (!profile) return { ignored: true as const, reason: "missing_billing_context" }
+  const mp = getMpClient()
+  let subscription: MercadoPagoSubscription | undefined
+  if (payment.preapproval_id) {
+    subscription = await mp.getSubscription(payment.preapproval_id)
+  } else if (profile.billingPayerEmail) {
+    const search = await mp.searchSubscriptions({
+      payerEmail: profile.billingPayerEmail,
+      planId: profile.mercadoPagoPlanId,
+    })
+    subscription = newestSubscription(
+      (search.results ?? []).filter(
+        (candidate) =>
+          candidate.preapproval_plan_id === profile.mercadoPagoPlanId &&
+          (!candidate.payer_email || normalizeEmail(candidate.payer_email) === normalizeEmail(profile.billingPayerEmail!))
+      )
+    )
+  }
+  if (!subscription) return { ignored: true as const, reason: "missing_preapproval_id" }
+  const synced = await syncBillingFromSubscriptionForProfile(subscription, profile, source)
+  if (payment.status === "rejected" && "commerceId" in synced) {
     const updated: BillingProfile = {
-      ...profile,
+      ...synced,
       status: BILLING_STATUS.PAST_DUE,
       graceUntil: addDays(nowIso(), billingConfig.graceDays),
       lastPaymentStatus: payment.status,
       updatedAt: nowIso(),
     }
     await putItem(updated)
-    await updateCognitoAttributes({ username: profile.ownerEmail, status: updated.status })
+    await updateCognitoAttributes({ username: synced.ownerEmail, status: updated.status })
     return updated
   }
-  return profile
+  return synced
+}
+
+async function syncBillingFromAuthorizedPayment(
+  payment: MercadoPagoAuthorizedPayment,
+  source: "webhook" | "reconciliation" | "action"
+) {
+  if (!payment.preapproval_id) return { ignored: true as const, reason: "missing_preapproval_id" }
+  if (payment.payment?.id) {
+    try {
+      return await syncBillingFromPayment(await getMpClient().getPayment(String(payment.payment.id)), source)
+    } catch (error) {
+      if (!(error instanceof MercadoPagoApiError) || error.statusCode !== 404) throw error
+    }
+  }
+  const subscription = await getMpClient().getSubscription(payment.preapproval_id)
+  const profile = await resolveBillingProfileFromSubscription(subscription)
+  if (!profile) return { ignored: true as const, reason: "missing_billing_context" }
+  const synced = await syncBillingFromSubscriptionForProfile(subscription, profile, source)
+  if (!("commerceId" in synced)) return synced
+
+  return applyAuthorizedPaymentStatus(payment, synced)
+}
+
+async function applyAuthorizedPaymentStatus(
+  payment: MercadoPagoAuthorizedPayment,
+  profile: BillingProfile
+): Promise<BillingProfile> {
+  // The invoice status can be "scheduled" while the nested payment carries the
+  // actual collection result (approved/rejected).
+  const paymentStatus = (payment.payment?.status ?? payment.status ?? "unknown").toLowerCase()
+  const failed = ["rejected", "cancelled", "canceled", "refunded", "charged_back"].includes(paymentStatus)
+  const updated: BillingProfile = {
+    ...profile,
+    status: failed ? BILLING_STATUS.PAST_DUE : profile.status,
+    graceUntil: failed ? addDays(nowIso(), billingConfig.graceDays) : profile.graceUntil,
+    lastPaymentStatus: paymentStatus,
+    updatedAt: nowIso(),
+  }
+  await putItem(updated)
+  await updateCognitoAttributes({ username: profile.ownerEmail, status: updated.status })
+  return updated
+}
+
+function reconciliationIsFresh(profile: BillingProfile) {
+  if (!profile.lastReconciledAt) return false
+  const intervalSeconds = Number(process.env.BILLING_RECONCILIATION_INTERVAL_SECONDS ?? "300")
+  const intervalMs = Number.isFinite(intervalSeconds) ? Math.max(0, intervalSeconds) * 1000 : 300_000
+  return Date.now() - new Date(profile.lastReconciledAt).getTime() < intervalMs
+}
+
+function newestSubscription(subscriptions: MercadoPagoSubscription[]) {
+  return [...subscriptions].sort((left, right) => {
+    const leftTime = new Date(left.last_modified ?? left.date_created ?? 0).getTime()
+    const rightTime = new Date(right.last_modified ?? right.date_created ?? 0).getTime()
+    return rightTime - leftTime
+  })[0]
+}
+
+function newestAuthorizedPayment(payments: MercadoPagoAuthorizedPayment[]) {
+  return [...payments].sort((left, right) => {
+    const leftTime = new Date(left.last_modified ?? left.debit_date ?? left.date_created ?? 0).getTime()
+    const rightTime = new Date(right.last_modified ?? right.debit_date ?? right.date_created ?? 0).getTime()
+    return rightTime - leftTime
+  })[0]
+}
+
+export async function reconcileBillingWithMercadoPago(profile: BillingProfile): Promise<BillingProfile> {
+  if (reconciliationIsFresh(profile)) return profile
+
+  const mp = getMpClient()
+  let subscription: MercadoPagoSubscription | undefined
+  if (profile.currentSubscriptionId) {
+    subscription = await mp.getSubscription(profile.currentSubscriptionId)
+  } else if (profile.billingPayerEmail) {
+    const search = await mp.searchSubscriptions({
+      payerEmail: profile.billingPayerEmail,
+      planId: profile.mercadoPagoPlanId,
+    })
+    subscription = newestSubscription(
+      (search.results ?? []).filter(
+        (candidate) =>
+          candidate.preapproval_plan_id === profile.mercadoPagoPlanId &&
+          (!candidate.payer_email || normalizeEmail(candidate.payer_email) === normalizeEmail(profile.billingPayerEmail!))
+      )
+    )
+  }
+
+  if (subscription) {
+    const synced = await syncBillingFromSubscriptionForProfile(subscription, profile, "reconciliation")
+    const payments = await mp.searchAuthorizedPayments(subscription.id)
+    const latestPayment = newestAuthorizedPayment(payments.results ?? [])
+    return latestPayment ? applyAuthorizedPaymentStatus(latestPayment, synced) : synced
+  }
+
+  const checked: BillingProfile = { ...profile, lastReconciledAt: nowIso() }
+  await putItem(checked)
+  return checked
 }
 
 export async function getProtectedBillingStatus(commerceId: string): Promise<BillingStatusResponse | null> {
-  const profile = await getBillingProfile(commerceId)
+  let profile = await getBillingProfile(commerceId)
   if (!profile) return null
+  try {
+    profile = await reconcileBillingWithMercadoPago(profile)
+  } catch (error) {
+    // Mercado Pago must not make profile reads unavailable. The webhook remains the primary path.
+    console.warn("Mercado Pago billing reconciliation failed", {
+      commerceId,
+      error: error instanceof Error ? { name: error.name, message: error.message } : "unknown",
+    })
+  }
   const current = profile.currentSubscriptionId
     ? await getSubscriptionRecord(commerceId, profile.currentSubscriptionId)
     : null
@@ -598,10 +754,26 @@ export async function processMercadoPagoWebhook(input: {
 
   const mp = getMpClient()
   let result: unknown = { ignored: true }
-  if (input.topic === "payment" && input.dataId) {
-    result = await syncBillingFromPayment(await mp.getPayment(input.dataId))
-  } else if (input.dataId) {
-    result = await syncBillingFromSubscription(await mp.getSubscription(input.dataId))
+  const topic = (input.topic ?? "").toLowerCase()
+  try {
+    if (topic === "payment" && input.dataId) {
+      result = await syncBillingFromPayment(await mp.getPayment(input.dataId), "webhook")
+    } else if (topic === "subscription_authorized_payment" && input.dataId) {
+      result = await syncBillingFromAuthorizedPayment(await mp.getAuthorizedPayment(input.dataId), "webhook")
+    } else if (topic === "subscription_preapproval" && input.dataId) {
+      result = await syncBillingFromSubscription(await mp.getSubscription(input.dataId), "webhook")
+    }
+  } catch (error) {
+    if (!(error instanceof MercadoPagoApiError) || error.statusCode !== 404) throw error
+    // Mercado Pago's URL simulator uses a synthetic data.id (123456). A valid,
+    // signed test must be acknowledged even though that resource cannot be fetched.
+    console.warn("Mercado Pago webhook resource was not found", {
+      eventId,
+      topic,
+      dataId: input.dataId,
+      path: error.path,
+    })
+    result = { ignored: true, reason: "resource_not_found" }
   }
 
   const event: WebhookEventRecord = {

@@ -30,6 +30,7 @@ export interface BillingProfile {
   graceUntil?: string
   lastPaymentStatus?: string
   lastWebhookAt?: string
+  lastReconciledAt?: string
   updatedAt: string
   createdAt: string
 }

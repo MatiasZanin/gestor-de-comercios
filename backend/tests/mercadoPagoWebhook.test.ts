@@ -10,6 +10,7 @@ describe("Mercado Pago webhook signature", () => {
       timestamp: "1700000000",
     }
     const manifest = buildWebhookManifest(input)
+    expect(manifest).toBe("id:123456;request-id:req-abc;ts:1700000000;")
     const signature = crypto.createHmac("sha256", secret).update(manifest).digest("hex")
 
     const result = validateMercadoPagoWebhookSignature({
@@ -22,6 +23,12 @@ describe("Mercado Pago webhook signature", () => {
     expect(result.signature).toBe(signature)
     expect(result.requestId).toBe(input.requestId)
     expect(result.dataId).toBe(input.dataId)
+  })
+
+  it("omits missing values while retaining the required terminators", () => {
+    expect(buildWebhookManifest({ requestId: "req-abc", timestamp: "1700000000" })).toBe(
+      "request-id:req-abc;ts:1700000000;"
+    )
   })
 
   it("rejects an invalid signature", () => {

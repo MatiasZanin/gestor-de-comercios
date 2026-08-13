@@ -34,15 +34,15 @@ export function buildWebhookManifest(params: {
 }): string {
   const parts: string[] = []
   if (params.dataId) {
-    parts.push(`id:${params.dataId.toLowerCase()}`)
+    parts.push(`id:${params.dataId.toLowerCase()};`)
   }
   if (params.requestId) {
-    parts.push(`request-id:${params.requestId}`)
+    parts.push(`request-id:${params.requestId};`)
   }
   if (params.timestamp) {
-    parts.push(`ts:${params.timestamp}`)
+    parts.push(`ts:${params.timestamp};`)
   }
-  return parts.join(";")
+  return parts.join("")
 }
 
 export function validateMercadoPagoWebhookSignature(input: {
@@ -68,7 +68,9 @@ export function validateMercadoPagoWebhookSignature(input: {
   })
   const computed = crypto.createHmac("sha256", secret).update(manifest).digest("hex")
 
-  if (computed !== hash) {
+  const computedBuffer = Buffer.from(computed, "hex")
+  const hashBuffer = Buffer.from(hash, "hex")
+  if (computedBuffer.length !== hashBuffer.length || !crypto.timingSafeEqual(computedBuffer, hashBuffer)) {
     throw new Error("Invalid Mercado Pago webhook signature")
   }
 

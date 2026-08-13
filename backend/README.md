@@ -75,6 +75,8 @@ El grupo define permisos, pero no habilita el producto. Todas las rutas comercia
 
 Mercado Pago requiere dos planes por ambiente: `MERCADO_PAGO_PREAPPROVAL_PLAN_ID`, con un mes de trial, y `MERCADO_PAGO_REACTIVATION_PLAN_ID`, sin trial. Cada cliente crea su propio `/preapproval`; el checkout y la captura de tarjeta ocurren exclusivamente en Mercado Pago.
 
+El access token, ambos planes y el secret del webhook deben pertenecer a la misma aplicación y ambiente de Mercado Pago. Configure los tópicos `payment`, `subscription_preapproval` y `subscription_authorized_payment`. La ruta `GET /{commerceId}/billing/status` reconcilia periódicamente el estado remoto como respaldo del webhook; el intervalo predeterminado es de 300 segundos y puede ajustarse con `BILLING_RECONCILIATION_INTERVAL_SECONDS`.
+
 Después de desplegar los atributos correctos puede auditar las altas existentes con `npm run reconcile-billing-users`. Para aplicar la reconciliación, agregue `-- --apply`; el comando no elimina registros ni usuarios.
 
 ### Uso de la API
