@@ -27,10 +27,15 @@ export function SubscriptionPage() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [refreshCooldownUntil, setRefreshCooldownUntil] = useState<number | null>(null)
+  const [refreshCooldownRemaining, setRefreshCooldownRemaining] = useState(0)
 
-  const load = async () => {
+  const load = async (options: { forceRefresh?: boolean } = {}) => {
     try {
-      const [value, billingConfig] = await Promise.all([apiClient.getBillingStatus(), getPublicBillingConfig()])
+      const [value, billingConfig] = await Promise.all([
+        apiClient.getBillingStatus({ forceRefresh: options.forceRefresh }),
+        getPublicBillingConfig(),
+      ])
       setStatus(value)
       setConfig(billingConfig)
       setPayerEmail(value.billingPayerEmail ?? "")
@@ -46,12 +51,32 @@ export function SubscriptionPage() {
   }
 
   useEffect(() => {
+    if (!refreshCooldownUntil) {
+      setRefreshCooldownRemaining(0)
+      return
+    }
+
+    const syncRemaining = () => {
+      setRefreshCooldownRemaining(Math.max(0, Math.ceil((refreshCooldownUntil - Date.now()) / 1000)))
+    }
+
+    syncRemaining()
+    const timer = window.setInterval(syncRemaining, 1000)
+    return () => window.clearInterval(timer)
+  }, [refreshCooldownUntil])
+
+  useEffect(() => {
     if (!authLoading && !isAuthenticated) {
       router.replace("/login?next=/suscripcion")
       return
     }
     if (!authLoading && isAuthenticated) void load()
   }, [authLoading, isAuthenticated, router])
+
+  const refreshStatus = async () => {
+    setRefreshCooldownUntil(Date.now() + 60_000)
+    await load({ forceRefresh: true })
+  }
 
   const subscribe = async () => {
     setSubmitting(true)
@@ -83,12 +108,21 @@ export function SubscriptionPage() {
   const enabled = status?.status === "trial" || status?.status === "active" ||
     (status?.status === "past_due" && !!status.graceUntil && new Date(status.graceUntil).getTime() >= now) ||
     (status?.status === "cancelled" && !!status.currentPeriodEndsAt && new Date(status.currentPeriodEndsAt).getTime() >= now)
+  const refreshDisabled = loading || submitting || refreshCooldownRemaining > 0
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.2),_transparent_38%),linear-gradient(135deg,_#f8fafc_0%,_#fff7ed_100%)] px-4 py-10">
       <div className="mx-auto max-w-5xl space-y-6">
         <header className="flex flex-wrap items-center justify-between gap-4">
           <div><p className="text-sm font-semibold uppercase tracking-[0.2em] text-emerald-700">Cuenta y facturación</p><h1 className="mt-2 text-4xl font-semibold text-slate-950">{status?.merchantName ?? "Tu comercio"}</h1></div>
-          <Button variant="outline" onClick={() => { logout(); router.push("/login") }}><LogOut />Cerrar sesión</Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={refreshStatus} disabled={refreshDisabled}>
+              <RefreshCw className={refreshDisabled ? "h-4 w-4" : "h-4 w-4"} />
+              {refreshCooldownRemaining > 0 ? `Actualizar datos (${refreshCooldownRemaining}s)` : "Actualizar datos"}
+            </Button>
+            <Button variant="outline" onClick={() => { logout(); router.push("/login") }}>
+              <LogOut />Cerrar sesión
+            </Button>
+          </div>
         </header>
         {error ? <Alert className="border-red-200 bg-red-50"><AlertDescription className="text-red-700">{error}</AlertDescription></Alert> : null}
         <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">

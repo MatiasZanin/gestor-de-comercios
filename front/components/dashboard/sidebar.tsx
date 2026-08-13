@@ -44,6 +44,11 @@ const navigation = [
     href: "/dashboard/auditoria",
     icon: ClipboardList,
   },
+  {
+    name: "Configuración de cuenta",
+    href: "/suscripcion",
+    icon: User,
+  },
 ]
 
 export function Sidebar() {

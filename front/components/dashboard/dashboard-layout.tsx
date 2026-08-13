@@ -14,7 +14,7 @@ interface DashboardLayoutProps {
 }
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
-  const { isAuthenticated, loading, accountStatus, commerceId, role } = useAuth()
+  const { isAuthenticated, loading, accountStatus, commerceId, role, refreshBillingStatus } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
@@ -25,6 +25,14 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       router.replace("/suscripcion")
     }
   }, [accountStatus, commerceId, isAuthenticated, loading, role, router])
+
+  useEffect(() => {
+    if (!loading && isAuthenticated) {
+      void refreshBillingStatus().catch((error) => {
+        console.warn("No se pudo actualizar el estado de suscripción al abrir el dashboard", error)
+      })
+    }
+  }, [isAuthenticated, loading, refreshBillingStatus])
 
   if (loading) {
     return (

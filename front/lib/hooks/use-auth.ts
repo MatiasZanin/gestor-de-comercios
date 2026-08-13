@@ -1,8 +1,9 @@
 "use client"
 
 import { authService } from "@/lib/auth/cognito"
+import { apiClient } from "@/lib/api/client"
 import type { AuthState, LoginCredentials } from "@/lib/types/auth"
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 
 export function useAuth() {
   const [authState, setAuthState] = useState<AuthState>(authService.getAuthState())
@@ -14,7 +15,21 @@ export function useAuth() {
     // setAuthState(authService.getAuthState())
   }, [])
 
-  const login = async (credentials: LoginCredentials) => {
+  const refreshBillingStatus = useCallback(
+    async (options: { forceRefresh?: boolean } = {}) => {
+      if (!authService.isAuthenticated()) {
+        return null
+      }
+
+      const status = await apiClient.getBillingStatus(options)
+      await authService.forceRefreshToken()
+      setAuthState(authService.getAuthState())
+      return status
+    },
+    [setAuthState],
+  )
+
+  const login = useCallback(async (credentials: LoginCredentials) => {
     setLoading(true)
     setError(null)
     setRequiresNewPassword(false)
@@ -22,7 +37,13 @@ export function useAuth() {
     try {
       const newAuthState = await authService.login(credentials)
       setAuthState(newAuthState)
-      return newAuthState
+      try {
+        await refreshBillingStatus()
+      } catch (refreshError) {
+        console.warn("No se pudo sincronizar el estado de suscripción después del login", refreshError)
+      }
+      setAuthState(authService.getAuthState())
+      return authService.getAuthState()
     } catch (err: any) {
       if (err.code === "NewPasswordRequired" || err.name === "NewPasswordRequired") {
         setRequiresNewPassword(true)
@@ -36,9 +57,9 @@ export function useAuth() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [refreshBillingStatus])
 
-  const completeNewPassword = async (newPassword: string) => {
+  const completeNewPassword = useCallback(async (newPassword: string) => {
     setLoading(true)
     setError(null)
 
@@ -46,7 +67,13 @@ export function useAuth() {
       const newAuthState = await authService.completeNewPassword(newPassword)
       setAuthState(newAuthState)
       setRequiresNewPassword(false)
-      return newAuthState
+      try {
+        await refreshBillingStatus()
+      } catch (refreshError) {
+        console.warn("No se pudo sincronizar el estado de suscripción después del cambio de contraseña", refreshError)
+      }
+      setAuthState(authService.getAuthState())
+      return authService.getAuthState()
     } catch (err: any) {
       const errorMessage = err.message || "Error al cambiar la contraseña"
       setError(errorMessage)
@@ -54,13 +81,13 @@ export function useAuth() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [refreshBillingStatus])
 
-  const logout = () => {
+  const logout = useCallback(() => {
     authService.logout()
     setAuthState(authService.getAuthState())
     setRequiresNewPassword(false)
-  }
+  }, [])
 
   return {
     ...authState,
@@ -70,5 +97,6 @@ export function useAuth() {
     login,
     logout,
     completeNewPassword,
+    refreshBillingStatus,
   }
 }

@@ -655,7 +655,7 @@ async function applyAuthorizedPaymentStatus(
 
 function reconciliationIsFresh(profile: BillingProfile) {
   if (!profile.lastReconciledAt) return false
-  const intervalSeconds = Number(process.env.BILLING_RECONCILIATION_INTERVAL_SECONDS ?? "300")
+  const intervalSeconds = Number(process.env.BILLING_RECONCILIATION_INTERVAL_SECONDS ?? "60")
   const intervalMs = Number.isFinite(intervalSeconds) ? Math.max(0, intervalSeconds) * 1000 : 300_000
   return Date.now() - new Date(profile.lastReconciledAt).getTime() < intervalMs
 }
@@ -676,8 +676,11 @@ function newestAuthorizedPayment(payments: MercadoPagoAuthorizedPayment[]) {
   })[0]
 }
 
-export async function reconcileBillingWithMercadoPago(profile: BillingProfile): Promise<BillingProfile> {
-  if (reconciliationIsFresh(profile)) return profile
+export async function reconcileBillingWithMercadoPago(
+  profile: BillingProfile,
+  options: { forceRefresh?: boolean } = {}
+): Promise<BillingProfile> {
+  if (!options.forceRefresh && reconciliationIsFresh(profile)) return profile
 
   const mp = getMpClient()
   let subscription: MercadoPagoSubscription | undefined
@@ -709,11 +712,14 @@ export async function reconcileBillingWithMercadoPago(profile: BillingProfile): 
   return checked
 }
 
-export async function getProtectedBillingStatus(commerceId: string): Promise<BillingStatusResponse | null> {
+export async function getProtectedBillingStatus(
+  commerceId: string,
+  options: { forceRefresh?: boolean } = {}
+): Promise<BillingStatusResponse | null> {
   let profile = await getBillingProfile(commerceId)
   if (!profile) return null
   try {
-    profile = await reconcileBillingWithMercadoPago(profile)
+    profile = await reconcileBillingWithMercadoPago(profile, options)
   } catch (error) {
     // Mercado Pago must not make profile reads unavailable. The webhook remains the primary path.
     console.warn("Mercado Pago billing reconciliation failed", {

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { apiClient } from "@/lib/api/client"
 import { authService } from "@/lib/auth/cognito"
 import { Loader2, ShieldAlert, LogOut } from "lucide-react"
 
@@ -31,6 +32,12 @@ export function LoginModal({ open, onSuccess, onExit }: LoginModalProps) {
 
         try {
             await authService.login({ username, password })
+            try {
+                await apiClient.getBillingStatus()
+                await authService.forceRefreshToken()
+            } catch (refreshError) {
+                console.warn("No se pudo sincronizar el estado de suscripción después de la reautenticación", refreshError)
+            }
             // Login exitoso, resolver la re-autenticación pendiente
             authService.resolveReauth()
             setUsername("")

@@ -278,8 +278,13 @@ export class ApiClient {
     return this.makeRequest("/metadata")
   }
 
-  async getBillingStatus(): Promise<BillingStatusResponse> {
-    return this.makeRequest("/billing/status")
+  async getBillingStatus(options: { forceRefresh?: boolean } = {}): Promise<BillingStatusResponse> {
+    const searchParams = new URLSearchParams()
+    if (options.forceRefresh) {
+      searchParams.append("forceRefresh", "true")
+    }
+    const query = searchParams.toString()
+    return this.makeRequest(`/billing/status${query ? `?${query}` : ""}`)
   }
 
   async createSubscription(payerEmail: string): Promise<CreateSubscriptionResponse> {
