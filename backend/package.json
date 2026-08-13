@@ -16,6 +16,7 @@
     "seed": "tsx src/helpers/db/seed.ts",
     "clean-db": "tsx src/helpers/db/commerce-clean.ts",
     "clean-sales": "tsx src/helpers/db/sales-clean.ts",
+    "delete-user-data": "tsx src/helpers/db/delete-user-data.ts",
     "reconcile-billing-users": "tsx src/helpers/db/reconcile-billing-users.ts",
     "seed-complete": "tsx src/helpers/db/seed-complete/01-init.ts && tsx src/helpers/db/seed-complete/02-sales.ts && tsx src/helpers/db/seed-complete/03-sales-reports.ts && tsx src/helpers/db/seed-complete/04-cierres-caja.ts"
   },

@@ -791,6 +791,24 @@ Resources:
             Auth:
               Authorizer: NONE
 
+  MercadoPagoReturnFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub mercadoPagoReturn-${CommerceStage}
+      CodeUri: ./dist
+      Handler: handlers/mercadoPagoReturn.handler
+      Role: !GetAtt LambdaDynamoRole.Arn
+      Timeout: 30
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: '/billing/mercadopago/return'
+            Method: GET
+            Auth:
+              Authorizer: NONE
+
   GetBillingStatusFunction:
     Type: AWS::Serverless::Function
     Properties:

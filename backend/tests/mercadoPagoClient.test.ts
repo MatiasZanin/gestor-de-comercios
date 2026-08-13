@@ -44,6 +44,20 @@ describe("MercadoPagoClient", () => {
     expect(String(fetchMock.mock.calls[0][0])).toContain(
       "/authorized_payments/search?preapproval_id=subscription-1"
     )
+    expect(String(fetchMock.mock.calls[0][0])).toContain("limit=10")
+  })
+
+  it("finds the recurring invoice associated with a payment webhook", async () => {
+    const fetchMock = jest.spyOn(global, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ results: [] }), { status: 200 })
+    )
+
+    await new MercadoPagoClient("token").searchAuthorizedPaymentsByPaymentId("payment-1")
+
+    expect(String(fetchMock.mock.calls[0][0])).toContain(
+      "/authorized_payments/search?payment_id=payment-1"
+    )
+    expect(String(fetchMock.mock.calls[0][0])).toContain("limit=10")
   })
 
   it("preserves the Mercado Pago response status in API errors", async () => {

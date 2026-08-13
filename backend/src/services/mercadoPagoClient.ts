@@ -129,7 +129,15 @@ export class MercadoPagoClient {
   }
 
   searchAuthorizedPayments(preapprovalId: string) {
-    const query = new URLSearchParams({ preapproval_id: preapprovalId, limit: "20" })
+    // Mercado Pago rejects values greater than 10 for this endpoint.
+    const query = new URLSearchParams({ preapproval_id: preapprovalId, limit: "10" })
+    return this.request<MercadoPagoAuthorizedPaymentSearchResult>(
+      `/authorized_payments/search?${query.toString()}`
+    )
+  }
+
+  searchAuthorizedPaymentsByPaymentId(paymentId: string) {
+    const query = new URLSearchParams({ payment_id: paymentId, limit: "10" })
     return this.request<MercadoPagoAuthorizedPaymentSearchResult>(
       `/authorized_payments/search?${query.toString()}`
     )

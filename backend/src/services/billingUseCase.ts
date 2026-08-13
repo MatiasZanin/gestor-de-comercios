@@ -507,6 +507,7 @@ async function syncBillingFromSubscriptionForProfile(
 
   const existingRecord = await getSubscriptionRecord(profile.commerceId, subscription.id)
   const includesTrial = existingRecord?.includesTrial ?? subscription.preapproval_plan_id === billingConfig.planId
+  const payerEmail = subscription.payer_email?.trim() || existingRecord?.payerEmail || profile.billingPayerEmail || ""
   const now = nowIso()
   const record: SubscriptionRecord = {
     ...subscriptionKey(profile.commerceId, subscription.id),
@@ -514,7 +515,7 @@ async function syncBillingFromSubscriptionForProfile(
     commerceId: profile.commerceId,
     subscriptionId: subscription.id,
     planId: subscription.preapproval_plan_id ?? existingRecord?.planId ?? profile.mercadoPagoPlanId,
-    payerEmail: subscription.payer_email ?? existingRecord?.payerEmail ?? profile.billingPayerEmail ?? "",
+    payerEmail,
     status: subscription.status ?? "unknown",
     includesTrial,
     checkoutUrl: subscription.init_point ?? existingRecord?.checkoutUrl,
@@ -572,18 +573,27 @@ async function syncBillingFromPayment(payment: MercadoPagoPayment, source: "webh
   let subscription: MercadoPagoSubscription | undefined
   if (payment.preapproval_id) {
     subscription = await mp.getSubscription(payment.preapproval_id)
-  } else if (profile.billingPayerEmail) {
-    const search = await mp.searchSubscriptions({
-      payerEmail: profile.billingPayerEmail,
-      planId: profile.mercadoPagoPlanId,
-    })
-    subscription = newestSubscription(
-      (search.results ?? []).filter(
-        (candidate) =>
-          candidate.preapproval_plan_id === profile.mercadoPagoPlanId &&
-          (!candidate.payer_email || normalizeEmail(candidate.payer_email) === normalizeEmail(profile.billingPayerEmail!))
+  } else {
+    // Subscription payments currently omit preapproval_id in /v1/payments.
+    // The authorized-payments API provides the missing, unambiguous link.
+    const authorizedPayments = await mp.searchAuthorizedPaymentsByPaymentId(payment.id)
+    const authorizedPayment = newestAuthorizedPayment(authorizedPayments.results ?? [])
+    if (authorizedPayment?.preapproval_id) {
+      subscription = await mp.getSubscription(authorizedPayment.preapproval_id)
+    } else if (profile.billingPayerEmail) {
+      const search = await mp.searchSubscriptions({
+        payerEmail: profile.billingPayerEmail,
+        planId: profile.mercadoPagoPlanId,
+      })
+      subscription = newestSubscription(
+        (search.results ?? []).filter(
+          (candidate) =>
+            candidate.preapproval_plan_id === profile.mercadoPagoPlanId &&
+            (!candidate.payer_email ||
+              normalizeEmail(candidate.payer_email) === normalizeEmail(profile.billingPayerEmail!))
+        )
       )
-    )
+    }
   }
   if (!subscription) return { ignored: true as const, reason: "missing_preapproval_id" }
   const synced = await syncBillingFromSubscriptionForProfile(subscription, profile, source)
@@ -726,6 +736,20 @@ export async function getProtectedBillingStatus(commerceId: string): Promise<Bil
     checkoutUrl: current?.status === "pending" ? current.checkoutUrl : undefined,
     billingPayerEmail: profile.billingPayerEmail,
   }
+}
+
+export async function reconcileBillingFromMercadoPagoReturn(preapprovalId: string) {
+  const mp = getMpClient()
+  const subscription = await mp.getSubscription(preapprovalId)
+  const authorizedPayments = await mp.searchAuthorizedPayments(subscription.id)
+  const authorizedPayment = newestAuthorizedPayment(authorizedPayments.results ?? [])
+  const paymentId = authorizedPayment?.payment?.id
+
+  if (paymentId !== undefined) {
+    return syncBillingFromPayment(await mp.getPayment(String(paymentId)), "reconciliation")
+  }
+
+  return syncBillingFromSubscription(subscription, "reconciliation")
 }
 
 export async function cancelBilling(commerceId: string) {
