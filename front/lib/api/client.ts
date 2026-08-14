@@ -54,7 +54,7 @@ export class ApiClient {
 
     if (!response.ok) {
       if (response.status === 402) {
-        if (typeof window !== "undefined") window.location.href = "/suscripcion"
+        if (typeof window !== "undefined") window.location.href = "/dashboard/suscripcion"
         throw new Error("La suscripción no habilita el acceso al comercio")
       }
       if (response.status === 401) {
@@ -99,7 +99,7 @@ export class ApiClient {
 
     if (!response.ok) {
       if (response.status === 402) {
-        if (typeof window !== "undefined") window.location.href = "/suscripcion"
+        if (typeof window !== "undefined") window.location.href = "/dashboard/suscripcion"
         throw new Error("La suscripción no habilita el acceso al comercio")
       }
       if (response.status === 401) {

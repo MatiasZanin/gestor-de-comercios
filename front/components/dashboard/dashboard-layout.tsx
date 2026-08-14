@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { useAuth } from "@/lib/hooks/use-auth"
 import { Sidebar } from "./sidebar"
 import { Loader2 } from "lucide-react"
@@ -14,25 +14,19 @@ interface DashboardLayoutProps {
 }
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
-  const { isAuthenticated, loading, accountStatus, commerceId, role, refreshBillingStatus } = useAuth()
+  const { isAuthenticated, loading, accountStatus, commerceId, role, billingStatus, billingStatusLoaded } = useAuth()
   const router = useRouter()
+  const pathname = usePathname()
+  const isSubscriptionRoute = pathname === "/dashboard/suscripcion"
 
   useEffect(() => {
     if (!loading && !isAuthenticated) {
       router.push("/login")
     }
-    if (!loading && isAuthenticated && !hasApplicationAccess({ accountStatus, commerceId, role })) {
-      router.replace("/suscripcion")
+    if (!loading && isAuthenticated && !hasApplicationAccess({ accountStatus, commerceId, role }, billingStatus, billingStatusLoaded) && !isSubscriptionRoute) {
+      router.replace("/dashboard/suscripcion")
     }
-  }, [accountStatus, commerceId, isAuthenticated, loading, role, router])
-
-  useEffect(() => {
-    if (!loading && isAuthenticated) {
-      void refreshBillingStatus().catch((error) => {
-        console.warn("No se pudo actualizar el estado de suscripción al abrir el dashboard", error)
-      })
-    }
-  }, [isAuthenticated, loading, refreshBillingStatus])
+  }, [accountStatus, billingStatus, billingStatusLoaded, commerceId, isAuthenticated, isSubscriptionRoute, loading, role, router])
 
   if (loading) {
     return (
@@ -42,7 +36,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     )
   }
 
-  if (!isAuthenticated || !hasApplicationAccess({ accountStatus, commerceId, role })) {
+  if (!isAuthenticated) {
     return null
   }
 

@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { GeistSans } from 'geist/font/sans'
 import { GeistMono } from 'geist/font/mono'
 import { ApiProvider } from '@/components/providers/api-provider'
+import { AuthRefreshProvider } from '@/components/providers/auth-refresh-provider'
 import { Toaster } from '@/components/ui/sonner'
 import './globals.css'
 
@@ -28,6 +29,7 @@ html {
       </head>
       <body>
         <ApiProvider>
+          <AuthRefreshProvider />
           <Toaster />
           {children}
         </ApiProvider>

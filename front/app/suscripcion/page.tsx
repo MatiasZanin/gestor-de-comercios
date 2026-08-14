@@ -1,5 +1,5 @@
-import { SubscriptionPage } from "@/components/billing/subscription-page"
+import { redirect } from "next/navigation"
 
 export default function SuscripcionPage() {
-  return <SubscriptionPage />
+  redirect("/dashboard/suscripcion")
 }

@@ -1,3 +1,4 @@
+import type { BillingStatusResponse } from "@/lib/types/api"
 import type { AuthState, CognitoUser as CognitoUserType, LoginCredentials } from "@/lib/types/auth"
 import {
   AuthenticationDetails,
@@ -29,6 +30,8 @@ try {
 }
 
 const BILLING_STATUSES = new Set(["pending_subscription", "trial", "active", "past_due", "cancelled"])
+
+export const authStateEvents = new EventTarget()
 
 function normalizeAccountStatus(value: unknown): AuthState["accountStatus"] {
   return typeof value === "string" && BILLING_STATUSES.has(value) ? value : null
@@ -75,6 +78,11 @@ function buildAuthStateFromPayload(payload: any, token: string): AuthState {
   }
 }
 
+function notifyAuthStateChanged() {
+  if (typeof window === "undefined") return
+  authStateEvents.dispatchEvent(new Event("change"))
+}
+
 // Evento global para notificar que la sesión expiró
 export const sessionEvents = new EventTarget()
 
@@ -91,6 +99,9 @@ export class AuthService {
   private pendingReauth: { resolve: (value: boolean) => void } | null = null
   private tempCognitoUser: CognitoUser | null = null
   private tempUserAttributes: any = null
+  private lastBillingRefreshAt = 0
+  private lastBillingStatus: BillingStatusResponse | null = null
+  private billingStatusLoaded = false
 
   static getInstance(): AuthService {
     if (!AuthService.instance) {
@@ -130,6 +141,7 @@ export class AuthService {
 
     try {
       localStorage.setItem("authState", JSON.stringify(this.authState))
+      notifyAuthStateChanged()
     } catch (error) {
       console.error("Error saving auth state to storage:", error)
     }
@@ -234,6 +246,9 @@ export class AuthService {
     }
 
     this.clearStorage()
+    this.lastBillingStatus = null
+    this.billingStatusLoaded = false
+    notifyAuthStateChanged()
   }
 
   async getValidToken(): Promise<string | null> {
@@ -295,11 +310,11 @@ export class AuthService {
       cognitoUser.getSession((error: Error | null, session: CognitoUserSession | null) => {
         if (error || !session) return resolve(null)
         cognitoUser.refreshSession(session.getRefreshToken(), (refreshError, refreshedSession) => {
-          if (refreshError || !refreshedSession) return resolve(null)
-          const idToken = refreshedSession.getIdToken()
-          this.authState = buildAuthStateFromPayload(idToken.payload, idToken.getJwtToken())
-          this.saveToStorage()
-          resolve(idToken.getJwtToken())
+        if (refreshError || !refreshedSession) return resolve(null)
+        const idToken = refreshedSession.getIdToken()
+        this.authState = buildAuthStateFromPayload(idToken.payload, idToken.getJwtToken())
+        this.saveToStorage()
+        resolve(idToken.getJwtToken())
         })
       })
     })
@@ -357,6 +372,28 @@ export class AuthService {
 
   getCurrentUser(): CognitoUserType | null {
     return this.authState.user
+  }
+
+  markBillingRefresh(): void {
+    this.lastBillingRefreshAt = Date.now()
+  }
+
+  getLastBillingRefreshAt(): number {
+    return this.lastBillingRefreshAt
+  }
+
+  setBillingStatus(status: BillingStatusResponse | null): void {
+    this.lastBillingStatus = status
+    this.billingStatusLoaded = true
+    notifyAuthStateChanged()
+  }
+
+  getBillingStatus(): BillingStatusResponse | null {
+    return this.lastBillingStatus
+  }
+
+  isBillingStatusLoaded(): boolean {
+    return this.billingStatusLoaded
   }
 }
 

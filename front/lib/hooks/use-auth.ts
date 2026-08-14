@@ -1,8 +1,9 @@
 "use client"
 
-import { authService } from "@/lib/auth/cognito"
+import { authService, authStateEvents } from "@/lib/auth/cognito"
 import { apiClient } from "@/lib/api/client"
 import type { AuthState, LoginCredentials } from "@/lib/types/auth"
+import type { BillingStatusResponse } from "@/lib/types/api"
 import { useCallback, useEffect, useState } from "react"
 
 export function useAuth() {
@@ -10,9 +11,23 @@ export function useAuth() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [requiresNewPassword, setRequiresNewPassword] = useState(false)
+  const [billingStatus, setBillingStatus] = useState<BillingStatusResponse | null>(authService.getBillingStatus())
+  const [billingStatusLoaded, setBillingStatusLoaded] = useState(authService.isBillingStatusLoaded())
 
   useEffect(() => {
-    // setAuthState(authService.getAuthState())
+    const syncAuthState = () => {
+      setAuthState(authService.getAuthState())
+      setBillingStatus(authService.getBillingStatus())
+      setBillingStatusLoaded(authService.isBillingStatusLoaded())
+    }
+
+    authStateEvents.addEventListener("change", syncAuthState)
+    window.addEventListener("storage", syncAuthState)
+
+    return () => {
+      authStateEvents.removeEventListener("change", syncAuthState)
+      window.removeEventListener("storage", syncAuthState)
+    }
   }, [])
 
   const refreshBillingStatus = useCallback(
@@ -22,8 +37,12 @@ export function useAuth() {
       }
 
       const status = await apiClient.getBillingStatus(options)
+      authService.setBillingStatus(status)
       await authService.forceRefreshToken()
+      authService.markBillingRefresh()
       setAuthState(authService.getAuthState())
+      setBillingStatus(status)
+      setBillingStatusLoaded(true)
       return status
     },
     [setAuthState],
@@ -38,7 +57,7 @@ export function useAuth() {
       const newAuthState = await authService.login(credentials)
       setAuthState(newAuthState)
       try {
-        await refreshBillingStatus()
+        await refreshBillingStatus({ forceRefresh: true })
       } catch (refreshError) {
         console.warn("No se pudo sincronizar el estado de suscripción después del login", refreshError)
       }
@@ -68,7 +87,7 @@ export function useAuth() {
       setAuthState(newAuthState)
       setRequiresNewPassword(false)
       try {
-        await refreshBillingStatus()
+        await refreshBillingStatus({ forceRefresh: true })
       } catch (refreshError) {
         console.warn("No se pudo sincronizar el estado de suscripción después del cambio de contraseña", refreshError)
       }
@@ -98,5 +117,7 @@ export function useAuth() {
     logout,
     completeNewPassword,
     refreshBillingStatus,
+    billingStatus,
+    billingStatusLoaded,
   }
 }

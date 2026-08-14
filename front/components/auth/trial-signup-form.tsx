@@ -52,7 +52,7 @@ export function TrialSignupForm({ config }: { config: PublicBillingConfig }) {
       setRegistrationId(response.registrationId)
       setMaskedEmail(response.maskedEmail)
       if (response.status !== "email_verification_pending") {
-        window.location.assign("/login?next=/suscripcion")
+        window.location.assign("/login?next=/dashboard/suscripcion")
       }
     } catch (err: any) {
       setError(err?.message || "No se pudo crear la cuenta")

@@ -59,9 +59,8 @@ export function LoginForm() {
     e.preventDefault()
     try {
       const nextAuth = await login({ username, password })
-      const requested = new URLSearchParams(window.location.search).get("next")
       const destination = authenticatedHome(nextAuth)
-      router.replace(requested === "/suscripcion" && destination === "/suscripcion" ? requested : destination)
+      router.replace(destination)
     } catch {
       // El estado de error se muestra inline.
     }
