@@ -36,7 +36,7 @@ export function productPayload(overrides: ProductOverrides = {}, index = 0): Cre
 }
 
 export function saleItemFromProduct(
-  product: { code: string; name: string; priceBuy: number; priceSale: number; uom: string; brand?: string; category?: string },
+  product: { code: string; name: string; priceBuy?: number; priceSale: number; uom: string; brand?: string; category?: string },
   qty = 1,
   overrides: Partial<SaleItemInput> = {}
 ): SaleItemInput {
@@ -44,7 +44,7 @@ export function saleItemFromProduct(
     code: overrides.code ?? product.code,
     name: overrides.name ?? product.name,
     qty: overrides.qty ?? qty,
-    priceBuy: overrides.priceBuy ?? product.priceBuy,
+    priceBuy: overrides.priceBuy ?? product.priceBuy ?? 0,
     priceSale: overrides.priceSale ?? product.priceSale,
     uom: overrides.uom ?? product.uom,
     brand: overrides.brand ?? product.brand,
@@ -111,7 +111,7 @@ export function offerPayload(
   }
 }
 
-export function closurePayload(overrides: Record<string, unknown> = {}) {
+export function closurePayload(overrides: Partial<import("@/lib/types/api").CreateCashCloseRequest> = {}): import("@/lib/types/api").CreateCashCloseRequest {
   return {
     declaredCash: overrides.declaredCash ?? 10000,
     expenses: overrides.expenses ?? 250,
@@ -120,4 +120,3 @@ export function closurePayload(overrides: Record<string, unknown> = {}) {
     ...overrides,
   }
 }
-

@@ -141,10 +141,11 @@ test.describe("sales", () => {
     await page.keyboard.press("Enter")
 
     const quantity = page.getByLabel(`Cantidad de ${product.name}`)
+    const cartLine = quantity.locator("xpath=ancestor::div[contains(@class, 'border')][1]")
     await expect(quantity).toBeDisabled()
     await expect(quantity).toHaveValue("0.75")
     await expect(page.getByText("Precio balanza")).toBeVisible()
-    await expect(page.getByText(/1\.500,00/).first()).toBeVisible()
+    await expect(cartLine.getByText(/1\.500,00/)).toBeVisible()
     await expect(page.getByText("Oferta", { exact: true })).toHaveCount(0)
 
     await saleItemRow(page, product.code).getByRole("button").click()

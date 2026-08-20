@@ -20,6 +20,10 @@ import type {
   SaleListResponse,
   ScaleBarcodeConfig,
   ScaleBarcodeConfigResponse,
+  CreateManagedUserRequest,
+  ManagedUser,
+  ManagedUserListResponse,
+  UpdateManagedUserRequest,
 } from "@/lib/types/api"
 
 type Role = "admin" | "vendor"
@@ -357,4 +361,24 @@ export async function getRestockAlerts(options: { role?: Role; commerceId?: stri
     role: options.role,
     commerceId: options.commerceId,
   })
+}
+
+export async function listManagedUsers(options: { role?: Role; commerceId?: string } = {}) {
+  return requestWithAuth<ManagedUserListResponse>("/users", options)
+}
+
+export async function createManagedUser(data: CreateManagedUserRequest, options: { role?: Role; commerceId?: string } = {}) {
+  return requestWithAuth<ManagedUser>("/users", { method: "POST", body: JSON.stringify(data), ...options })
+}
+
+export async function updateManagedUser(userId: string, data: UpdateManagedUserRequest | Record<string, unknown>, options: { role?: Role; commerceId?: string } = {}) {
+  return requestWithAuth<ManagedUser>(`/users/${encodeURIComponent(userId)}`, { method: "PUT", body: JSON.stringify(data), ...options })
+}
+
+export async function resetManagedUserPassword(userId: string, options: { role?: Role; commerceId?: string } = {}) {
+  return requestWithAuth<{ message: string }>(`/users/${encodeURIComponent(userId)}/reset-password`, { method: "POST", ...options })
+}
+
+export async function disableManagedUser(userId: string, options: { role?: Role; commerceId?: string } = {}) {
+  return requestWithAuth<{ message: string }>(`/users/${encodeURIComponent(userId)}`, { method: "DELETE", ...options })
 }

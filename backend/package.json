@@ -18,6 +18,8 @@
     "clean-sales": "tsx src/helpers/db/sales-clean.ts",
     "delete-user-data": "tsx src/helpers/db/delete-user-data.ts",
     "reconcile-billing-users": "tsx src/helpers/db/reconcile-billing-users.ts",
+    "reconcile-commerce-users": "tsx src/helpers/db/reconcile-commerce-users.ts",
+    "seed-user-commerce": "tsx src/helpers/db/seed-user-commerce.ts",
     "seed-complete": "tsx src/helpers/db/seed-complete/01-init.ts && tsx src/helpers/db/seed-complete/02-sales.ts && tsx src/helpers/db/seed-complete/03-sales-reports.ts && tsx src/helpers/db/seed-complete/04-cierres-caja.ts"
   },
   "dependencies": {

@@ -291,6 +291,7 @@ Resources:
                   - dynamodb:PutItem
                   - dynamodb:UpdateItem
                   - dynamodb:Query
+                  - dynamodb:DeleteItem
                   - dynamodb:ConditionCheckItem
                   - dynamodb:DescribeTable
                 Resource: !GetAtt GestionComercios.Arn
@@ -313,10 +314,15 @@ Resources:
               - Effect: Allow
                 Action:
                   - cognito-idp:AdminCreateUser
+                  - cognito-idp:AdminDeleteUser
+                  - cognito-idp:AdminDisableUser
                   - cognito-idp:AdminGetUser
+                  - cognito-idp:AdminListGroupsForUser
+                  - cognito-idp:AdminResetUserPassword
                   - cognito-idp:AdminSetUserPassword
                   - cognito-idp:AdminUpdateUserAttributes
                   - cognito-idp:AdminAddUserToGroup
+                  - cognito-idp:AdminRemoveUserFromGroup
                   - cognito-idp:ListUsers
                   - cognito-idp:ConfirmSignUp
                   - cognito-idp:ResendConfirmationCode
@@ -884,6 +890,85 @@ Resources:
             ApiId: !Ref HttpApi
             Path: '/{commerceId}/billing/subscribe'
             Method: POST
+
+  ListUsersFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub listUsers-${CommerceStage}
+      CodeUri: ./dist
+      Handler: handlers/listUsers.handler
+      Role: !GetAtt LambdaDynamoRole.Arn
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: '/{commerceId}/users'
+            Method: GET
+
+  CreateUserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub createUser-${CommerceStage}
+      CodeUri: ./dist
+      Handler: handlers/createUser.handler
+      Role: !GetAtt LambdaDynamoRole.Arn
+      Timeout: 30
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: '/{commerceId}/users'
+            Method: POST
+
+  UpdateUserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub updateUser-${CommerceStage}
+      CodeUri: ./dist
+      Handler: handlers/updateUser.handler
+      Role: !GetAtt LambdaDynamoRole.Arn
+      Timeout: 30
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: '/{commerceId}/users/{userId}'
+            Method: PUT
+
+  ResetUserPasswordFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub resetUserPassword-${CommerceStage}
+      CodeUri: ./dist
+      Handler: handlers/resetUserPassword.handler
+      Role: !GetAtt LambdaDynamoRole.Arn
+      Timeout: 30
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: '/{commerceId}/users/{userId}/reset-password'
+            Method: POST
+
+  DisableUserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub disableUser-${CommerceStage}
+      CodeUri: ./dist
+      Handler: handlers/disableUser.handler
+      Role: !GetAtt LambdaDynamoRole.Arn
+      Timeout: 30
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: '/{commerceId}/users/{userId}'
+            Method: DELETE
 
 Outputs:
   HttpApiUrl:

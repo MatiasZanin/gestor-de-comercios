@@ -101,6 +101,9 @@ export const mockRestockAlerts: RestockAlert[] = [
 export const mockInventoryValuation: InventoryValuation = {
     totalCostPrice: 2450000,
     totalSalePrice: 3675000,
+    totalCost: 2450000,
+    totalRetail: 3675000,
+    count: 0,
 };
 
 // Stale products (no movement)

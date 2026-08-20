@@ -1,5 +1,5 @@
 import { authService } from "@/lib/auth/cognito"
-import type { ApiError, BillingStatusResponse, CreateSubscriptionResponse, Product, ScaleBarcodeConfig, ScaleBarcodeConfigResponse } from "@/lib/types/api"
+import type { ApiError, BillingStatusResponse, CreateManagedUserRequest, CreateSubscriptionResponse, ManagedUser, ManagedUserListResponse, Product, ScaleBarcodeConfig, ScaleBarcodeConfigResponse, UpdateManagedUserRequest } from "@/lib/types/api"
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL!
 
@@ -307,6 +307,29 @@ export class ApiClient {
 
   async cancelSubscription(): Promise<BillingStatusResponse> {
     return this.makeRequest("/billing/cancel", { method: "POST" })
+  }
+
+  async listUsers(): Promise<ManagedUserListResponse> {
+    return this.makeRequest("/users")
+  }
+
+  async createUser(data: CreateManagedUserRequest): Promise<ManagedUser> {
+    return this.makeRequest("/users", { method: "POST", body: JSON.stringify(data) })
+  }
+
+  async updateUser(userId: string, data: UpdateManagedUserRequest): Promise<ManagedUser> {
+    return this.makeRequest(`/users/${encodeURIComponent(userId)}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    })
+  }
+
+  async resetUserPassword(userId: string): Promise<{ message: string }> {
+    return this.makeRequest(`/users/${encodeURIComponent(userId)}/reset-password`, { method: "POST" })
+  }
+
+  async disableUser(userId: string): Promise<{ message: string }> {
+    return this.makeRequest(`/users/${encodeURIComponent(userId)}`, { method: "DELETE" })
   }
 
   // Closure endpoints

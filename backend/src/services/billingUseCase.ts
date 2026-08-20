@@ -27,6 +27,7 @@ import type {
   WebhookEventRecord,
 } from "../models/billing"
 import { DEFAULT_SCALE_BARCODE_CONFIG, type CommerceProfile } from "../models/commerce"
+import type { CommerceUserProfile } from "../models/user"
 import {
   MercadoPagoApiError,
   MercadoPagoClient,
@@ -265,10 +266,25 @@ export async function createPublicRegistration(
       createdAt,
       updatedAt: createdAt,
     }
+    const ownerUser: CommerceUserProfile = {
+      PK: `COM#${commerceId}`,
+      SK: `USER#${ownerCognitoSub}`,
+      type: "COMMERCE_USER",
+      commerceId,
+      cognitoSub: ownerCognitoSub,
+      cognitoUsername: email,
+      email,
+      firstName: input.firstName.trim(),
+      lastName: input.lastName.trim(),
+      role: "admin",
+      createdAt,
+      updatedAt: createdAt,
+    }
     await Promise.all([
       putItem({ ...registration, ownerCognitoSub }),
       putItem(commerce),
       putItem(billing),
+      putItem(ownerUser),
     ])
   } catch (error) {
     // The durable registration makes a partial signup observable and recoverable.

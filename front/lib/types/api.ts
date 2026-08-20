@@ -223,6 +223,38 @@ export interface CreateSubscriptionResponse {
   includesTrial: boolean
 }
 
+export type UserRole = "admin" | "vendedor"
+export type ManagedUserStatus = "active" | "invited" | "password_reset_required"
+
+export interface ManagedUser {
+  userId: string
+  firstName: string
+  lastName: string
+  fullName: string
+  email: string
+  emailVerified: boolean
+  role: UserRole
+  status: ManagedUserStatus
+  isOwner: boolean
+}
+
+export interface ManagedUserListResponse {
+  items: ManagedUser[]
+}
+
+export interface CreateManagedUserRequest {
+  firstName: string
+  lastName: string
+  email: string
+  role: UserRole
+}
+
+export interface UpdateManagedUserRequest {
+  firstName: string
+  lastName: string
+  role: UserRole
+}
+
 // Common API Parameters
 export interface PaginationParams {
   lastKey?: string
@@ -230,9 +262,12 @@ export interface PaginationParams {
 
 export interface ProductListParams extends PaginationParams {
   isActive?: boolean
+  name?: string
+  code?: string
 }
 
 export interface SaleListParams extends PaginationParams {
+  saleId?: string
   day?: string // YYYY-MM-DD
   start?: string // YYYY-MM-DD
   end?: string // YYYY-MM-DD
@@ -264,14 +299,14 @@ export interface CashClose {
   userId: string
   openedAt: string
   closedAt: string
-  systemTotalCash?: number
-  systemTotalCard?: number
-  systemTotalTransfer?: number
-  systemTotalOther?: number
+  systemTotalCash: number
+  systemTotalCard: number
+  systemTotalTransfer: number
+  systemTotalOther: number
   declaredCash: number
   expenses: number
   initialFund: number
-  difference?: number
+  difference: number
   notes?: string
 }
 
@@ -298,7 +333,7 @@ export interface CashCloseDetailResponse {
 }
 
 // Audit Log Models
-export type AuditAction = 'PRODUCT_CREATE' | 'PRODUCT_UPDATE' | 'SALE_CREATE' | 'REGISTER_CLOSE' | 'OFFER_CREATE' | 'OFFER_UPDATE' | 'OFFER_FINISH' | 'SCALE_BARCODE_CONFIG_UPDATE'
+export type AuditAction = 'PRODUCT_CREATE' | 'PRODUCT_UPDATE' | 'SALE_CREATE' | 'REGISTER_CLOSE' | 'OFFER_CREATE' | 'OFFER_UPDATE' | 'OFFER_FINISH' | 'SCALE_BARCODE_CONFIG_UPDATE' | 'USER_CREATE' | 'USER_UPDATE' | 'USER_PASSWORD_RESET' | 'USER_DISABLE'
 
 export const ACTION_LABELS: Record<AuditAction, string> = {
   PRODUCT_CREATE: 'Producto creado',
@@ -309,6 +344,10 @@ export const ACTION_LABELS: Record<AuditAction, string> = {
   OFFER_UPDATE: 'Oferta actualizada',
   OFFER_FINISH: 'Oferta finalizada',
   SCALE_BARCODE_CONFIG_UPDATE: 'Configuración de balanza actualizada',
+  USER_CREATE: 'Usuario creado',
+  USER_UPDATE: 'Usuario actualizado',
+  USER_PASSWORD_RESET: 'Contraseña restablecida',
+  USER_DISABLE: 'Usuario deshabilitado',
 }
 
 export const DETAIL_FIELD_LABELS: Record<string, string> = {
@@ -336,6 +375,11 @@ export const DETAIL_FIELD_LABELS: Record<string, string> = {
   endDate: 'Fecha fin',
   scope: 'Alcance',
   scaleBarcodeConfig: 'Configuración de balanza',
+  targetUserId: 'ID de usuario',
+  targetEmail: 'Email del usuario',
+  role: 'Rol',
+  firstName: 'Nombre',
+  lastName: 'Apellido',
 }
 
 export interface AuditLog {

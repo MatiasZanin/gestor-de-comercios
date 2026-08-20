@@ -211,6 +211,11 @@ export function LoginForm() {
                   Crear cuenta gratis
                 </Link>
               </div>
+              <div className="text-center text-sm">
+                <Link href="/restablecer-contrasena" className="font-medium text-emerald-700 hover:text-emerald-800">
+                  Olvidé mi contraseña
+                </Link>
+              </div>
             </form>
           )}
         </CardContent>

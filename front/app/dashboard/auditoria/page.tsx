@@ -33,6 +33,10 @@ const ACTION_COLORS: Record<AuditAction, string> = {
     OFFER_UPDATE: "bg-teal-100 text-teal-800 border-teal-200",
     OFFER_FINISH: "bg-rose-100 text-rose-800 border-rose-200",
     SCALE_BARCODE_CONFIG_UPDATE: "bg-indigo-100 text-indigo-800 border-indigo-200",
+    USER_CREATE: "bg-emerald-100 text-emerald-800 border-emerald-200",
+    USER_UPDATE: "bg-blue-100 text-blue-800 border-blue-200",
+    USER_PASSWORD_RESET: "bg-amber-100 text-amber-800 border-amber-200",
+    USER_DISABLE: "bg-red-100 text-red-800 border-red-200",
 }
 
 const DISCOUNT_TYPE_LABELS: Record<string, string> = {

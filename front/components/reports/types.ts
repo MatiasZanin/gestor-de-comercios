@@ -9,6 +9,14 @@ export interface DailySummaryItem {
     [key: string]: any;
 }
 
+export interface DailySummary {
+    date: string;
+    ticketCount: number;
+    totalSales: number;
+    byPaymentMethod: { efectivo: number; tarjeta: number; transferencia: number };
+    byHour: Record<string, number>;
+}
+
 // Respuesta de getRestockAlerts
 export interface RestockAlertItem {
     code: string;
@@ -17,6 +25,7 @@ export interface RestockAlertItem {
     minStock: number;
     alertStatus: "LOW" | "OK";
 }
+export type RestockAlert = RestockAlertItem;
 
 // Respuesta de getMonthlyRanking
 export interface RankingItem {
@@ -25,6 +34,18 @@ export interface RankingItem {
     monthlyUnits: number;
     priceSale?: number;
     uom?: string;
+}
+export type MonthlyRanking = RankingItem;
+
+export interface CashClosure {
+    closureId: string;
+    closedAt: string;
+    ticketCount: number;
+    totalCash: number;
+    totalCard: number;
+    totalTransfer: number;
+    total: number;
+    closedBy: string;
 }
 
 // Respuesta de listClosures
@@ -49,6 +70,16 @@ export interface InventoryValuation {
     totalCost: number;
     totalRetail: number;
     count: number;
+    totalCostPrice?: number;
+    totalSalePrice?: number;
+}
+
+export interface StaleProduct {
+    code: string;
+    name: string;
+    stock: number;
+    lastSaleDate: string | null;
+    daysWithoutSale: number;
 }
 
 // Respuesta de getStaleProducts

@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/lib/hooks/use-auth"
 import { cn } from "@/lib/utils"
-import { Banknote, BarChart3, ClipboardList, LogOut, Menu, Package, ShoppingCart, Tag, User, X } from "lucide-react"
+import { Banknote, BarChart3, ClipboardList, LogOut, Menu, Package, ShoppingCart, Tag, User, Users, X } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useState } from "react"
@@ -17,6 +17,7 @@ const fullNavigation = [
   { name: "Cierres", href: "/dashboard/cierres", icon: Banknote },
   { name: "Reportes", href: "/dashboard/reportes", icon: BarChart3 },
   { name: "Auditoría", href: "/dashboard/auditoria", icon: ClipboardList },
+  { name: "Gestor de usuarios", href: "/dashboard/usuarios", icon: Users, adminOnly: true },
   { name: "Suscripción", href: "/dashboard/suscripcion", icon: User },
 ]
 
@@ -28,7 +29,9 @@ export function Sidebar() {
   const { user, accountStatus, commerceId, role, billingStatus, billingStatusLoaded, logout } = useAuth()
 
   const canAccessApp = hasApplicationAccess({ accountStatus, commerceId, role }, billingStatus, billingStatusLoaded)
-  const navigation = canAccessApp ? fullNavigation : limitedNavigation
+  const navigation = canAccessApp
+    ? fullNavigation.filter((item) => !("adminOnly" in item && item.adminOnly) || role === "admin")
+    : limitedNavigation
 
   const handleLogout = () => {
     logout()

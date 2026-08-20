@@ -10,12 +10,6 @@ import {
 const userPoolId = process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID
 const clientId = process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID
 
-if (!userPoolId || !clientId) {
-  throw new Error(
-    "Missing required Cognito configuration. Please ensure NEXT_PUBLIC_COGNITO_USER_POOL_ID and NEXT_PUBLIC_COGNITO_CLIENT_ID are set in your environment variables.",
-  )
-}
-
 let userPool: CognitoUserPool | null = null
 
 try {
@@ -227,6 +221,31 @@ export class AuthService {
           },
         }
       )
+    })
+  }
+
+  async requestPasswordReset(usernameInput: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      if (!userPool) return reject(new Error("Missing required Cognito configuration"))
+      const username = usernameInput.includes("@") ? usernameInput.trim().toLowerCase() : usernameInput.trim()
+      const cognitoUser = new CognitoUser({ Username: username, Pool: userPool })
+      cognitoUser.forgotPassword({
+        onSuccess: () => resolve(),
+        onFailure: reject,
+        inputVerificationCode: () => resolve(),
+      })
+    })
+  }
+
+  async confirmPasswordReset(usernameInput: string, code: string, newPassword: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      if (!userPool) return reject(new Error("Missing required Cognito configuration"))
+      const username = usernameInput.includes("@") ? usernameInput.trim().toLowerCase() : usernameInput.trim()
+      const cognitoUser = new CognitoUser({ Username: username, Pool: userPool })
+      cognitoUser.confirmPassword(code.trim(), newPassword, {
+        onSuccess: () => resolve(),
+        onFailure: reject,
+      })
     })
   }
 
