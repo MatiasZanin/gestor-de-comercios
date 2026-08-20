@@ -39,6 +39,7 @@ export function useAuth() {
       const status = await apiClient.getBillingStatus(options)
       authService.setBillingStatus(status)
       await authService.forceRefreshToken()
+      authService.setBillingStatus(status)
       authService.markBillingRefresh()
       setAuthState(authService.getAuthState())
       setBillingStatus(status)

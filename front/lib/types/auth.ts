@@ -18,6 +18,7 @@ export interface AuthState {
   commerceId: string | null
   accountStatus: "pending_subscription" | "trial" | "active" | "past_due" | "cancelled" | string | null
   role: "admin" | "vendedor" | null
+  isCommerceOwner: boolean | null
 }
 
 export interface LoginCredentials {

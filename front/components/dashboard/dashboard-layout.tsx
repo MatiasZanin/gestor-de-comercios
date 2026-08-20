@@ -23,8 +23,12 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     if (!loading && !isAuthenticated) {
       router.push("/login")
     }
+    if (!loading && isAuthenticated && billingStatusLoaded && isSubscriptionRoute && !billingStatus?.canManageSubscription) {
+      router.replace(hasApplicationAccess({ accountStatus, commerceId, role }, billingStatus, true) ? "/dashboard" : "/acceso-restringido")
+      return
+    }
     if (!loading && isAuthenticated && !hasApplicationAccess({ accountStatus, commerceId, role }, billingStatus, billingStatusLoaded) && !isSubscriptionRoute) {
-      router.replace("/dashboard/suscripcion")
+      router.replace(billingStatus?.canManageSubscription ? "/dashboard/suscripcion" : "/acceso-restringido")
     }
   }, [accountStatus, billingStatus, billingStatusLoaded, commerceId, isAuthenticated, isSubscriptionRoute, loading, role, router])
 

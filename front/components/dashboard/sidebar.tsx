@@ -29,9 +29,13 @@ export function Sidebar() {
   const { user, accountStatus, commerceId, role, billingStatus, billingStatusLoaded, logout } = useAuth()
 
   const canAccessApp = hasApplicationAccess({ accountStatus, commerceId, role }, billingStatus, billingStatusLoaded)
+  const canManageSubscription = billingStatus?.canManageSubscription === true
   const navigation = canAccessApp
-    ? fullNavigation.filter((item) => !("adminOnly" in item && item.adminOnly) || role === "admin")
-    : limitedNavigation
+    ? fullNavigation.filter((item) => {
+        if (item.href === "/dashboard/suscripcion" && !canManageSubscription) return false
+        return !("adminOnly" in item && item.adminOnly) || role === "admin"
+      })
+    : canManageSubscription ? limitedNavigation : []
 
   const handleLogout = () => {
     logout()
@@ -43,6 +47,8 @@ export function Sidebar() {
       <Button
         variant="ghost"
         size="icon"
+        aria-label={isOpen ? "Cerrar menú" : "Abrir menú"}
+        aria-expanded={isOpen}
         className="fixed top-4 right-4 z-50 md:hidden bg-white shadow-lg"
         onClick={() => setIsOpen(!isOpen)}
       >

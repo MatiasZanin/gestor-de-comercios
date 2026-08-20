@@ -20,15 +20,15 @@ export function LoginForm() {
   const [newPassword, setNewPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [passwordError, setPasswordError] = useState("")
-  const { login, completeNewPassword, loading, error, requiresNewPassword, isAuthenticated, accountStatus, commerceId, role } =
+  const { login, completeNewPassword, loading, error, requiresNewPassword, isAuthenticated, accountStatus, commerceId, role, isCommerceOwner } =
     useAuth()
   const router = useRouter()
 
   useEffect(() => {
     if (!loading && isAuthenticated) {
-      router.replace(authenticatedHome({ accountStatus, commerceId, role }))
+      router.replace(authenticatedHome({ accountStatus, commerceId, role, isCommerceOwner }))
     }
-  }, [accountStatus, commerceId, isAuthenticated, loading, role, router])
+  }, [accountStatus, commerceId, isAuthenticated, isCommerceOwner, loading, role, router])
 
   const validatePassword = (pass: string): boolean => {
     if (pass.length < 8) {

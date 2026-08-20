@@ -69,6 +69,7 @@ function buildAuthStateFromPayload(payload: any, token: string): AuthState {
     commerceId: user.commerceId,
     accountStatus: user.accountStatus ?? null,
     role: user.role ?? null,
+    isCommerceOwner: null,
   }
 }
 
@@ -89,6 +90,7 @@ export class AuthService {
     commerceId: null,
     accountStatus: null,
     role: null,
+    isCommerceOwner: null,
   }
   private pendingReauth: { resolve: (value: boolean) => void } | null = null
   private tempCognitoUser: CognitoUser | null = null
@@ -122,6 +124,7 @@ export class AuthService {
           commerceId: parsed.commerceId ?? null,
           accountStatus: normalizeAccountStatus(parsed.accountStatus),
           role: parsed.role ?? null,
+          isCommerceOwner: typeof parsed.isCommerceOwner === "boolean" ? parsed.isCommerceOwner : null,
         }
       }
     } catch (error) {
@@ -262,6 +265,7 @@ export class AuthService {
       commerceId: null,
       accountStatus: null,
       role: null,
+      isCommerceOwner: null,
     }
 
     this.clearStorage()
@@ -404,6 +408,8 @@ export class AuthService {
   setBillingStatus(status: BillingStatusResponse | null): void {
     this.lastBillingStatus = status
     this.billingStatusLoaded = true
+    this.authState.isCommerceOwner = status?.canManageSubscription ?? null
+    this.saveToStorage()
     notifyAuthStateChanged()
   }
 

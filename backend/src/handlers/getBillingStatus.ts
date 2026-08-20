@@ -3,6 +3,7 @@ import { BadRequestError, buildErrorResponse, NotFoundError } from "../helpers/e
 import { assertCommerceAccess } from "../helpers/assertCommerceAccess"
 import { formatJSONResponse } from "../utils/api-response"
 import { getProtectedBillingStatus } from "../services/billingUseCase"
+import { authenticatedSubject } from "../helpers/assertCommerceOwner"
 
 function parseBoolean(value: string | undefined) {
   return value === "true" || value === "1" || value === "yes"
@@ -20,7 +21,10 @@ export const handler = async (
     await assertCommerceAccess(event, commerceId, { requireSubscription: false })
 
     const forceRefresh = parseBoolean(event.queryStringParameters?.forceRefresh)
-    const status = await getProtectedBillingStatus(commerceId, { forceRefresh })
+    const status = await getProtectedBillingStatus(commerceId, {
+      forceRefresh,
+      actorSub: authenticatedSubject(event),
+    })
     if (!status) {
       throw new NotFoundError("Billing profile not found")
     }

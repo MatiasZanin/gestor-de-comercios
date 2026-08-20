@@ -149,6 +149,7 @@ export interface ApiError {
 }
 
 export type BillingStatus = "pending_subscription" | "trial" | "active" | "past_due" | "cancelled"
+export type SubscriptionViewState = "never_subscribed" | "checkout_pending" | "trial_active" | "active" | "cancellation_scheduled" | "cancelled" | "expired" | "payment_pending" | "payment_rejected"
 
 export interface PublicBillingConfig {
   monthlyAmount: number
@@ -208,7 +209,14 @@ export interface BillingStatusResponse {
   commerceId: string
   merchantName: string
   status: BillingStatus
+  viewState: SubscriptionViewState
+  canManageSubscription: boolean
   trialConsumed: boolean
+  trialEligible: boolean
+  relevantDate?: {
+    kind: "trial_ends" | "renews" | "access_until" | "grace_until" | "ended"
+    value: string
+  }
   trialEndsAt?: string
   currentPeriodEndsAt?: string
   graceUntil?: string
@@ -221,6 +229,11 @@ export interface CreateSubscriptionResponse {
   checkoutUrl: string
   status: BillingStatus
   includesTrial: boolean
+}
+
+export interface CancelSubscriptionResponse {
+  billing: BillingStatusResponse
+  notificationStatus: "pending" | "queued" | "sent" | "failed"
 }
 
 export type UserRole = "admin" | "vendedor"

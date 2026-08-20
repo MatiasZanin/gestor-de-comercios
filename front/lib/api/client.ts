@@ -1,5 +1,5 @@
 import { authService } from "@/lib/auth/cognito"
-import type { ApiError, BillingStatusResponse, CreateManagedUserRequest, CreateSubscriptionResponse, ManagedUser, ManagedUserListResponse, Product, ScaleBarcodeConfig, ScaleBarcodeConfigResponse, UpdateManagedUserRequest } from "@/lib/types/api"
+import type { ApiError, BillingStatusResponse, CancelSubscriptionResponse, CreateManagedUserRequest, CreateSubscriptionResponse, ManagedUser, ManagedUserListResponse, Product, ScaleBarcodeConfig, ScaleBarcodeConfigResponse, UpdateManagedUserRequest } from "@/lib/types/api"
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL!
 
@@ -298,15 +298,20 @@ export class ApiClient {
     return this.makeRequest(`/billing/status${query ? `?${query}` : ""}`)
   }
 
-  async createSubscription(payerEmail: string): Promise<CreateSubscriptionResponse> {
+  async createSubscription(payerEmail: string, idempotencyKey: string): Promise<CreateSubscriptionResponse> {
     return this.makeRequest("/billing/subscribe", {
       method: "POST",
+      headers: { "Idempotency-Key": idempotencyKey },
       body: JSON.stringify({ payerEmail }),
     })
   }
 
-  async cancelSubscription(): Promise<BillingStatusResponse> {
-    return this.makeRequest("/billing/cancel", { method: "POST" })
+  async cancelSubscription(reason: string, idempotencyKey: string): Promise<CancelSubscriptionResponse> {
+    return this.makeRequest("/billing/cancel", {
+      method: "POST",
+      headers: { "Idempotency-Key": idempotencyKey },
+      body: JSON.stringify({ reason }),
+    })
   }
 
   async listUsers(): Promise<ManagedUserListResponse> {

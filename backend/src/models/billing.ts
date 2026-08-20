@@ -117,7 +117,14 @@ export interface BillingStatusResponse {
   commerceId: string
   merchantName: string
   status: BillingStatus
+  viewState: SubscriptionViewState
+  canManageSubscription: boolean
   trialConsumed: boolean
+  trialEligible: boolean
+  relevantDate?: {
+    kind: "trial_ends" | "renews" | "access_until" | "grace_until" | "ended"
+    value: string
+  }
   trialEndsAt?: string
   currentPeriodEndsAt?: string
   graceUntil?: string
@@ -130,6 +137,65 @@ export interface CreateSubscriptionResponse {
   checkoutUrl: string
   status: BillingStatus
   includesTrial: boolean
+}
+
+export type SubscriptionViewState =
+  | "never_subscribed"
+  | "checkout_pending"
+  | "trial_active"
+  | "active"
+  | "cancellation_scheduled"
+  | "cancelled"
+  | "expired"
+  | "payment_pending"
+  | "payment_rejected"
+
+export type CancellationNotificationStatus = "pending" | "queued" | "sent" | "failed"
+
+export interface BillingCancellationRecord {
+  PK: string
+  SK: string
+  type: "BILLING_CANCELLATION"
+  commerceId: string
+  cancellationId: string
+  idempotencyKeyHash: string
+  status: "processing" | "completed" | "failed"
+  notificationStatus: CancellationNotificationStatus
+  subscriptionId: string
+  merchantName: string
+  ownerEmail: string
+  actorEmail?: string
+  billingPayerEmail?: string
+  reason: string
+  cancelledAt?: string
+  createdAt: string
+  updatedAt: string
+  ttl: number
+}
+
+export interface CancellationFeedbackMessage {
+  cancellationId: string
+  commerceId: string
+  recordKey: { PK: string; SK: string }
+}
+
+export interface CancelSubscriptionResponse {
+  billing: BillingStatusResponse
+  notificationStatus: CancellationNotificationStatus
+}
+
+export interface BillingActionRecord {
+  PK: string
+  SK: string
+  type: "BILLING_ACTION"
+  commerceId: string
+  action: "subscribe"
+  idempotencyKeyHash: string
+  status: "processing" | "completed" | "failed"
+  response?: CreateSubscriptionResponse
+  createdAt: string
+  updatedAt: string
+  ttl: number
 }
 
 export interface BillingPayerLink {

@@ -11,7 +11,7 @@ import { TrialSignupForm } from "@/components/auth/trial-signup-form"
 import { authenticatedHome } from "@/lib/auth/account-access"
 
 export default function RegistrarmePage() {
-  const { isAuthenticated, loading, accountStatus, commerceId, role } = useAuth()
+  const { isAuthenticated, loading, accountStatus, commerceId, role, isCommerceOwner } = useAuth()
   const router = useRouter()
   const [config, setConfig] = useState<PublicBillingConfig | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -19,9 +19,9 @@ export default function RegistrarmePage() {
 
   useEffect(() => {
     if (!loading && isAuthenticated) {
-      router.replace(authenticatedHome({ accountStatus, commerceId, role }))
+      router.replace(authenticatedHome({ accountStatus, commerceId, role, isCommerceOwner }))
     }
-  }, [accountStatus, commerceId, isAuthenticated, loading, role, router])
+  }, [accountStatus, commerceId, isAuthenticated, isCommerceOwner, loading, role, router])
 
   useEffect(() => {
     let mounted = true

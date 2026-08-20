@@ -30,6 +30,11 @@ export function hasApplicationAccess(
   return state.accountStatus === null && !!state.commerceId && !!state.role
 }
 
-export function authenticatedHome(state: Pick<AuthState, "accountStatus" | "commerceId" | "role">): string {
-  return hasApplicationAccess(state) ? "/dashboard" : "/dashboard/suscripcion"
+export function authenticatedHome(
+  state: Pick<AuthState, "accountStatus" | "commerceId" | "role"> & { isCommerceOwner?: boolean | null }
+): string {
+  if (hasApplicationAccess(state)) return "/dashboard"
+  return state.isCommerceOwner === true
+    ? "/dashboard/suscripcion"
+    : "/acceso-restringido"
 }

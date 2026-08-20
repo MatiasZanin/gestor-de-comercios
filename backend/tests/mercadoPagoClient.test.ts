@@ -60,6 +60,19 @@ describe("MercadoPagoClient", () => {
     expect(String(fetchMock.mock.calls[0][0])).toContain("limit=10")
   })
 
+  it("cancels future charges through the Mercado Pago preapproval API", async () => {
+    const fetchMock = jest.spyOn(global, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ id: "subscription-1", status: "cancelled" }), { status: 200 })
+    )
+
+    await new MercadoPagoClient("token").cancelSubscription("subscription-1")
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.mercadopago.com/preapproval/subscription-1",
+      expect.objectContaining({ method: "PUT", body: JSON.stringify({ status: "cancelled" }) })
+    )
+  })
+
   it("preserves the Mercado Pago response status in API errors", async () => {
     jest.spyOn(global, "fetch").mockResolvedValue(
       new Response(JSON.stringify({ message: "not found" }), { status: 404 })

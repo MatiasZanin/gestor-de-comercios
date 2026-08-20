@@ -7,18 +7,18 @@ import { Loader2 } from "lucide-react"
 import { authenticatedHome } from "@/lib/auth/account-access"
 
 export default function HomePage() {
-  const { isAuthenticated, loading, accountStatus, commerceId, role } = useAuth()
+  const { isAuthenticated, loading, accountStatus, commerceId, role, isCommerceOwner } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
     if (!loading) {
       if (isAuthenticated) {
-        router.replace(authenticatedHome({ accountStatus, commerceId, role }))
+        router.replace(authenticatedHome({ accountStatus, commerceId, role, isCommerceOwner }))
       } else {
         router.replace("/login")
       }
     }
-  }, [accountStatus, commerceId, isAuthenticated, loading, role, router])
+  }, [accountStatus, commerceId, isAuthenticated, isCommerceOwner, loading, role, router])
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 to-orange-50">

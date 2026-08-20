@@ -37,6 +37,9 @@ describe("getBillingStatus handler", () => {
       "commerce-1",
       { requireSubscription: false },
     )
-    expect(mockedGetBillingStatus).toHaveBeenCalledWith("commerce-1", { forceRefresh: true })
+    expect(mockedGetBillingStatus).toHaveBeenCalledWith("commerce-1", {
+      forceRefresh: true,
+      actorSub: "",
+    })
   })
 })

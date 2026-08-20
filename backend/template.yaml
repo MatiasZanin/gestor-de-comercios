@@ -62,6 +62,14 @@ Parameters:
     Type: String
     Default: ''
     Description: ID del plan mensual sin trial para reactivaciones.
+  CancellationEmailFrom:
+    Type: String
+    Default: clientes@gestionystock.com
+    Description: Identidad remitente verificada en Amazon SES.
+  CancellationEmailTo:
+    Type: String
+    Default: clientes@gestionystock.com
+    Description: Destino de los motivos de cancelación.
 
 Globals:
   Function:
@@ -90,6 +98,9 @@ Globals:
         MERCADO_PAGO_REACTIVATION_PLAN_ID: !Ref MercadoPagoReactivationPlanId
         COGNITO_USER_POOL_ID: !Ref UserPool
         COGNITO_CLIENT_ID: !Ref UserPoolClient
+        CANCELLATION_FEEDBACK_QUEUE_URL: !Ref CancellationFeedbackQueue
+        CANCELLATION_EMAIL_FROM: !Ref CancellationEmailFrom
+        CANCELLATION_EMAIL_TO: !Ref CancellationEmailTo
 
 Resources:
   ## DynamoDB single-table para productos y ventas
@@ -125,6 +136,8 @@ Resources:
       TimeToLiveSpecification:
         AttributeName: ttl
         Enabled: true
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
       GlobalSecondaryIndexes:
         - IndexName: GSI-Ventas-Por-Dia
           KeySchema:
@@ -313,6 +326,13 @@ Resources:
                 Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/GestionComercios-${CommerceStage}/index/GSI-Ranking-Mensual
               - Effect: Allow
                 Action:
+                  - dynamodb:DescribeStream
+                  - dynamodb:GetRecords
+                  - dynamodb:GetShardIterator
+                  - dynamodb:ListStreams
+                Resource: !GetAtt GestionComercios.StreamArn
+              - Effect: Allow
+                Action:
                   - cognito-idp:AdminCreateUser
                   - cognito-idp:AdminDeleteUser
                   - cognito-idp:AdminDisableUser
@@ -327,8 +347,96 @@ Resources:
                   - cognito-idp:ConfirmSignUp
                   - cognito-idp:ResendConfirmationCode
                 Resource: !Sub arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${UserPool}
+              - Effect: Allow
+                Action:
+                  - sqs:SendMessage
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
+                  - sqs:GetQueueAttributes
+                Resource:
+                  - !GetAtt CancellationFeedbackQueue.Arn
+                  - !GetAtt CancellationFeedbackDeadLetterQueue.Arn
+              - Effect: Allow
+                Action:
+                  - ses:SendEmail
+                Resource: '*'
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+  CancellationFeedbackDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub cancellation-feedback-dlq-${CommerceStage}.fifo
+      FifoQueue: true
+      ContentBasedDeduplication: false
+      SqsManagedSseEnabled: true
+      MessageRetentionPeriod: 1209600
+
+  CancellationFeedbackQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub cancellation-feedback-${CommerceStage}.fifo
+      FifoQueue: true
+      ContentBasedDeduplication: false
+      SqsManagedSseEnabled: true
+      VisibilityTimeout: 60
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt CancellationFeedbackDeadLetterQueue.Arn
+        maxReceiveCount: 5
+
+  CancellationFeedbackDlqAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: !Sub Fallos de entrega de motivos de cancelación (${CommerceStage})
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt CancellationFeedbackDeadLetterQueue.QueueName
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+
+  SendCancellationFeedbackFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub sendCancellationFeedback-${CommerceStage}
+      CodeUri: ./dist
+      Handler: handlers/sendCancellationFeedback.handler
+      Role: !GetAtt LambdaDynamoRole.Arn
+      Timeout: 30
+      Events:
+        FeedbackQueue:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt CancellationFeedbackQueue.Arn
+            BatchSize: 5
+            FunctionResponseTypes:
+              - ReportBatchItemFailures
+
+  PublishCancellationFeedbackFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub publishCancellationFeedback-${CommerceStage}
+      CodeUri: ./dist
+      Handler: handlers/publishCancellationFeedback.handler
+      Role: !GetAtt LambdaDynamoRole.Arn
+      Timeout: 30
+      Events:
+        CancellationOutbox:
+          Type: DynamoDB
+          Properties:
+            Stream: !GetAtt GestionComercios.StreamArn
+            StartingPosition: LATEST
+            BatchSize: 10
+            MaximumRetryAttempts: 5
+            BisectBatchOnFunctionError: true
+            FilterCriteria:
+              Filters:
+                - Pattern: '{ "eventName": ["INSERT", "MODIFY"], "dynamodb": { "NewImage": { "type": { "S": ["BILLING_CANCELLATION"] }, "status": { "S": ["completed"] }, "notificationStatus": { "S": ["pending"] } } } }'
 
   ## Lambdas y rutas
   CreateProductFunction:
