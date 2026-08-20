@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Plus, Minus, X, RotateCcw, Tag } from "lucide-react"
-import { formatCurrency } from "@/lib/utils/sales-utils"
+import { formatCurrency, formatQuantity, getSaleItemTotal } from "@/lib/utils/sales-utils"
 import type { SaleItem } from "@/lib/types/api"
 
 interface SaleCartProps {
@@ -19,7 +19,7 @@ interface SaleCartProps {
 export function SaleCart({ items, qtyInputs, onUpdateQty, onUpdateQtyInput, onRemove, onToggleReturn, total }: SaleCartProps) {
 
     const handleInputChange = (code: string, value: string) => {
-        if (value === "" || /^\d*\.?\d{0,2}$/.test(value)) {
+        if (value === "" || /^\d*\.?\d{0,10}$/.test(value)) {
             onUpdateQtyInput(code, value)
             if (value !== "" && value !== "." && !value.endsWith(".")) {
                 const n = Number.parseFloat(value)
@@ -41,7 +41,7 @@ export function SaleCart({ items, qtyInputs, onUpdateQty, onUpdateQtyInput, onRe
                 onUpdateQtyInput(code, "")
                 onUpdateQty(code, 0)
             } else {
-                onUpdateQtyInput(code, n.toFixed(2))
+                onUpdateQtyInput(code, formatQuantity(n))
                 onUpdateQty(code, n)
             }
         }
@@ -64,7 +64,8 @@ export function SaleCart({ items, qtyInputs, onUpdateQty, onUpdateQtyInput, onRe
                             {items.map((item) => {
                                 const isReturn = item.qty < 0
                                 const absQty = Math.abs(item.qty)
-                                const qtyInput = qtyInputs[item.code] ?? absQty.toFixed(2)
+                                const qtyInput = qtyInputs[item.code] ?? formatQuantity(absQty)
+                                const isScalePrice = item.scalePriceTotal !== undefined
                                 return (
                                     <div
                                         key={item.code}
@@ -85,6 +86,11 @@ export function SaleCart({ items, qtyInputs, onUpdateQty, onUpdateQtyInput, onRe
                                                     <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded shrink-0 flex items-center gap-0.5">
                                                         <Tag className="w-2.5 h-2.5" />
                                                         {item.offerName || 'Oferta'}
+                                                    </span>
+                                                )}
+                                                {isScalePrice && (
+                                                    <span className="text-[10px] font-semibold uppercase tracking-wider text-orange-700 bg-orange-100 px-1.5 py-0.5 rounded shrink-0">
+                                                        Precio balanza
                                                     </span>
                                                 )}
                                             </div>
@@ -121,10 +127,11 @@ export function SaleCart({ items, qtyInputs, onUpdateQty, onUpdateQtyInput, onRe
 
                                             <Button
                                                 type="button" size="icon" variant="outline" className="h-7 w-7"
+                                                disabled={isScalePrice}
                                                 onClick={() => {
                                                     const newAbsQty = Math.max(0, absQty - 1)
                                                     onUpdateQty(item.code, newAbsQty)
-                                                    onUpdateQtyInput(item.code, newAbsQty.toFixed(2))
+                                                    onUpdateQtyInput(item.code, formatQuantity(newAbsQty))
                                                 }}
                                             >
                                                 <Minus className="w-3 h-3" />
@@ -137,21 +144,26 @@ export function SaleCart({ items, qtyInputs, onUpdateQty, onUpdateQtyInput, onRe
                                                 onChange={(e) => handleInputChange(item.code, e.target.value)}
                                                 onBlur={(e) => handleInputBlur(item.code, e.target.value)}
                                                 className="w-16 h-8 text-center text-sm px-1"
+                                                disabled={isScalePrice}
+                                                aria-label={`Cantidad de ${item.name}`}
                                             />
 
                                             <Button
                                                 type="button" size="icon" variant="outline" className="h-7 w-7"
+                                                disabled={isScalePrice}
                                                 onClick={() => {
                                                     const newAbsQty = absQty + 1
                                                     onUpdateQty(item.code, newAbsQty)
-                                                    onUpdateQtyInput(item.code, newAbsQty.toFixed(2))
+                                                    onUpdateQtyInput(item.code, formatQuantity(newAbsQty))
                                                 }}
                                             >
                                                 <Plus className="w-3 h-3" />
                                             </Button>
 
                                             <div className={`w-20 text-right font-medium text-sm mx-1 ${isReturn ? "text-red-600" : ""}`}>
-                                                {formatCurrency(item.qty * (item.discountApplied ? item.priceSale - item.discountApplied : item.priceSale))}
+                                                {formatCurrency(isScalePrice
+                                                    ? getSaleItemTotal(item)
+                                                    : item.qty * (item.discountApplied ? item.priceSale - item.discountApplied : item.priceSale))}
                                             </div>
 
                                             <Button

@@ -7,6 +7,7 @@ import {
 import { BadRequestError, buildErrorResponse } from '../helpers/errors';
 import { assertCommerceAccess } from '../helpers/assertCommerceAccess';
 import { formatJSONResponse } from '../utils/api-response';
+import { getSaleItemProfit, getSaleItemTotal } from '../services/domain';
 
 const dynamoClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(dynamoClient);
@@ -68,9 +69,8 @@ export const handler = async (
             };
           }
           aggregated[key].units += item.qty;
-          aggregated[key].revenue += item.priceSale * item.qty;
-          aggregated[key].profit +=
-            (item.priceSale - (item.priceBuy || 0)) * item.qty;
+          aggregated[key].revenue += getSaleItemTotal(item);
+          aggregated[key].profit += getSaleItemProfit(item);
         }
       }
       exclusiveStartKey = result.LastEvaluatedKey;

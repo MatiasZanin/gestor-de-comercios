@@ -15,6 +15,7 @@ import {
   ChevronRight,
   X,
   Download,
+  Scale,
 } from "lucide-react"
 // -------------------------
 
@@ -43,6 +44,7 @@ import { ProductForm } from "@/components/products/product-form"
 import { DeleteProductDialog } from "@/components/products/delete-product-dialog"
 import { DashboardLayout } from "../../../components/dashboard/dashboard-layout"
 import { ExportCSVModal } from "@/components/shared/export-csv-modal"
+import { ScaleBarcodeConfigModal } from "@/components/products/scale-barcode-config-modal"
 
 // --- Nuevo Tipo ---
 // Tipo para las claves de ordenamiento
@@ -68,6 +70,7 @@ export default function ProductsPage() {
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null)
   const [lastKey, setLastKey] = useState<string | undefined>()
   const [showExportModal, setShowExportModal] = useState(false)
+  const [showScaleConfig, setShowScaleConfig] = useState(false)
 
   const isAdmin = user?.["cognito:groups"]?.includes("admin")
 
@@ -223,6 +226,16 @@ export default function ProductsPage() {
           </div>
           <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
 
+            {isAdmin && (
+              <Button
+                variant="outline"
+                onClick={() => setShowScaleConfig(true)}
+                className="w-full sm:w-auto"
+              >
+                <Scale className="w-4 h-4 mr-2" />
+                Configurar balanza
+              </Button>
+            )}
             {isAdmin && (
               <Button
                 variant="outline"
@@ -646,6 +659,7 @@ export default function ProductsPage() {
           open={showExportModal}
           onOpenChange={setShowExportModal}
         />
+        <ScaleBarcodeConfigModal open={showScaleConfig} onOpenChange={setShowScaleConfig} />
       </div>
     </DashboardLayout >
   )

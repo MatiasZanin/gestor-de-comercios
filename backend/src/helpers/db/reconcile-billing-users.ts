@@ -2,6 +2,7 @@ import { CognitoIdentityProviderClient, AdminAddUserToGroupCommand, AdminGetUser
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb"
 import { DynamoDBDocumentClient, PutCommand, ScanCommand } from "@aws-sdk/lib-dynamodb"
 import type { BillingProfile, RegistrationRecord } from "../../models/billing"
+import { DEFAULT_SCALE_BARCODE_CONFIG } from "../../models/commerce"
 
 const tableName = process.env.TABLE_NAME
 const userPoolId = process.env.COGNITO_USER_POOL_ID
@@ -60,6 +61,7 @@ async function main() {
         merchantName: profile.merchantName,
         ownerCognitoSub: sub,
         ownerEmail: profile.ownerEmail,
+        scaleBarcodeConfig: DEFAULT_SCALE_BARCODE_CONFIG,
         createdAt: profile.createdAt,
         updatedAt: new Date().toISOString(),
       },

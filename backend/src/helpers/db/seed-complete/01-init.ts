@@ -1,6 +1,7 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, BatchWriteCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
 import { buildOfferRecord, buildProductRecord, patchOfferRecord, patchProductRecord } from '../../../services/domain';
+import { DEFAULT_SCALE_BARCODE_CONFIG } from '../../../models/commerce';
 import { logAudit } from '../../auditLogger';
 import {
   addDaysToDay,
@@ -19,6 +20,27 @@ const REGION = process.env.AWS_REGION || 'us-east-1';
 
 const client = new DynamoDBClient({ region: REGION });
 const docClient = DynamoDBDocumentClient.from(client);
+
+async function seedCommerceProfile(): Promise<void> {
+  const now = SEED_CONFIG.productCreatedAt;
+  await docClient.send(
+    new PutCommand({
+      TableName: TABLE_NAME,
+      Item: {
+        PK: `COM#${COMMERCE_ID}`,
+        SK: 'PROFILE',
+        type: 'COMMERCE',
+        commerceId: COMMERCE_ID,
+        merchantName: 'G&S Comercio Demo',
+        ownerCognitoSub: SEED_CONFIG.seedActorId,
+        ownerEmail: SEED_CONFIG.seedActorEmail,
+        scaleBarcodeConfig: DEFAULT_SCALE_BARCODE_CONFIG,
+        createdAt: now,
+        updatedAt: now,
+      },
+    })
+  );
+}
 
 async function seedMetadata(): Promise<void> {
   const categories = [...new Set(SEED_PRODUCTS.map((product) => product.category).filter(Boolean))] as string[];
@@ -266,6 +288,7 @@ async function applyOfferTweaks(): Promise<void> {
 async function main(): Promise<void> {
   console.log(`Seeding base data for COM#${COMMERCE_ID}`);
   await cleanCommerceItems(docClient, TABLE_NAME, COMMERCE_ID);
+  await seedCommerceProfile();
   await seedMetadata();
   await seedProducts();
   await applyProductTweaks();

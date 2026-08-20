@@ -12,6 +12,7 @@ export interface SaleItem {
   offerName?: string;          // Nombre de la oferta aplicada
   brand?: string;
   category?: string;
+  scalePriceTotal?: number;
 }
 
 export type PaymentMethod = 'CASH' | 'CARD' | 'TRANSFER' | 'OTHER';

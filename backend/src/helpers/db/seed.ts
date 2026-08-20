@@ -1,6 +1,7 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, PutCommand, QueryCommand, DeleteCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { randomUUID } from 'crypto';
+import { DEFAULT_SCALE_BARCODE_CONFIG } from '../../models/commerce';
 
 // CONFIGURACIÓN
 const TABLE_NAME = 'GestionComercios-dev'; // Asegúrate de que coincida con tu tabla en AWS o local
@@ -46,6 +47,22 @@ async function main() {
     );
     await Promise.all(deletePromises);
     console.log(`✅ ${itemsToDelete.length} items eliminados.`);
+
+    await docClient.send(new PutCommand({
+        TableName: TABLE_NAME,
+        Item: {
+            PK: `COM#${COMMERCE_ID}`,
+            SK: 'PROFILE',
+            type: 'COMMERCE',
+            commerceId: COMMERCE_ID,
+            merchantName: 'G&S Comercio Demo',
+            ownerCognitoSub: 'seed-admin',
+            ownerEmail: 'seed@local',
+            scaleBarcodeConfig: DEFAULT_SCALE_BARCODE_CONFIG,
+            createdAt: NOW,
+            updatedAt: NOW,
+        }
+    }));
 
     // 2. CREAR PRODUCTOS
     console.log('📦 Creando productos...');

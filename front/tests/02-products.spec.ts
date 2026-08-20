@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test"
 import { ADMIN_STATE_PATH, VENDOR_STATE_PATH } from "./helpers/paths"
-import { createProduct, listProducts } from "./helpers/api"
+import { createProduct, listProducts, updateScaleBarcodeConfig } from "./helpers/api"
 import { productPayload, makeRunId } from "./helpers/data"
 
 async function createCatalogProducts(runId: string) {
@@ -105,6 +105,30 @@ test.describe("products", () => {
       })
       .toBe(false)
   })
+
+  test("configures how scale barcodes are interpreted", async ({ page }) => {
+    await updateScaleBarcodeConfig({ valueType: "weight", unit: "kg", decimals: 3 })
+    await page.goto("/dashboard/productos")
+    await page.getByRole("button", { name: "Configurar balanza" }).click()
+
+    const dialog = page.getByRole("dialog", { name: "Configurar balanza" })
+    await expect(dialog).toBeVisible()
+    await expect(dialog.locator("#scale-value-type")).toContainText("Peso")
+
+    await dialog.locator("#scale-value-type").click()
+    await page.getByRole("option", { name: "Precio total" }).click()
+    await dialog.locator("#scale-decimals").click()
+    await page.getByRole("option", { name: "2", exact: true }).click()
+    await dialog.getByRole("button", { name: "Guardar" }).click()
+    await expect(page.getByText("Configuración de balanza guardada")).toBeVisible()
+
+    await page.getByRole("button", { name: "Configurar balanza" }).click()
+    await expect(page.getByRole("dialog").locator("#scale-value-type")).toContainText("Precio total")
+    await expect(page.getByRole("dialog").locator("#scale-decimals")).toContainText("2")
+    await page.getByRole("dialog").getByRole("button", { name: "Cancelar" }).click()
+
+    await updateScaleBarcodeConfig({ valueType: "weight", unit: "kg", decimals: 3 })
+  })
 })
 
 test.describe("products role access", () => {
@@ -115,6 +139,7 @@ test.describe("products role access", () => {
     await expect(page.getByText("Lista de Productos")).toBeVisible()
     await expect(page.getByRole("button", { name: "Nuevo Producto" })).toHaveCount(0)
     await expect(page.getByRole("button", { name: "Exportar" })).toHaveCount(0)
+    await expect(page.getByRole("button", { name: "Configurar balanza" })).toHaveCount(0)
     await expect(page.getByRole("button", { name: /Editar|Eliminar/ })).toHaveCount(0)
   })
 })

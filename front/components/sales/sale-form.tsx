@@ -1,17 +1,16 @@
 "use client"
 
-import { useEffect, useCallback } from "react"
-import type React from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { useSaleForm } from "@/lib/hooks/use-sale-form" // Asegurate que la ruta sea correcta
+import { useSaleForm } from "@/lib/hooks/use-sale-form"; // Asegurate que la ruta sea correcta
+import type { Sale } from "@/lib/types/api"
+import { formatCurrency } from "@/lib/utils/sales-utils"
+import { useCallback, useEffect } from "react"
+import { CheckoutModal } from "./checkout-modal"
 import { OtherPriceModal } from "./other-price-modal"
 import { ProductList } from "./product-list"
 import { SaleCart } from "./sale-cart"
 import { SuccessModal } from "./success-modal"
-import type { Sale } from "@/lib/types/api"
-import { formatCurrency } from "@/lib/utils/sales-utils"
-import { CheckoutModal } from "./checkout-modal"
 
 interface SaleFormProps {
   onSuccess: (sale: Sale) => void
@@ -81,6 +80,14 @@ export function SaleForm({ onSuccess, onCancel, initialItems }: SaleFormProps) {
           </div>
 
           {/* Aviso de Stock (flotante o fijo, aquí lo ponemos fijo abajo para no molestar layout) */}
+          {(state.error || state.scaleConfigError) && (
+            <div className={`rounded border p-2 text-center text-sm font-medium shrink-0 ${state.error
+              ? "bg-red-50 border-red-200 text-red-700"
+              : "bg-amber-50 border-amber-200 text-amber-800"
+              }`}>
+              {state.error || `La configuración de balanza no está disponible: ${state.scaleConfigError}`}
+            </div>
+          )}
           {state.stockWarning && (
             <div className="bg-amber-100 border border-amber-200 rounded p-2 text-amber-800 text-center text-sm font-medium animate-in fade-in shrink-0">
               ⚠️ {state.stockWarning}

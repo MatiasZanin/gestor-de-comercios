@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test"
+import { expect, test } from "@playwright/test"
 import { ADMIN_STATE_PATH } from "./helpers/paths"
 
 test.describe("authentication", () => {
@@ -7,7 +7,7 @@ test.describe("authentication", () => {
   test("redirects anonymous users to login", async ({ page }) => {
     await page.goto("/dashboard")
     await expect(page).toHaveURL(/\/login/)
-    await expect(page.getByText("Sistema de Ventas", { exact: true })).toBeVisible()
+    await expect(page.getByText("Ingresar al sistema", { exact: true })).toBeVisible()
   })
 
   test("rejects invalid credentials", async ({ page }) => {
@@ -32,6 +32,6 @@ test.describe("logout", () => {
       (button as HTMLButtonElement).click()
     })
     await page.waitForURL(/\/login/)
-    await expect(page.getByText("Sistema de Ventas", { exact: true })).toBeVisible()
+    await expect(page.getByText("Ingresar al sistema", { exact: true })).toBeVisible()
   })
 })

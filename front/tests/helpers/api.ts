@@ -18,6 +18,8 @@ import type {
   Sale,
   SaleListParams,
   SaleListResponse,
+  ScaleBarcodeConfig,
+  ScaleBarcodeConfigResponse,
 } from "@/lib/types/api"
 
 type Role = "admin" | "vendor"
@@ -172,6 +174,25 @@ export async function listProducts(params: ProductListParams = {}, options: { ro
 
 export async function getMetadata(options: { role?: Role; commerceId?: string } = {}) {
   return requestWithAuth<{ categories: string[]; iva_rates: number[] }>("/metadata", {
+    role: options.role,
+    commerceId: options.commerceId,
+  })
+}
+
+export async function getScaleBarcodeConfig(options: { role?: Role; commerceId?: string } = {}) {
+  return requestWithAuth<ScaleBarcodeConfigResponse>("/scale-barcode-config", {
+    role: options.role,
+    commerceId: options.commerceId,
+  })
+}
+
+export async function updateScaleBarcodeConfig(
+  scaleBarcodeConfig: ScaleBarcodeConfig,
+  options: { role?: Role; commerceId?: string } = {}
+) {
+  return requestWithAuth<ScaleBarcodeConfigResponse>("/scale-barcode-config", {
+    method: "PUT",
+    body: JSON.stringify({ scaleBarcodeConfig }),
     role: options.role,
     commerceId: options.commerceId,
   })
@@ -337,4 +358,3 @@ export async function getRestockAlerts(options: { role?: Role; commerceId?: stri
     commerceId: options.commerceId,
   })
 }
-

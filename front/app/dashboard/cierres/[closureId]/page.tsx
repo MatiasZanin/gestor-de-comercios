@@ -12,6 +12,7 @@ import type { CashClose, Sale, CashCloseDetailResponse } from "@/lib/types/api"
 import { PAYMENT_METHOD_LABELS } from "@/lib/types/api"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
+import { getSaleItemTotal } from "@/lib/utils/sales-utils"
 
 export default function ClosureDetailPage() {
     const params = useParams()
@@ -279,7 +280,7 @@ export default function ClosureDetailPage() {
                                                     <div className="flex justify-between items-start">
                                                         <div className="font-medium text-gray-900 text-sm">{item.name}</div>
                                                         <div className="font-bold text-gray-900 text-sm tabular-nums">
-                                                            {formatCurrency(item.qty * item.priceSale)}
+                                                            {formatCurrency(getSaleItemTotal(item))}
                                                         </div>
                                                     </div>
                                                     <div className="text-xs text-gray-600 space-y-0.5">
@@ -331,7 +332,7 @@ export default function ClosureDetailPage() {
                                                             <td className="px-5 py-1 whitespace-nowrap w-0 text-left tabular-nums">{item.qty} {item.uom}</td>
                                                             <td className="px-5 py-1 whitespace-nowrap w-0 text-left tabular-nums">{formatCurrency(item.priceSale)}</td>
                                                             <td className="px-5 py-1 whitespace-nowrap w-0 text-left tabular-nums font-medium">
-                                                                {formatCurrency(item.qty * item.priceSale)}
+                                                                {formatCurrency(getSaleItemTotal(item))}
                                                             </td>
                                                             {index === 0 && (
                                                                 <td className="px-5 py-1 whitespace-nowrap w-0 text-left" rowSpan={sale.items.length}>

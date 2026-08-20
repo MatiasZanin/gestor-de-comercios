@@ -35,6 +35,7 @@ import { format, startOfMonth, subDays } from "date-fns"
 import { es } from "date-fns/locale"
 import { DashboardLayout } from "../../../components/dashboard/dashboard-layout"
 import { ExportCSVModal, escapeCSVValue, downloadCSV } from "@/components/shared/export-csv-modal"
+import { getSaleItemTotal } from "@/lib/utils/sales-utils"
 
 export default function SalesPage() {
   const { user } = useAuth()
@@ -309,7 +310,7 @@ export default function SalesPage() {
           item.uom ?? "",
           item.priceBuy ?? 0,
           item.priceSale ?? 0,
-          (item.qty ?? 0) * (item.priceSale ?? 0),
+          getSaleItemTotal(item),
           sale.total ?? 0,
           sale.profit,
           sale.notes ?? "",
@@ -530,7 +531,7 @@ export default function SalesPage() {
                                   )}
                                 </div>
                                 <div className={`font-bold text-sm tabular-nums ${isReturn ? "text-red-600" : "text-gray-900"}`}>
-                                  {formatCurrency(item.qty * item.priceSale)}
+                                  {formatCurrency(getSaleItemTotal(item))}
                                 </div>
                               </div>
                               <div className="text-xs text-gray-600 space-y-0.5">
@@ -631,7 +632,7 @@ export default function SalesPage() {
                                     )}
                                   </td>
                                   <td className={`px-3 py-1 whitespace-nowrap text-left tabular-nums font-medium ${isReturn ? "text-red-600" : ""}`}>
-                                    {formatCurrency(item.qty * item.priceSale)}
+                                    {formatCurrency(getSaleItemTotal(item))}
                                   </td>
                                 </tr>
                               )

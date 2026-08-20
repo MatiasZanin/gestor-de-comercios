@@ -11,6 +11,7 @@ import type { Sale, SaleItem } from "@/lib/types/api"
 import { PAYMENT_METHOD_LABELS } from "@/lib/types/api"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
+import { getSaleItemTotal } from "@/lib/utils/sales-utils"
 
 interface ReturnTicketModalProps {
     onClose: () => void
@@ -152,7 +153,7 @@ export function ReturnTicketModal({ onClose, onGenerateReturn }: ReturnTicketMod
                                                     )}
                                                 </div>
                                                 <span className={`font-bold tabular-nums ${isReturn ? "text-red-600" : ""}`}>
-                                                    {formatCurrency(item.qty * item.priceSale)}
+                                                    {formatCurrency(getSaleItemTotal(item))}
                                                 </span>
                                             </div>
                                             <div className="text-xs text-gray-600 mt-0.5 flex justify-between">

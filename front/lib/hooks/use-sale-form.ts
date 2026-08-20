@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react"
 import { apiClient } from "@/lib/api/client"
-import type { Product, CreateSaleRequest, Sale, SaleItem, PaymentMethod, Offer } from "@/lib/types/api"
-import { parseVariableWeightEAN13 } from "@/lib/utils/sales-utils"
+import type { Product, CreateSaleRequest, Sale, SaleItem, PaymentMethod, Offer, ScaleBarcodeConfig } from "@/lib/types/api"
+import { convertScaleWeight, formatQuantity, getSaleItemTotal, parseVariableWeightEAN13 } from "@/lib/utils/sales-utils"
 
 interface UseSaleFormProps {
     onSuccess: (sale: Sale) => void
@@ -16,6 +16,9 @@ export function useSaleForm({ onSuccess, initialItems }: UseSaleFormProps) {
     const [error, setError] = useState("")
     const [stockWarning, setStockWarning] = useState<string | null>(null)
     const [showCheckoutModal, setShowCheckoutModal] = useState(false)
+    const [scaleConfig, setScaleConfig] = useState<ScaleBarcodeConfig | null>(null)
+    const [loadingScaleConfig, setLoadingScaleConfig] = useState(true)
+    const [scaleConfigError, setScaleConfigError] = useState("")
 
     // Estado del formulario
     const [selectedItems, setSelectedItems] = useState<SaleItem[]>(initialItems ?? [])
@@ -26,7 +29,7 @@ export function useSaleForm({ onSuccess, initialItems }: UseSaleFormProps) {
         if (!initialItems) return {}
         const inputs: Record<string, string> = {}
         for (const item of initialItems) {
-            inputs[item.code] = Math.abs(item.qty).toFixed(2)
+            inputs[item.code] = formatQuantity(Math.abs(item.qty))
         }
         return inputs
     })
@@ -59,10 +62,25 @@ export function useSaleForm({ onSuccess, initialItems }: UseSaleFormProps) {
         }
     }, [])
 
+    const loadScaleConfig = useCallback(async () => {
+        setLoadingScaleConfig(true)
+        setScaleConfigError("")
+        try {
+            const response = await apiClient.getScaleBarcodeConfig()
+            setScaleConfig(response.scaleBarcodeConfig)
+        } catch (error) {
+            setScaleConfig(null)
+            setScaleConfigError(error instanceof Error ? error.message : "No se pudo cargar la configuración de balanza")
+        } finally {
+            setLoadingScaleConfig(false)
+        }
+    }, [])
+
     useEffect(() => {
         loadProducts()
         loadOffers()
-    }, [loadProducts, loadOffers])
+        loadScaleConfig()
+    }, [loadProducts, loadOffers, loadScaleConfig])
 
     useEffect(() => {
         if (!showSuccess) return
@@ -81,6 +99,7 @@ export function useSaleForm({ onSuccess, initialItems }: UseSaleFormProps) {
         setSelectedItems((items) =>
             items.map((item) => {
                 if (item.code !== code) return item
+                if (item.scalePriceTotal !== undefined) return item
                 const absQty = Math.abs(qty)
                 const sign = item.qty < 0 ? -1 : 1
                 return { ...item, qty: sign * absQty }
@@ -107,6 +126,7 @@ export function useSaleForm({ onSuccess, initialItems }: UseSaleFormProps) {
     }
 
     const addItem = (product: Product, specificQty: number = 1) => {
+        setError("")
         // Aviso de stock menor o igual a 0
         if (product.stock !== undefined && product.stock <= 0) {
             setStockWarning(`¡Atención! El producto "${product.name}" no tiene stock disponible.`)
@@ -116,11 +136,15 @@ export function useSaleForm({ onSuccess, initialItems }: UseSaleFormProps) {
         const existingItem = selectedItems.find((item) => item.code === product.code)
 
         if (existingItem) {
+            if (existingItem.scalePriceTotal !== undefined) {
+                setError("Este producto ya fue agregado con una etiqueta de precio. Quitalo antes de agregarlo manualmente.")
+                return
+            }
             const newQty = existingItem.qty + specificQty
             setSelectedItems((items) =>
                 items.map((item) => (item.code === product.code ? { ...item, qty: newQty } : item))
             )
-            updateQtyInput(product.code, newQty.toFixed(2))
+            updateQtyInput(product.code, formatQuantity(Math.abs(newQty)))
         } else {
             const newItem: SaleItem = {
                 code: product.code,
@@ -133,8 +157,42 @@ export function useSaleForm({ onSuccess, initialItems }: UseSaleFormProps) {
                 category: product.category,
             }
             setSelectedItems((items) => [...items, newItem])
-            updateQtyInput(product.code, specificQty.toFixed(2))
+            updateQtyInput(product.code, formatQuantity(Math.abs(specificQty)))
         }
+    }
+
+    const addScalePriceItem = (product: Product, qty: number, totalPrice: number) => {
+        const existingItem = selectedItems.find((item) => item.code === product.code)
+        if (existingItem && existingItem.scalePriceTotal === undefined) {
+            setError("Este producto ya fue agregado manualmente. Quitalo antes de escanear la etiqueta de precio.")
+            return false
+        }
+
+        if (existingItem) {
+            const nextQty = existingItem.qty + qty
+            setSelectedItems((items) => items.map((item) =>
+                item.code === product.code
+                    ? { ...item, qty: nextQty, scalePriceTotal: item.scalePriceTotal! + totalPrice }
+                    : item
+            ))
+            updateQtyInput(product.code, formatQuantity(Math.abs(nextQty)))
+        } else {
+            const item: SaleItem = {
+                code: product.code,
+                name: product.name,
+                qty,
+                priceBuy: product.priceBuy || 0,
+                priceSale: product.priceSale,
+                uom: product.uom,
+                brand: product.brand,
+                category: product.category,
+                scalePriceTotal: totalPrice,
+            }
+            setSelectedItems((items) => [...items, item])
+            updateQtyInput(product.code, formatQuantity(qty))
+        }
+        setError("")
+        return true
     }
 
     const addOtherItem = (price: number) => {
@@ -165,21 +223,56 @@ export function useSaleForm({ onSuccess, initialItems }: UseSaleFormProps) {
         if (e.key !== "Enter") return
         e.preventDefault()
 
-        const parsedScale = parseVariableWeightEAN13(searchTerm)
+        const digits = (searchTerm || "").replace(/\D/g, "")
+        const looksLikeScaleBarcode = digits.length === 13 && digits[0] === "2"
+        if (looksLikeScaleBarcode && !scaleConfig) {
+            setError(loadingScaleConfig ? "La configuración de balanza todavía se está cargando." : scaleConfigError || "No hay configuración de balanza disponible.")
+            return
+        }
+
+        const parsedScale = scaleConfig ? parseVariableWeightEAN13(searchTerm, scaleConfig) : null
 
         // 1. Lógica EAN de Balanza
         if (parsedScale) {
-            const { plu, qty } = parsedScale
+            const { plu } = parsedScale
             const candidate = products.find(p => {
                 const code = (p.code || "")
                 return code === plu || code.padStart(5, "0") === plu
             })
 
-            if (candidate && candidate.code !== "-1" && !(typeof candidate.stock === "number" && candidate.stock <= 0)) {
-                addItem(candidate, qty) // Usamos la cantidad parseada
-                setSearchTerm("")
+            if (!candidate || candidate.code === "-1") {
+                setError(`No se encontró un producto para el PLU ${plu}.`)
                 return
             }
+            if (typeof candidate.stock === "number" && candidate.stock <= 0) {
+                setError(`El producto "${candidate.name}" no tiene stock disponible.`)
+                return
+            }
+
+            if (parsedScale.valueType === "weight") {
+                try {
+                    const qty = convertScaleWeight(parsedScale.value, parsedScale.unit, candidate.uom)
+                    addItem(candidate, qty)
+                    setSearchTerm("")
+                } catch (error) {
+                    setError(error instanceof Error ? error.message : "No se pudo convertir el peso")
+                }
+                return
+            }
+
+            if (!Number.isFinite(candidate.priceSale) || candidate.priceSale <= 0) {
+                setError(`El producto "${candidate.name}" debe tener un precio de venta mayor a cero.`)
+                return
+            }
+            if (!Number.isFinite(parsedScale.totalPrice) || parsedScale.totalPrice <= 0) {
+                setError("El precio codificado por la balanza debe ser mayor a cero.")
+                return
+            }
+            const qty = parsedScale.totalPrice / candidate.priceSale
+            if (addScalePriceItem(candidate, qty, parsedScale.totalPrice)) {
+                setSearchTerm("")
+            }
+            return
         }
 
         const filtered = filteredProducts()
@@ -215,7 +308,7 @@ export function useSaleForm({ onSuccess, initialItems }: UseSaleFormProps) {
     // --- Aplicar ofertas a los items ---
     const applyOfferToItem = useCallback((item: SaleItem): SaleItem => {
         // No aplicar descuentos a productos en devolución (qty negativo)
-        if (item.qty < 0) return { ...item, originalPrice: undefined, discountApplied: undefined, offerName: undefined, offerId: undefined }
+        if (item.qty < 0 || item.scalePriceTotal !== undefined) return { ...item, originalPrice: undefined, discountApplied: undefined, offerName: undefined, offerId: undefined }
         if (activeOffers.length === 0) return item
 
         const now = new Date().toISOString()
@@ -282,6 +375,7 @@ export function useSaleForm({ onSuccess, initialItems }: UseSaleFormProps) {
 
 
     const calculateTotal = () => itemsWithOffers.reduce((total, item) => {
+        if (item.scalePriceTotal !== undefined) return total + getSaleItemTotal(item)
         const unitPrice = item.discountApplied ? item.priceSale - item.discountApplied : item.priceSale
         return total + item.qty * unitPrice
     }, 0)
@@ -325,6 +419,8 @@ export function useSaleForm({ onSuccess, initialItems }: UseSaleFormProps) {
             activeOffers,
             loadingProducts,
             loading,
+            loadingScaleConfig,
+            scaleConfigError,
             error,
             searchTerm,
             qtyInputs,

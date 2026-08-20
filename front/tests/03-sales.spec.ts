@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test"
 import { ADMIN_STATE_PATH, VENDOR_STATE_PATH } from "./helpers/paths"
-import { createProduct, createSale } from "./helpers/api"
-import { makeRunId, productPayload, saleItemFromProduct, salePayload } from "./helpers/data"
+import { createOffer, createProduct, createSale, updateScaleBarcodeConfig } from "./helpers/api"
+import { makeRunId, offerPayload, productPayload, saleItemFromProduct, salePayload } from "./helpers/data"
 
 async function createSaleProduct() {
   return createProduct(
@@ -90,6 +90,69 @@ test.describe("sales", () => {
 
     await expect(page.getByText("¡Venta creada!")).toBeVisible({ timeout: 15000 })
     await page.getByRole("button", { name: "¡Listo!" }).click()
+  })
+
+  test("converts scale weight into the product UOM", async ({ page }) => {
+    const plu = String(10000 + Math.floor(Math.random() * 90000))
+    const product = await createProduct(productPayload({
+      code: plu,
+      name: `Scale Weight ${makeRunId("W")}`,
+      uom: "g",
+      stock: 5000,
+      priceSale: 2,
+    }))
+    await updateScaleBarcodeConfig({ valueType: "weight", unit: "kg", decimals: 3 })
+
+    await page.goto("/dashboard/ventas")
+    const configLoaded = page.waitForResponse((response) => response.url().includes("/scale-barcode-config") && response.request().method() === "GET")
+    await page.getByRole("button", { name: "Nueva Venta" }).click()
+    await configLoaded
+    await expect(saleItemRow(page, product.code)).toBeVisible()
+    await page.getByPlaceholder("Buscar productos...").fill(`20${plu}007500`)
+    await page.keyboard.press("Enter")
+
+    await expect(page.getByLabel(`Cantidad de ${product.name}`)).toHaveValue("750")
+    page.once("dialog", (dialog) => dialog.accept())
+    await page.getByRole("button", { name: "Cancelar" }).click()
+  })
+
+  test("locks and accumulates encoded-price lines without offers", async ({ page }) => {
+    const plu = String(10000 + Math.floor(Math.random() * 90000))
+    const product = await createProduct(productPayload({
+      code: plu,
+      name: `Scale Price ${makeRunId("P")}`,
+      uom: "kg",
+      stock: 10,
+      priceSale: 2000,
+    }))
+    await createOffer(offerPayload("PRODUCT", [product.code], "active", { discountValue: 50 }))
+    await updateScaleBarcodeConfig({ valueType: "price", decimals: 2 })
+
+    await page.goto("/dashboard/ventas")
+    const configLoaded = page.waitForResponse((response) => response.url().includes("/scale-barcode-config") && response.request().method() === "GET")
+    await page.getByRole("button", { name: "Nueva Venta" }).click()
+    await configLoaded
+    await expect(saleItemRow(page, product.code)).toBeVisible()
+    const search = page.getByPlaceholder("Buscar productos...")
+    const barcode = `20${plu}750000`
+    await search.fill(barcode)
+    await page.keyboard.press("Enter")
+    await search.fill(barcode)
+    await page.keyboard.press("Enter")
+
+    const quantity = page.getByLabel(`Cantidad de ${product.name}`)
+    await expect(quantity).toBeDisabled()
+    await expect(quantity).toHaveValue("0.75")
+    await expect(page.getByText("Precio balanza")).toBeVisible()
+    await expect(page.getByText(/1\.500,00/).first()).toBeVisible()
+    await expect(page.getByText("Oferta", { exact: true })).toHaveCount(0)
+
+    await saleItemRow(page, product.code).getByRole("button").click()
+    await expect(page.getByText(/ya fue agregado con una etiqueta de precio/)).toBeVisible()
+
+    page.once("dialog", (dialog) => dialog.accept())
+    await page.getByRole("button", { name: "Cancelar" }).click()
+    await updateScaleBarcodeConfig({ valueType: "weight", unit: "kg", decimals: 3 })
   })
 })
 

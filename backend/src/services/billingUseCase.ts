@@ -26,7 +26,7 @@ import type {
   SubscriptionRecord,
   WebhookEventRecord,
 } from "../models/billing"
-import type { CommerceProfile } from "../models/commerce"
+import { DEFAULT_SCALE_BARCODE_CONFIG, type CommerceProfile } from "../models/commerce"
 import {
   MercadoPagoApiError,
   MercadoPagoClient,
@@ -249,6 +249,7 @@ export async function createPublicRegistration(
       merchantName,
       ownerCognitoSub,
       ownerEmail: email,
+      scaleBarcodeConfig: DEFAULT_SCALE_BARCODE_CONFIG,
       createdAt,
       updatedAt: createdAt,
     }

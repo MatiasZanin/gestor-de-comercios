@@ -52,6 +52,14 @@ export interface ProductListResponse {
   lastKey?: string
 }
 
+export type ScaleBarcodeConfig =
+  | { valueType: "weight"; unit: "kg" | "g"; decimals: number }
+  | { valueType: "price"; decimals: number }
+
+export interface ScaleBarcodeConfigResponse {
+  scaleBarcodeConfig: ScaleBarcodeConfig
+}
+
 // Sale Models
 export interface SaleItem {
   code: string
@@ -67,6 +75,7 @@ export interface SaleItem {
   discountApplied?: number  // Monto de descuento por unidad
   offerId?: string          // ID de la oferta aplicada
   offerName?: string        // Nombre de la oferta aplicada
+  scalePriceTotal?: number  // Importe absoluto codificado por la balanza
 }
 
 export type PaymentMethod = 'CASH' | 'CARD' | 'TRANSFER' | 'OTHER'
@@ -100,6 +109,7 @@ export interface CreateSaleRequest {
     priceBuy: number
     priceSale: number
     uom: string
+    scalePriceTotal?: number
   }[]
   notes?: string
   paymentMethod?: PaymentMethod
@@ -288,7 +298,7 @@ export interface CashCloseDetailResponse {
 }
 
 // Audit Log Models
-export type AuditAction = 'PRODUCT_CREATE' | 'PRODUCT_UPDATE' | 'SALE_CREATE' | 'REGISTER_CLOSE' | 'OFFER_CREATE' | 'OFFER_UPDATE' | 'OFFER_FINISH'
+export type AuditAction = 'PRODUCT_CREATE' | 'PRODUCT_UPDATE' | 'SALE_CREATE' | 'REGISTER_CLOSE' | 'OFFER_CREATE' | 'OFFER_UPDATE' | 'OFFER_FINISH' | 'SCALE_BARCODE_CONFIG_UPDATE'
 
 export const ACTION_LABELS: Record<AuditAction, string> = {
   PRODUCT_CREATE: 'Producto creado',
@@ -298,6 +308,7 @@ export const ACTION_LABELS: Record<AuditAction, string> = {
   OFFER_CREATE: 'Oferta creada',
   OFFER_UPDATE: 'Oferta actualizada',
   OFFER_FINISH: 'Oferta finalizada',
+  SCALE_BARCODE_CONFIG_UPDATE: 'Configuración de balanza actualizada',
 }
 
 export const DETAIL_FIELD_LABELS: Record<string, string> = {
@@ -324,6 +335,7 @@ export const DETAIL_FIELD_LABELS: Record<string, string> = {
   startDate: 'Fecha inicio',
   endDate: 'Fecha fin',
   scope: 'Alcance',
+  scaleBarcodeConfig: 'Configuración de balanza',
 }
 
 export interface AuditLog {

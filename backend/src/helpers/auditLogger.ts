@@ -12,7 +12,8 @@ export type AuditAction =
     | 'REGISTER_CLOSE'
     | 'OFFER_CREATE'
     | 'OFFER_UPDATE'
-    | 'OFFER_FINISH';
+    | 'OFFER_FINISH'
+    | 'SCALE_BARCODE_CONFIG_UPDATE';
 
 /**
  * Registra un evento de auditoría en DynamoDB.

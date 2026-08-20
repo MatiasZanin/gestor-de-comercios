@@ -1,5 +1,6 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, QueryCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, QueryCommand, DeleteCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
+import { DEFAULT_SCALE_BARCODE_CONFIG } from '../../models/commerce';
 
 // CONFIGURACIÓN
 const TABLE_NAME = 'GestionComercios-dev';
@@ -36,11 +37,6 @@ async function cleanGestionComercios() {
 
         console.log(`\n📦 Encontrados ${itemsToDelete.length} items para eliminar.`);
 
-        if (itemsToDelete.length === 0) {
-            console.log('✅ No hay datos para borrar. La DB ya está limpia.');
-            return;
-        }
-
         // 2. ELIMINAR ITEMS
         // Nota: Para grandes volúmenes (>500 items), sería mejor usar batchWrite o controlar la concurrencia.
         // Aquí mantenemos tu lógica original de Promise.all para mantenerlo simple.
@@ -55,7 +51,24 @@ async function cleanGestionComercios() {
 
         await Promise.all(deletePromises);
 
-        console.log(`✅ ÉXITO: Se eliminaron ${itemsToDelete.length} registros del comercio ${COMMERCE_ID}.`);
+        const now = new Date().toISOString();
+        await docClient.send(new PutCommand({
+            TableName: TABLE_NAME,
+            Item: {
+                PK: `COM#${COMMERCE_ID}`,
+                SK: 'PROFILE',
+                type: 'COMMERCE',
+                commerceId: COMMERCE_ID,
+                merchantName: 'G&S Comercio E2E',
+                ownerCognitoSub: 'e2e-admin',
+                ownerEmail: 'e2e@local',
+                scaleBarcodeConfig: DEFAULT_SCALE_BARCODE_CONFIG,
+                createdAt: now,
+                updatedAt: now,
+            }
+        }));
+
+        console.log(`✅ ÉXITO: Se eliminaron ${itemsToDelete.length} registros y se recreó el perfil base de ${COMMERCE_ID}.`);
 
     } catch (error) {
         console.error('❌ Error durante la limpieza:', error);

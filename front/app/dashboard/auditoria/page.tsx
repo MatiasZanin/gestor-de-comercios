@@ -32,6 +32,7 @@ const ACTION_COLORS: Record<AuditAction, string> = {
     OFFER_CREATE: "bg-orange-100 text-orange-800 border-orange-200",
     OFFER_UPDATE: "bg-teal-100 text-teal-800 border-teal-200",
     OFFER_FINISH: "bg-rose-100 text-rose-800 border-rose-200",
+    SCALE_BARCODE_CONFIG_UPDATE: "bg-indigo-100 text-indigo-800 border-indigo-200",
 }
 
 const DISCOUNT_TYPE_LABELS: Record<string, string> = {
@@ -66,6 +67,12 @@ function formatDetailValue(key: string, value: any): string {
 
     if (key === "scope") {
         return formatScopeValue(value)
+    }
+
+    if (key === "scaleBarcodeConfig" && typeof value === "object") {
+        const type = value.valueType === "price" ? "Precio" : "Peso"
+        const unit = value.valueType === "weight" ? `, unidad: ${value.unit}` : ""
+        return `${type}${unit}, decimales: ${value.decimals}`
     }
 
     if (

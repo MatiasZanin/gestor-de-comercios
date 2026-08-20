@@ -519,24 +519,11 @@ export function ProductForm({ product, products = [], onSuccess, onCancel }: Pro
               <div>
                 <p className="font-semibold text-orange-800">Código de Balanza (EAN-13)</p>
                 <p className="text-orange-900/80 text-xs mt-1">
-                  Para productos pesables. El sistema detecta automáticamente si el código empieza con <strong>2</strong>.
+                  La etiqueta identifica al producto y contiene el peso o precio generado por la balanza.
                 </p>
-                <div className="mt-2 grid grid-cols-1 gap-1 text-[10px] uppercase tracking-wider font-bold text-orange-700">
-                  <div className="flex justify-between bg-orange-100 px-2 py-1 rounded">
-                    <span>Prefijo</span>
-                    <span>2</span>
-                  </div>
-                  <div className="flex justify-between bg-orange-200 px-2 py-1 rounded">
-                    <span>PLU (Producto)</span>
-                    <span>5 dígitos</span>
-                  </div>
-                  <div className="flex justify-between bg-orange-100 px-2 py-1 rounded">
-                    <span>Peso/Precio</span>
-                    <span>5 dígitos</span>
-                  </div>
-                </div>
-                <p className="text-orange-900/60 text-[10px] mt-2 italic">
-                  Ejemplo: 200123015007 interpretará 1.500kg del producto con PLU 00123.
+                <p className="text-orange-900/70 text-xs mt-2">
+                  La unidad y los decimales se ajustan desde <strong>Productos → Configurar balanza</strong>.
+                  Si el producto usa <strong>kg</strong> o <strong>g</strong>, el sistema convierte el peso automáticamente.
                 </p>
               </div>
             </div>

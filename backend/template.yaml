@@ -385,6 +385,36 @@ Resources:
             Path: '/{commerceId}/products/{code}'
             Method: GET
 
+  GetScaleBarcodeConfigFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub getScaleBarcodeConfig-${CommerceStage}
+      CodeUri: ./dist
+      Handler: handlers/getScaleBarcodeConfig.handler
+      Role: !GetAtt LambdaDynamoRole.Arn
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: '/{commerceId}/scale-barcode-config'
+            Method: GET
+
+  UpdateScaleBarcodeConfigFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub updateScaleBarcodeConfig-${CommerceStage}
+      CodeUri: ./dist
+      Handler: handlers/updateScaleBarcodeConfig.handler
+      Role: !GetAtt LambdaDynamoRole.Arn
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: '/{commerceId}/scale-barcode-config'
+            Method: PUT
+
   CreateSaleFunction:
     Type: AWS::Serverless::Function
     Properties:

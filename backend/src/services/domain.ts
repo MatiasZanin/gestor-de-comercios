@@ -207,6 +207,19 @@ export function isOfferActiveAt(offer: Offer, iso: string): boolean {
   return iso >= offer.startDate && iso <= offer.endDate;
 }
 
+export function getSaleItemTotal(item: Pick<SaleItem, 'qty' | 'priceSale' | 'scalePriceTotal'>): number {
+  if (item.scalePriceTotal !== undefined) {
+    return Math.sign(item.qty) * item.scalePriceTotal;
+  }
+  return item.priceSale * item.qty;
+}
+
+export function getSaleItemProfit(
+  item: Pick<SaleItem, 'qty' | 'priceBuy' | 'priceSale' | 'scalePriceTotal'>
+): number {
+  return getSaleItemTotal(item) - (item.priceBuy || 0) * item.qty;
+}
+
 export function resolveDiscounts(
   offers: Offer[],
   items: SaleItem[],
@@ -216,7 +229,7 @@ export function resolveDiscounts(
   const discountMap = new Map<string, AppliedDiscount>();
 
   for (const item of items) {
-    if (item.qty <= 0) {
+    if (item.qty <= 0 || item.scalePriceTotal !== undefined) {
       continue;
     }
 

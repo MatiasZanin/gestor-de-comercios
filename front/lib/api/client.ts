@@ -1,5 +1,5 @@
 import { authService } from "@/lib/auth/cognito"
-import type { ApiError, BillingStatusResponse, CreateSubscriptionResponse, Product } from "@/lib/types/api"
+import type { ApiError, BillingStatusResponse, CreateSubscriptionResponse, Product, ScaleBarcodeConfig, ScaleBarcodeConfigResponse } from "@/lib/types/api"
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL!
 
@@ -163,6 +163,17 @@ export class ApiClient {
   async getProductByCode(code: string): Promise<any> {
     return this.makeRequest(`/products/${encodeURIComponent(code)}`, {
       method: "GET",
+    })
+  }
+
+  async getScaleBarcodeConfig(): Promise<ScaleBarcodeConfigResponse> {
+    return this.makeRequest("/scale-barcode-config")
+  }
+
+  async updateScaleBarcodeConfig(scaleBarcodeConfig: ScaleBarcodeConfig): Promise<ScaleBarcodeConfigResponse> {
+    return this.makeRequest("/scale-barcode-config", {
+      method: "PUT",
+      body: JSON.stringify({ scaleBarcodeConfig }),
     })
   }
 

@@ -1,5 +1,5 @@
-import fs from "fs"
 import { expect, type Page } from "@playwright/test"
+import fs from "fs"
 import { ADMIN_STATE_PATH, AUTH_DIR, USER_STATE_PATH, VENDOR_STATE_PATH } from "./paths"
 
 export interface LoginCredentials {
@@ -19,7 +19,7 @@ export const VENDOR_CREDENTIALS: LoginCredentials = {
 
 export async function loginAndSaveState(page: Page, credentials: LoginCredentials, statePath: string) {
   await page.goto("/login")
-  await expect(page.getByText("Sistema de Ventas", { exact: true })).toBeVisible()
+  await expect(page.getByText("Ingresar al sistema", { exact: true })).toBeVisible()
   await page.locator("#username").fill(credentials.username)
   await page.locator("#password").fill(credentials.password)
   await page.getByRole("button", { name: "Iniciar Sesión" }).click()

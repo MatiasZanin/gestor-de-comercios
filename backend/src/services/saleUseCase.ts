@@ -9,6 +9,8 @@ import { PaymentMethod, Sale, SaleItem } from '../models/sale';
 import {
   buildDailySummaryDelta,
   buildSaleRecord,
+  getSaleItemProfit,
+  getSaleItemTotal,
   resolveDiscounts,
 } from './domain';
 import { formatArtDay, formatArtMonth } from './time';
@@ -162,6 +164,9 @@ function compactSaleItem(item: SaleItem): SaleItem {
   if (item.category !== undefined) {
     compacted.category = item.category;
   }
+  if (item.scalePriceTotal !== undefined) {
+    compacted.scalePriceTotal = item.scalePriceTotal;
+  }
 
   return compacted;
 }
@@ -184,6 +189,7 @@ export async function createSaleUseCase(
       !item.code ||
       !item.name ||
       typeof item.qty !== 'number' ||
+      !Number.isFinite(item.qty) ||
       item.qty === 0 ||
       item.priceSale === undefined ||
       !item.uom
@@ -192,6 +198,14 @@ export async function createSaleUseCase(
     }
     if (item.priceBuy === undefined) {
       throw new BadRequestError('Each item must include priceBuy');
+    }
+    if (
+      item.scalePriceTotal !== undefined &&
+      (typeof item.scalePriceTotal !== 'number' ||
+        !Number.isFinite(item.scalePriceTotal) ||
+        item.scalePriceTotal <= 0)
+    ) {
+      throw new BadRequestError('scalePriceTotal must be a positive finite number');
     }
   }
 
@@ -220,8 +234,10 @@ export async function createSaleUseCase(
       }
     }
 
-    total += item.priceSale * item.qty;
-    profit += (item.priceSale - (item.priceBuy || 0)) * item.qty;
+    const itemTotal = getSaleItemTotal(item);
+    const itemProfit = getSaleItemProfit(item);
+    total += itemTotal;
+    profit += itemProfit;
 
     if (item.code !== '-1') {
       await updateStock(input.commerceId, item.code, item.qty, createdAt);
@@ -232,7 +248,9 @@ export async function createSaleUseCase(
         item.priceBuy!,
         item.priceSale,
         item.uom,
-        createdAt
+        createdAt,
+        itemTotal,
+        itemProfit
       );
       await updateMonthlyRanking(
         docClient,

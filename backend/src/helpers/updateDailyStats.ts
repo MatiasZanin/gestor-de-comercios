@@ -21,7 +21,9 @@ export async function updateDailyStats(
   priceBuy: number,
   priceSale: number,
   uom: string,
-  at: string = new Date().toISOString()
+  at: string = new Date().toISOString(),
+  exactRevenue?: number,
+  exactProfit?: number
 ): Promise<void> {
   const tableName = process.env.TABLE_NAME || 'GestionComercios-dev';
   if (!tableName) {
@@ -31,8 +33,8 @@ export async function updateDailyStats(
   const sk = `PRODUCT#${code}`;
   const now = at;
   const unitsDelta = qty;
-  const revenueDelta = priceSale * qty;
-  const profitDelta = (priceSale - priceBuy) * qty;
+  const revenueDelta = exactRevenue ?? priceSale * qty;
+  const profitDelta = exactProfit ?? (priceSale - priceBuy) * qty;
   try {
     await docClient.send(
       new UpdateCommand({
