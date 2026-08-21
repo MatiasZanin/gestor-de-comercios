@@ -22,7 +22,7 @@ export async function loginAndSaveState(page: Page, credentials: LoginCredential
   await expect(page.getByText("Ingresar al sistema", { exact: true })).toBeVisible()
   await page.locator("#username").fill(credentials.username)
   await page.locator("#password").fill(credentials.password)
-  await page.getByRole("button", { name: "Iniciar Sesión" }).click()
+  await page.getByRole("button", { name: "Iniciar sesión" }).click()
   await expect(page).toHaveURL(/\/dashboard/, { timeout: 15000 })
   await page.context().storageState({ path: statePath })
 }

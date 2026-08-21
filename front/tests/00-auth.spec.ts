@@ -14,10 +14,19 @@ test.describe("authentication", () => {
     await page.goto("/login")
     await page.locator("#username").fill("NoExiste")
     await page.locator("#password").fill("wrong-password")
-    await page.getByRole("button", { name: "Iniciar Sesión" }).click()
+    await page.getByRole("button", { name: "Iniciar sesión" }).click()
 
     await expect(page).toHaveURL(/\/login/)
     await expect(page.getByRole("alert")).toBeVisible()
+  })
+
+  test("exposes the WhatsApp help link", async ({ page }) => {
+    await page.goto("/login")
+
+    const helpLink = page.getByRole("link", { name: "Necesito ayuda" })
+    await expect(helpLink).toHaveAttribute("href", "https://wa.me/541133593078")
+    await expect(helpLink).toHaveAttribute("target", "_blank")
+    await expect(helpLink).toHaveAttribute("rel", "noopener noreferrer")
   })
 })
 

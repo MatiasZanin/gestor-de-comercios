@@ -9,10 +9,13 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { authenticatedHome } from "@/lib/auth/account-access"
 import { useAuth } from "@/lib/hooks/use-auth"
-import { ArrowRight, Loader2, Store } from "lucide-react"
+import { ArrowRight, Loader2 } from "lucide-react"
+import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
+import { GysLogo } from "../shared/gys-logo"
+import { LoginCarouselPanel } from "./login-carousel-panel"
 
 export function LoginForm() {
   const [username, setUsername] = useState("")
@@ -88,20 +91,30 @@ export function LoginForm() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.18),_transparent_45%),linear-gradient(180deg,_#f8fafc_0%,_#fff7ed_100%)] p-4">
-      <Card className="w-full max-w-md border-0 bg-white/90 shadow-2xl backdrop-blur">
-        <CardHeader className="space-y-4 text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-lg">
-            <Store className="h-8 w-8 text-white" />
-          </div>
-          <div>
-            <CardTitle className="text-2xl font-semibold text-slate-950">Ingresar al sistema</CardTitle>
-            <CardDescription className="mt-2 text-slate-600">
-              Accedé con tu usuario o creá una cuenta nueva gratis.
-            </CardDescription>
-          </div>
-        </CardHeader>
-        <CardContent>
+    <main className="flex flex-col min-h-svh items-center justify-center overflow-x-hidden bg-[radial-gradient(circle_at_top_left,_rgba(0,154,97,0.10),_transparent_35%),linear-gradient(135deg,_#f8fafc_0%,_#f7fbf9_55%,_#f8fafc_100%)] p-4 sm:p-6 lg:p-8">
+      <div className="grid w-full max-w-[1180px] overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-[0_24px_70px_-24px_rgba(15,23,42,0.28)] lg:grid-cols-[0.9fr_1.1fr]">
+        <Card className="flex min-h-[620px] flex-col justify-center rounded-none border-0 bg-white px-2 py-8 shadow-none sm:px-8 lg:min-h-[680px] lg:px-10 xl:px-14">
+          <CardHeader className="space-y-9 pb-7 text-left">
+            <div className="flex items-center gap-3" aria-label="Gestor de Comercios">
+              <Image
+                src="/logo.png"
+                alt=""
+                width={44}
+                height={44}
+                priority
+                className="size-11 rounded-xl object-cover shadow-sm ring-1 ring-slate-200"
+              />
+              <span className="text-base font-semibold tracking-tight text-slate-900">Gestor de Comercios</span>
+            </div>
+
+            <div>
+              <CardTitle className="text-3xl font-semibold tracking-tight text-slate-950">Ingresar al sistema</CardTitle>
+              <CardDescription className="mt-2 text-sm leading-6 text-slate-600">
+                Accedé con tu usuario o creá una cuenta nueva gratis.
+              </CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent>
           {requiresNewPassword ? (
             <form onSubmit={handleNewPasswordSubmit} className="space-y-4">
               <Alert className="border-amber-200 bg-amber-50">
@@ -218,8 +231,14 @@ export function LoginForm() {
               </div>
             </form>
           )}
-        </CardContent>
-      </Card>
-    </div>
+          </CardContent>
+        </Card>
+
+        <LoginCarouselPanel />
+      </div>
+      <footer className="mt-6 text-center text-sm text-slate-600">
+        <span>© 2026 <GysLogo></GysLogo>. Todos los derechos reservados.</span>
+      </footer>
+    </main>
   )
 }
