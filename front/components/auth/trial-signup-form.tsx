@@ -1,23 +1,23 @@
 "use client"
 
-import { useMemo, useState } from "react"
-import { Controller, useForm } from "react-hook-form"
-import { z } from "zod"
-import { zodResolver } from "@hookform/resolvers/zod"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import type { PublicBillingConfig } from "@/lib/types/api"
 import {
   confirmRegistrationEmail,
   createPublicRegistration,
   getBillingCopy,
   resendRegistrationCode,
 } from "@/lib/api/public"
+import type { PublicBillingConfig } from "@/lib/types/api"
+import { zodResolver } from "@hookform/resolvers/zod"
 import { ArrowRight, Loader2, MailCheck, ShieldCheck, Sparkles } from "lucide-react"
+import { useMemo, useState } from "react"
+import { Controller, useForm } from "react-hook-form"
+import { z } from "zod"
 
 const signupSchema = z.object({
   firstName: z.string().trim().min(2, "Ingresá tu nombre"),
@@ -95,12 +95,15 @@ export function TrialSignupForm({ config }: { config: PublicBillingConfig }) {
   return (
     <div className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr]">
       <div className="flex flex-col justify-center gap-6">
+        <div>
+          <img src="/logo.png" alt="Logo" className="h-20 w-auto rounded-full" /> <span>Gestor de Comercios</span>
+        </div>
         <div className="inline-flex w-fit items-center gap-2 rounded-full border border-emerald-200 bg-white/80 px-4 py-2 text-sm font-medium text-emerald-900 shadow-sm">
           <Sparkles className="h-4 w-4" />
           {billingCopy}
         </div>
         <h1 className="max-w-xl text-4xl font-semibold tracking-tight text-slate-950 sm:text-5xl">
-          Tu comercio, listo para trabajar. La suscripción empieza cuando vos decidís.
+          Creá tu cuenta de manera <span className="text-emerald-600 ">gratuita</span> y empezá a impulsar tus ventas.
         </h1>
         <p className="max-w-2xl text-lg leading-7 text-slate-600">
           Verificamos tu email, creamos el comercio y después elegís la suscripción desde una pantalla segura.
