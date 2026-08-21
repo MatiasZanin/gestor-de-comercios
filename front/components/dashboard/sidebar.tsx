@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/lib/hooks/use-auth"
 import { cn } from "@/lib/utils"
-import { Banknote, BarChart3, ClipboardList, LogOut, Menu, Package, ShoppingCart, Tag, User, Users, X } from "lucide-react"
+import { Banknote, BarChart3, ClipboardList, HelpCircle, LogOut, Menu, Package, ShoppingCart, Tag, User, Users, X } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useState } from "react"
@@ -19,6 +19,7 @@ const fullNavigation = [
   { name: "Auditoría", href: "/dashboard/auditoria", icon: ClipboardList },
   { name: "Gestor de usuarios", href: "/dashboard/usuarios", icon: Users, adminOnly: true },
   { name: "Suscripción", href: "/dashboard/suscripcion", icon: User },
+  { name: "Necesito ayuda", href: "/dashboard/ayuda", icon: HelpCircle },
 ]
 
 const limitedNavigation = [{ name: "Suscripción", href: "/dashboard/suscripcion", icon: User }]

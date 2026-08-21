@@ -148,6 +148,22 @@ export interface ApiError {
   }
 }
 
+export type SupportProblemType = 'PRODUCTS' | 'SALES' | 'USERS' | 'CLOSURES' | 'OFFERS' | 'OTHER'
+
+export interface CreateSupportRequest {
+  title: string
+  problemType: SupportProblemType
+  phone?: string
+  saleTicketNumber?: string
+  productCode?: string
+  description: string
+}
+
+export interface SupportRequestResponse {
+  message: string
+  sentAt: string
+}
+
 export type BillingStatus = "pending_subscription" | "trial" | "active" | "past_due" | "cancelled"
 export type SubscriptionViewState = "never_subscribed" | "checkout_pending" | "trial_active" | "active" | "cancellation_scheduled" | "cancelled" | "expired" | "payment_pending" | "payment_rejected"
 
@@ -346,7 +362,7 @@ export interface CashCloseDetailResponse {
 }
 
 // Audit Log Models
-export type AuditAction = 'PRODUCT_CREATE' | 'PRODUCT_UPDATE' | 'SALE_CREATE' | 'REGISTER_CLOSE' | 'OFFER_CREATE' | 'OFFER_UPDATE' | 'OFFER_FINISH' | 'SCALE_BARCODE_CONFIG_UPDATE' | 'USER_CREATE' | 'USER_UPDATE' | 'USER_PASSWORD_RESET' | 'USER_DISABLE'
+export type AuditAction = 'PRODUCT_CREATE' | 'PRODUCT_UPDATE' | 'SALE_CREATE' | 'REGISTER_CLOSE' | 'OFFER_CREATE' | 'OFFER_UPDATE' | 'OFFER_FINISH' | 'SCALE_BARCODE_CONFIG_UPDATE' | 'USER_CREATE' | 'USER_UPDATE' | 'USER_PASSWORD_RESET' | 'USER_DISABLE' | 'SUPPORT_REQUEST_SENT'
 
 export const ACTION_LABELS: Record<AuditAction, string> = {
   PRODUCT_CREATE: 'Producto creado',
@@ -361,6 +377,7 @@ export const ACTION_LABELS: Record<AuditAction, string> = {
   USER_UPDATE: 'Usuario actualizado',
   USER_PASSWORD_RESET: 'Contraseña restablecida',
   USER_DISABLE: 'Usuario deshabilitado',
+  SUPPORT_REQUEST_SENT: 'Solicitud de soporte enviada',
 }
 
 export const DETAIL_FIELD_LABELS: Record<string, string> = {
@@ -393,6 +410,8 @@ export const DETAIL_FIELD_LABELS: Record<string, string> = {
   role: 'Rol',
   firstName: 'Nombre',
   lastName: 'Apellido',
+  title: 'Título',
+  problemType: 'Tipo de problema',
 }
 
 export interface AuditLog {

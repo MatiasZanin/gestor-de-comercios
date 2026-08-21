@@ -70,6 +70,14 @@ Parameters:
     Type: String
     Default: clientes@gestionystock.com
     Description: Destino de los motivos de cancelación.
+  SupportEmailFrom:
+    Type: String
+    Default: clientes@gestionystock.com
+    Description: Identidad remitente verificada en Amazon SES para solicitudes de soporte.
+  SupportEmailTo:
+    Type: String
+    Default: clientes@gestionystock.com
+    Description: Destino fijo de las solicitudes de soporte.
 
 Globals:
   Function:
@@ -101,6 +109,8 @@ Globals:
         CANCELLATION_FEEDBACK_QUEUE_URL: !Ref CancellationFeedbackQueue
         CANCELLATION_EMAIL_FROM: !Ref CancellationEmailFrom
         CANCELLATION_EMAIL_TO: !Ref CancellationEmailTo
+        SUPPORT_EMAIL_FROM: !Ref SupportEmailFrom
+        SUPPORT_EMAIL_TO: !Ref SupportEmailTo
 
 Resources:
   ## DynamoDB single-table para productos y ventas
@@ -770,6 +780,21 @@ Resources:
             ApiId: !Ref HttpApi
             Path: '/{commerceId}/audit-logs'
             Method: GET
+
+  CreateSupportRequestFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub createSupportRequest-${CommerceStage}
+      CodeUri: ./dist
+      Handler: handlers/createSupportRequest.handler
+      Role: !GetAtt LambdaDynamoRole.Arn
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: '/{commerceId}/support-requests'
+            Method: POST
 
   CreateOfferFunction:
     Type: AWS::Serverless::Function

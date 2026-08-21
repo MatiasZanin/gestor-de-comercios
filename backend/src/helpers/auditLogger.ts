@@ -17,7 +17,8 @@ export type AuditAction =
     | 'USER_CREATE'
     | 'USER_UPDATE'
     | 'USER_PASSWORD_RESET'
-    | 'USER_DISABLE';
+    | 'USER_DISABLE'
+    | 'SUPPORT_REQUEST_SENT';
 
 /**
  * Registra un evento de auditoría en DynamoDB.
@@ -31,7 +32,8 @@ export async function logAudit(
     action: AuditAction,
     details: Record<string, unknown>,
     occurredAt: string = new Date().toISOString(),
-    auditId?: string
+    auditId?: string,
+    throwOnError = false
 ): Promise<void> {
     try {
         const now = occurredAt;
@@ -55,6 +57,7 @@ export async function logAudit(
         );
     } catch (err) {
         console.error('[AuditLogger] Failed to log audit event:', err);
+        if (throwOnError) throw err;
     }
 }
 

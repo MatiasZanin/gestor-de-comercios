@@ -1,5 +1,5 @@
 import { authService } from "@/lib/auth/cognito"
-import type { ApiError, BillingStatusResponse, CancelSubscriptionResponse, CreateManagedUserRequest, CreateSubscriptionResponse, ManagedUser, ManagedUserListResponse, Product, ScaleBarcodeConfig, ScaleBarcodeConfigResponse, UpdateManagedUserRequest } from "@/lib/types/api"
+import type { ApiError, BillingStatusResponse, CancelSubscriptionResponse, CreateManagedUserRequest, CreateSubscriptionResponse, CreateSupportRequest, ManagedUser, ManagedUserListResponse, Product, ScaleBarcodeConfig, ScaleBarcodeConfigResponse, SupportRequestResponse, UpdateManagedUserRequest } from "@/lib/types/api"
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL!
 
@@ -375,6 +375,13 @@ export class ApiClient {
     if (params?.end) searchParams.append("end", params.end)
     const query = searchParams.toString()
     return this.makeRequest(`/audit-logs${query ? `?${query}` : ""}`)
+  }
+
+  async createSupportRequest(data: CreateSupportRequest): Promise<SupportRequestResponse> {
+    return this.makeRequest("/support-requests", {
+      method: "POST",
+      body: JSON.stringify(data),
+    })
   }
 
   // Offer endpoints

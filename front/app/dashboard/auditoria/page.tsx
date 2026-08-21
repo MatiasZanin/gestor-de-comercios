@@ -37,6 +37,7 @@ const ACTION_COLORS: Record<AuditAction, string> = {
     USER_UPDATE: "bg-blue-100 text-blue-800 border-blue-200",
     USER_PASSWORD_RESET: "bg-amber-100 text-amber-800 border-amber-200",
     USER_DISABLE: "bg-red-100 text-red-800 border-red-200",
+    SUPPORT_REQUEST_SENT: "bg-sky-100 text-sky-800 border-sky-200",
 }
 
 const DISCOUNT_TYPE_LABELS: Record<string, string> = {
