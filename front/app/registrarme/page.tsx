@@ -49,20 +49,20 @@ export default function RegistrarmePage() {
 
   if (loading || isAuthenticated || configLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.18),_transparent_45%),linear-gradient(180deg,_#f8fafc_0%,_#fff7ed_100%)]">
+      <div className="flex min-h-svh items-center justify-center bg-[radial-gradient(circle_at_top_left,_rgba(0,154,97,0.10),_transparent_35%),linear-gradient(135deg,_#f8fafc_0%,_#f7fbf9_55%,_#f8fafc_100%)] px-4">
         <div className="text-center">
-          <Loader2 className="mx-auto mb-4 h-8 w-8 animate-spin text-emerald-600" />
-          <p className="text-slate-600">Preparando alta pública...</p>
+          <Loader2 className="mx-auto mb-4 size-8 animate-spin text-[#009A61]" />
+          <p className="text-sm text-slate-600">Preparando tu registro...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.18),_transparent_45%),linear-gradient(180deg,_#f8fafc_0%,_#fff7ed_100%)] px-4 py-10">
-      <div className="mx-auto max-w-6xl">
+    <main className="flex min-h-svh items-center justify-center overflow-x-hidden bg-[radial-gradient(circle_at_top_left,_rgba(0,154,97,0.10),_transparent_35%),linear-gradient(135deg,_#f8fafc_0%,_#f7fbf9_55%,_#f8fafc_100%)] px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
+      <div className="flex w-full flex-col items-center">
         {error ? (
-          <Alert className="mb-6 border-red-200 bg-red-50">
+          <Alert className="mb-6 w-full max-w-[760px] border-red-200 bg-red-50">
             <AlertDescription className="text-red-700">{error}</AlertDescription>
           </Alert>
         ) : null}

@@ -24,6 +24,7 @@ test.describe("public signup", () => {
     await page.locator("#email").fill("demo@example.com")
     await page.locator("#merchantName").fill("Mi comercio")
     await page.locator("#password").fill("Password1!")
+    await page.locator("#confirmPassword").fill("Password1!")
     await page.locator("#acceptTerms").click()
     await page.getByRole("button", { name: "Crear cuenta" }).click()
     await expect(page.getByText("Verificá tu email", { exact: true })).toBeVisible()

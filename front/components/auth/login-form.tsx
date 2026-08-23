@@ -104,7 +104,7 @@ export function LoginForm() {
                 priority
                 className="size-11 rounded-xl object-cover shadow-sm ring-1 ring-slate-200"
               />
-              <span className="text-base font-semibold tracking-tight text-slate-900">Gestor de Comercios</span>
+              <span className="text-2xl font-semibold tracking-tight text-slate-900 font-[Crimson] text-title">Gestor <span className="text-title-blue">de</span> Comercios</span>
             </div>
 
             <div>
