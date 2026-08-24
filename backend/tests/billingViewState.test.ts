@@ -52,18 +52,47 @@ describe("billing view state", () => {
     ],
     [profile("trial"), [], "trial_active"],
     [profile("active"), [], "active"],
-    [profile("cancelled", { currentPeriodEndsAt: "2999-01-01T00:00:00.000Z" }), [], "cancellation_scheduled"],
     [
       profile("cancelled", {
+        trialConsumedAt: "2026-01-01T00:00:00.000Z",
+        currentPeriodEndsAt: "2999-01-01T00:00:00.000Z",
+      }),
+      [],
+      "cancellation_scheduled",
+    ],
+    [
+      profile("cancelled", {
+        trialConsumedAt: "2026-01-01T00:00:00.000Z",
         currentPeriodEndsAt: "2020-01-01T00:00:00.000Z",
         lastPaymentStatus: "cancelled",
       }),
       [],
       "cancelled",
     ],
-    [profile("cancelled", { currentPeriodEndsAt: "2020-01-01T00:00:00.000Z" }), [], "expired"],
-    [profile("past_due", { lastPaymentStatus: "pending" }), [], "payment_pending"],
-    [profile("past_due", { lastPaymentStatus: "rejected" }), [], "payment_rejected"],
+    [
+      profile("cancelled", {
+        trialConsumedAt: "2026-01-01T00:00:00.000Z",
+        currentPeriodEndsAt: "2020-01-01T00:00:00.000Z",
+      }),
+      [],
+      "expired",
+    ],
+    [
+      profile("past_due", {
+        trialConsumedAt: "2026-01-01T00:00:00.000Z",
+        lastPaymentStatus: "pending",
+      }),
+      [],
+      "payment_pending",
+    ],
+    [
+      profile("past_due", {
+        trialConsumedAt: "2026-01-01T00:00:00.000Z",
+        lastPaymentStatus: "rejected",
+      }),
+      [],
+      "payment_rejected",
+    ],
     [
       profile("pending_subscription", {
         trialConsumedAt: "2026-01-01T00:00:00.000Z",
@@ -122,9 +151,20 @@ describe("billing view state", () => {
     expect(() => sanitizeCancellationReason("a".repeat(1001))).toThrow("1000")
   })
 
-  it("only grants a trial to a commerce with no subscription history", () => {
+  it("only consumes the trial after a subscription was actually activated", () => {
     expect(isTrialEligible(profile("pending_subscription"), [])).toBe(true)
-    expect(isTrialEligible(profile("pending_subscription"), [history("cancelled", false)])).toBe(false)
+    expect(
+      isTrialEligible(profile("pending_subscription", { currentSubscriptionId: "subscription-1" }), []),
+    ).toBe(true)
+    expect(isTrialEligible(profile("pending_subscription"), [history("pending", true)])).toBe(true)
+    expect(isTrialEligible(profile("cancelled"), [history("cancelled", true)])).toBe(true)
+    expect(isTrialEligible(profile("past_due"), [history("rejected", true)])).toBe(true)
+    expect(isTrialEligible(profile("pending_subscription"), [history("authorized", true)])).toBe(false)
+    expect(
+      isTrialEligible(profile("cancelled"), [
+        { ...history("cancelled", true), activatedAt: "2026-01-01T00:00:00.000Z" },
+      ]),
+    ).toBe(false)
     expect(
       isTrialEligible(
         profile("pending_subscription", {
@@ -133,5 +173,35 @@ describe("billing view state", () => {
         [],
       ),
     ).toBe(false)
+  })
+
+  it("presents an abandoned checkout as eligible without changing the frontend", () => {
+    const abandoned = profile("cancelled", { lastPaymentStatus: "cancelled" })
+    const records = [history("cancelled", true)]
+
+    expect(deriveSubscriptionViewState(abandoned, records)).toBe("never_subscribed")
+    expect(
+      buildBillingStatusResponse({
+        profile: abandoned,
+        commerce: { merchantName: "Mi comercio", ownerCognitoSub: "owner-sub" },
+        history: records,
+        current: records[0],
+        actorSub: "owner-sub",
+      }),
+    ).toMatchObject({
+      viewState: "never_subscribed",
+      trialConsumed: false,
+      trialEligible: true,
+    })
+  })
+
+  it("keeps the trial consumed after an activated subscription is cancelled", () => {
+    const cancelledAfterActivation = profile("cancelled", {
+      trialConsumedAt: "2026-01-01T00:00:00.000Z",
+      lastPaymentStatus: "cancelled",
+    })
+
+    expect(deriveSubscriptionViewState(cancelledAfterActivation, [history("cancelled", true)])).toBe("cancelled")
+    expect(isTrialEligible(cancelledAfterActivation, [history("cancelled", true)])).toBe(false)
   })
 })

@@ -183,10 +183,17 @@ function actionTtl(): number {
   return Math.floor(Date.now() / 1000) + 90 * 24 * 60 * 60
 }
 
+function isActivatedSubscriptionStatus(status?: string): boolean {
+  return ["authorized", "active"].includes((status ?? "").toLowerCase())
+}
+
 export function isTrialEligible(profile: BillingProfile, history: SubscriptionRecord[]): boolean {
-  const hasHistory = history.length > 0 || !!profile.currentSubscriptionId
   const hasTrialMarkers = Boolean(profile.trialConsumedAt || profile.trialStartedAt || profile.trialEndsAt)
-  return !hasHistory && !hasTrialMarkers
+  const hasActivatedSubscription = history.some(
+    record => Boolean(record.activatedAt) || isActivatedSubscriptionStatus(record.status),
+  )
+  const currentlyActivated = profile.status === BILLING_STATUS.TRIAL || profile.status === BILLING_STATUS.ACTIVE
+  return !hasTrialMarkers && !hasActivatedSubscription && !currentlyActivated
 }
 
 function getMpClient() {
@@ -665,6 +672,9 @@ async function syncBillingFromSubscriptionForProfile(
     payerEmail,
     status: subscription.status ?? "unknown",
     includesTrial,
+    activatedAt:
+      existingRecord?.activatedAt ??
+      (isActivatedSubscriptionStatus(subscription.status) ? now : undefined),
     checkoutUrl: subscription.init_point ?? existingRecord?.checkoutUrl,
     createdAt: existingRecord?.createdAt ?? now,
     updatedAt: now,
@@ -841,6 +851,11 @@ export function deriveSubscriptionViewState(
 ): SubscriptionViewState {
   if (profile.status === BILLING_STATUS.TRIAL) return "trial_active"
   if (profile.status === BILLING_STATUS.ACTIVE) return "active"
+  if (isTrialEligible(profile, history)) {
+    return profile.pendingCheckoutUrl || history.some(item => item.status.toLowerCase() === "pending")
+      ? "checkout_pending"
+      : "never_subscribed"
+  }
   if (profile.status === BILLING_STATUS.PAST_DUE) {
     const paymentStatus = (profile.lastPaymentStatus ?? "").toLowerCase()
     return ["rejected", "cancelled", "canceled", "refunded", "charged_back"].includes(paymentStatus)

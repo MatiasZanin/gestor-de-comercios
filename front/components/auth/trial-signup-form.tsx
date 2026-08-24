@@ -14,7 +14,7 @@ import {
 } from "@/lib/api/public"
 import type { PublicBillingConfig } from "@/lib/types/api"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { ArrowRight, Check, Loader2, MailCheck, ShieldCheck } from "lucide-react"
+import { ArrowRight, Loader2, MailCheck, ShieldCheck } from "lucide-react"
 import Image from "next/image"
 import { cloneElement, useMemo, useState } from "react"
 import { Controller, useForm } from "react-hook-form"
@@ -126,12 +126,12 @@ export function TrialSignupForm({ config }: { config: PublicBillingConfig }) {
                 Creá tu cuenta y probá Gestor de Comercios gratis durante {config.trialDays} días.
               </CardDescription>
             </div>
-            <div className="mx-auto mt-5 inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-[#007a4d]">
+            {/* <div className="mx-auto mt-5 inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-[#007a4d]">
               <span className="flex size-5 items-center justify-center rounded-full bg-[#009A61] text-white">
                 <Check className="size-3.5" strokeWidth={3} aria-hidden="true" />
               </span>
               {config.trialDays} días gratis
-            </div>
+            </div> */}
           </>
         )}
       </CardHeader>
@@ -188,7 +188,7 @@ export function TrialSignupForm({ config }: { config: PublicBillingConfig }) {
             </div>
             <Button type="submit" size="lg" disabled={submitting || form.formState.isSubmitting} className="h-12 w-full rounded-lg bg-[#009A61] text-base text-white shadow-sm hover:bg-[#007a4d]">
               {submitting ? <Loader2 className="size-4 animate-spin" /> : <ArrowRight className="size-4" />}
-              Crear cuenta
+              Crear cuenta gratis
             </Button>
           </form>
         )}

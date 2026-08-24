@@ -45,6 +45,7 @@ export interface SubscriptionRecord {
   payerEmail: string
   status: string
   includesTrial: boolean
+  activatedAt?: string
   checkoutUrl?: string
   replacedAt?: string
   createdAt: string

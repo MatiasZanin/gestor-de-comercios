@@ -271,6 +271,7 @@ Resources:
         AllowHeaders:
           - Content-Type
           - Authorization
+          - Idempotency-Key
           - X-Amz-Date
           - X-Api-Key
           - X-Amz-Security-Token

@@ -1,13 +1,13 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
+import { hasApplicationAccess } from "@/lib/auth/account-access"
 import { useAuth } from "@/lib/hooks/use-auth"
 import { cn } from "@/lib/utils"
 import { Banknote, BarChart3, ClipboardList, HelpCircle, LogOut, Menu, Package, ShoppingCart, Tag, User, Users, X } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useState } from "react"
-import { hasApplicationAccess } from "@/lib/auth/account-access"
 
 const fullNavigation = [
   { name: "Dashboard", href: "/dashboard", icon: BarChart3 },
@@ -16,7 +16,7 @@ const fullNavigation = [
   { name: "Ofertas", href: "/dashboard/ofertas", icon: Tag },
   { name: "Cierres", href: "/dashboard/cierres", icon: Banknote },
   { name: "Reportes", href: "/dashboard/reportes", icon: BarChart3 },
-  { name: "Auditoría", href: "/dashboard/auditoria", icon: ClipboardList },
+  { name: "Registro de actividad", href: "/dashboard/auditoria", icon: ClipboardList },
   { name: "Gestor de usuarios", href: "/dashboard/usuarios", icon: Users, adminOnly: true },
   { name: "Suscripción", href: "/dashboard/suscripcion", icon: User },
   { name: "Necesito ayuda", href: "/dashboard/ayuda", icon: HelpCircle },
