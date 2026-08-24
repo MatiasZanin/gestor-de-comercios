@@ -53,6 +53,17 @@ export interface MercadoPagoSubscriptionSearchResult {
   results?: MercadoPagoSubscription[]
 }
 
+export interface CreateMercadoPagoSubscriptionInput {
+  payerEmail: string
+  externalReference: string
+  backUrl: string
+  idempotencyKey: string
+  reason: string
+  transactionAmount: number
+  currencyId: string
+  trialDays?: number
+}
+
 export interface MercadoPagoAuthorizedPaymentSearchResult {
   paging?: { offset?: number; limit?: number; total?: number }
   results?: MercadoPagoAuthorizedPayment[]
@@ -120,6 +131,29 @@ export class MercadoPagoClient {
     return this.request<MercadoPagoSubscription>(`/preapproval/${encodeURIComponent(id)}`)
   }
 
+  createSubscription(input: CreateMercadoPagoSubscriptionInput) {
+    return this.request<MercadoPagoSubscription>("/preapproval", {
+      method: "POST",
+      headers: { "X-Idempotency-Key": input.idempotencyKey },
+      body: JSON.stringify({
+        reason: input.reason,
+        payer_email: input.payerEmail,
+        external_reference: input.externalReference,
+        auto_recurring: {
+          frequency: 1,
+          frequency_type: "months",
+          transaction_amount: input.transactionAmount,
+          currency_id: input.currencyId,
+          ...(input.trialDays
+            ? { free_trial: { frequency: input.trialDays, frequency_type: "days" } }
+            : {}),
+        },
+        back_url: input.backUrl,
+        status: "pending",
+      }),
+    })
+  }
+
   getPayment(id: string) {
     return this.request<MercadoPagoPayment>(`/v1/payments/${encodeURIComponent(id)}`)
   }
@@ -130,17 +164,16 @@ export class MercadoPagoClient {
 
   searchAuthorizedPayments(preapprovalId: string) {
     // Mercado Pago rejects values greater than 10 for this endpoint.
-    const query = new URLSearchParams({ preapproval_id: preapprovalId, limit: "10" })
-    return this.request<MercadoPagoAuthorizedPaymentSearchResult>(
-      `/authorized_payments/search?${query.toString()}`
-    )
+    const query = new URLSearchParams({
+      preapproval_id: preapprovalId,
+      limit: "10",
+    })
+    return this.request<MercadoPagoAuthorizedPaymentSearchResult>(`/authorized_payments/search?${query.toString()}`)
   }
 
   searchAuthorizedPaymentsByPaymentId(paymentId: string) {
     const query = new URLSearchParams({ payment_id: paymentId, limit: "10" })
-    return this.request<MercadoPagoAuthorizedPaymentSearchResult>(
-      `/authorized_payments/search?${query.toString()}`
-    )
+    return this.request<MercadoPagoAuthorizedPaymentSearchResult>(`/authorized_payments/search?${query.toString()}`)
   }
 
   searchSubscriptions(input: { payerEmail: string; planId?: string }) {

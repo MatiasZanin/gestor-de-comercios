@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test"
 
 const billingConfig = {
-  monthlyAmount: 42000,
+  monthlyAmount: 35000,
   currencyId: "ARS",
   trialDays: 30,
   graceDays: 3,

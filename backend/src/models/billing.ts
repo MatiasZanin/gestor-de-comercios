@@ -208,3 +208,13 @@ export interface BillingPayerLink {
   createdAt: string
   updatedAt: string
 }
+
+export interface BillingSubscriptionLink {
+  PK: string
+  SK: "BILLING"
+  type: "BILLING_SUBSCRIPTION_LINK"
+  subscriptionId: string
+  commerceId: string
+  createdAt: string
+  updatedAt: string
+}

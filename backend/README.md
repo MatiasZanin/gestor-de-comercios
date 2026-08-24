@@ -73,7 +73,7 @@ Las altas públicas usan el email normalizado como username y confirman su propi
 
 El grupo define permisos, pero no habilita el producto. Todas las rutas comerciales consultan `COM#<commerceId>/BILLING#PROFILE`; las rutas `/{commerceId}/billing/*` siguen disponibles cuando la cuenta está bloqueada.
 
-Mercado Pago requiere dos planes por ambiente: `MERCADO_PAGO_PREAPPROVAL_PLAN_ID`, con un mes de trial, y `MERCADO_PAGO_REACTIVATION_PLAN_ID`, sin trial. La aplicación abre el checkout compartido del plan y Mercado Pago crea el `/preapproval` después de la autorización; el checkout y la captura de tarjeta ocurren exclusivamente en Mercado Pago.
+Los IDs de plan se conservan para compatibilidad y conciliación de suscripciones históricas. Para nuevas altas, el backend crea un `/preapproval` individual sin plan asociado en estado `pending`, replica la frecuencia, importe y trial configurados, lo vincula al comercio mediante `external_reference`, persiste su ID y devuelve el `init_point` alojado por Mercado Pago. Esta modalidad permite que el medio de pago se elija dentro del checkout de Mercado Pago. La aplicación no solicita, recibe ni almacena tarjeta, CVV o tokens de tarjeta.
 
 Solo el `sub` de Cognito guardado en `COM#<commerceId>/PROFILE.ownerCognitoSub` puede consultar los datos sensibles o ejecutar acciones de gestión. `GET /{commerceId}/billing/status` conserva para los demás integrantes únicamente el estado mínimo de acceso. `POST /{commerceId}/billing/subscribe` y `POST /{commerceId}/billing/cancel` requieren `Idempotency-Key`; la cancelación recibe `{ "reason": "..." }`. La elegibilidad para la prueba se decide en el backend usando los marcadores del perfil y todo el historial `SUBSCRIPTION#*`.
 

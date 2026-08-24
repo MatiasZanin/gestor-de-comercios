@@ -1,5 +1,5 @@
 import type { APIGatewayProxyEventV2WithJWTAuthorizer } from "aws-lambda"
-import { handler as createHandler } from "../src/handlers/createSubscription"
+import { handler as createHandler, mercadoPagoReturnUrl } from "../src/handlers/createSubscription"
 import { handler as cancelHandler } from "../src/handlers/cancelSubscription"
 import { assertCommerceOwner } from "../src/helpers/assertCommerceOwner"
 import { cancelBilling, createBillingSubscription } from "../src/services/billingUseCase"
@@ -23,6 +23,7 @@ function event(body: object, idempotencyKey?: string): APIGatewayProxyEventV2Wit
     pathParameters: { commerceId: "commerce-1" },
     body: JSON.stringify(body),
     headers: idempotencyKey ? { "idempotency-key": idempotencyKey } : {},
+    requestContext: { domainName: "api.example.com", stage: "prod" },
   } as unknown as APIGatewayProxyEventV2WithJWTAuthorizer
 }
 
@@ -40,7 +41,12 @@ describe("subscription management handlers", () => {
     })
     const result = await createHandler(event({ payerEmail: "payer@example.com" }, "subscribe-request-1"))
     expect(ownerGuard).toHaveBeenCalledWith(expect.anything(), "commerce-1")
-    expect(createSubscription).toHaveBeenCalledWith("commerce-1", "payer@example.com", "subscribe-request-1")
+    expect(createSubscription).toHaveBeenCalledWith(
+      "commerce-1",
+      "payer@example.com",
+      "subscribe-request-1",
+      "https://api.example.com/prod/billing/mercadopago/return"
+    )
     expect(result).toMatchObject({ statusCode: 201 })
   })
 
@@ -48,6 +54,14 @@ describe("subscription management handlers", () => {
     const result = await createHandler(event({ payerEmail: "payer@example.com" }))
     expect(result).toMatchObject({ statusCode: 400 })
     expect(createSubscription).not.toHaveBeenCalled()
+  })
+
+  it("builds the hosted checkout return URL for default API Gateway stages", () => {
+    expect(
+      mercadoPagoReturnUrl({
+        requestContext: { domainName: "api.example.com", stage: "$default" },
+      } as unknown as APIGatewayProxyEventV2WithJWTAuthorizer)
+    ).toBe("https://api.example.com/billing/mercadopago/return")
   })
 
   it("forwards cancellation reason, actor and idempotency", async () => {
