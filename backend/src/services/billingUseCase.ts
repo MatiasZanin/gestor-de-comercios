@@ -41,6 +41,10 @@ import {
   type MercadoPagoSubscription,
 } from "./mercadoPagoClient"
 import { enqueueCancellationFeedback } from "./cancellationFeedback"
+import {
+  createTrialActivatedEmailNotification,
+  createWelcomeEmailNotification,
+} from "./transactionalEmail"
 
 const docClient = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
   marshallOptions: { removeUndefinedValues: true },
@@ -404,6 +408,12 @@ export async function confirmRegistrationEmail(registrationId: string, code: str
     updatedAt: nowIso(),
   }
   await putItem(updated)
+  await createWelcomeEmailNotification({
+    registrationId: updated.registrationId,
+    email: updated.email,
+    firstName: updated.firstName,
+    merchantName: updated.merchantName,
+  })
   return {
     registrationId,
     status: updated.status,
@@ -775,6 +785,20 @@ async function syncBillingFromSubscriptionForProfile(
     username: profile.ownerEmail,
     status: updated.status,
   })
+  if (source === "webhook" && updated.status === BILLING_STATUS.TRIAL) {
+    const owner = await getItem<CommerceUserProfile>({
+      PK: `COM#${profile.commerceId}`,
+      SK: `USER#${profile.ownerCognitoSub}`,
+    })
+    await createTrialActivatedEmailNotification({
+      commerceId: profile.commerceId,
+      email: profile.ownerEmail,
+      firstName: owner?.firstName?.trim() || profile.merchantName,
+      merchantName: profile.merchantName,
+      trialStartedAt: updated.trialStartedAt,
+      trialEndsAt: updated.trialEndsAt,
+    })
+  }
   return updated
 }
 

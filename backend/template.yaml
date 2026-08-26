@@ -78,6 +78,10 @@ Parameters:
     Type: String
     Default: clientes@gestionystock.com
     Description: Destino fijo de las solicitudes de soporte.
+  TransactionalEmailFrom:
+    Type: String
+    Default: clientes@gestionystock.com
+    Description: Identidad remitente verificada en Amazon SES para emails transaccionales.
 
 Globals:
   Function:
@@ -111,6 +115,8 @@ Globals:
         CANCELLATION_EMAIL_TO: !Ref CancellationEmailTo
         SUPPORT_EMAIL_FROM: !Ref SupportEmailFrom
         SUPPORT_EMAIL_TO: !Ref SupportEmailTo
+        TRANSACTIONAL_EMAIL_FROM: !Ref TransactionalEmailFrom
+        TRANSACTIONAL_EMAIL_QUEUE_URL: !Ref TransactionalEmailQueue
 
 Resources:
   ## DynamoDB single-table para productos y ventas
@@ -367,12 +373,89 @@ Resources:
                 Resource:
                   - !GetAtt CancellationFeedbackQueue.Arn
                   - !GetAtt CancellationFeedbackDeadLetterQueue.Arn
+                  - !GetAtt TransactionalEmailQueue.Arn
+                  - !GetAtt TransactionalEmailDeadLetterQueue.Arn
               - Effect: Allow
                 Action:
                   - ses:SendEmail
                 Resource: '*'
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+  TransactionalEmailDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub transactional-email-dlq-${CommerceStage}.fifo
+      FifoQueue: true
+      ContentBasedDeduplication: false
+      SqsManagedSseEnabled: true
+      MessageRetentionPeriod: 1209600
+
+  TransactionalEmailQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub transactional-email-${CommerceStage}.fifo
+      FifoQueue: true
+      ContentBasedDeduplication: false
+      SqsManagedSseEnabled: true
+      VisibilityTimeout: 60
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt TransactionalEmailDeadLetterQueue.Arn
+        maxReceiveCount: 5
+
+  TransactionalEmailDlqAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: !Sub Fallos de entrega de emails transaccionales (${CommerceStage})
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt TransactionalEmailDeadLetterQueue.QueueName
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+
+  SendTransactionalEmailFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub sendTransactionalEmail-${CommerceStage}
+      CodeUri: ./dist
+      Handler: handlers/sendTransactionalEmail.handler
+      Role: !GetAtt LambdaDynamoRole.Arn
+      Timeout: 30
+      Events:
+        TransactionalEmailQueueEvent:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt TransactionalEmailQueue.Arn
+            BatchSize: 5
+            FunctionResponseTypes:
+              - ReportBatchItemFailures
+
+  PublishTransactionalEmailFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub publishTransactionalEmail-${CommerceStage}
+      CodeUri: ./dist
+      Handler: handlers/publishTransactionalEmail.handler
+      Role: !GetAtt LambdaDynamoRole.Arn
+      Timeout: 30
+      Events:
+        TransactionalEmailOutbox:
+          Type: DynamoDB
+          Properties:
+            Stream: !GetAtt GestionComercios.StreamArn
+            StartingPosition: LATEST
+            BatchSize: 10
+            MaximumRetryAttempts: 5
+            BisectBatchOnFunctionError: true
+            FilterCriteria:
+              Filters:
+                - Pattern: '{ "eventName": ["INSERT"], "dynamodb": { "NewImage": { "type": { "S": ["TRANSACTIONAL_EMAIL"] }, "status": { "S": ["pending"] } } } }'
 
   CancellationFeedbackDeadLetterQueue:
     Type: AWS::SQS::Queue
