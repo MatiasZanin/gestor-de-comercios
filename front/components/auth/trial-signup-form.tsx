@@ -119,7 +119,7 @@ export function TrialSignupForm({ config }: { config: PublicBillingConfig }) {
         ) : (
           <>
             <div className="mt-8">
-              <h1 className="text-3xl font-semibold tracking-tight text-slate-950 sm:text-[34px]">
+              <h1 className="text-3xl font-semibold tracking-tight text-slate-950 sm:text-[34px]" data-clarity-unmask="true">
                 Empezá a gestionar tu comercio
               </h1>
               <CardDescription className="mx-auto mt-3 max-w-lg text-base leading-6 text-slate-600">
@@ -164,7 +164,7 @@ export function TrialSignupForm({ config }: { config: PublicBillingConfig }) {
               <Field id="firstName" label="Nombre" error={form.formState.errors.firstName?.message}><Input id="firstName" autoComplete="given-name" {...form.register("firstName")} /></Field>
               <Field id="lastName" label="Apellido" error={form.formState.errors.lastName?.message}><Input id="lastName" autoComplete="family-name" {...form.register("lastName")} /></Field>
             </div>
-            <Field id="email" label="Email" error={form.formState.errors.email?.message}><Input id="email" type="email" autoComplete="email" placeholder="tu@email.com" {...form.register("email")} /></Field>
+            <Field id="email" label="Email" error={form.formState.errors.email?.message}><Input id="email" type="email" autoComplete="email" placeholder="tu@email.com" data-clarity-unmask="true" {...form.register("email")} /></Field>
             <Field id="merchantName" label="Nombre del comercio" error={form.formState.errors.merchantName?.message}><Input id="merchantName" autoComplete="organization" placeholder="Ej.: Almacén Los Amigos" {...form.register("merchantName")} /></Field>
             <Field id="password" label="Contraseña" error={form.formState.errors.password?.message} hint="Usá al menos 8 caracteres."><Input id="password" type="password" autoComplete="new-password" placeholder="••••••••" {...form.register("password")} /></Field>
             <Field id="confirmPassword" label="Confirmar contraseña" error={form.formState.errors.confirmPassword?.message}><Input id="confirmPassword" type="password" autoComplete="new-password" placeholder="••••••••" {...form.register("confirmPassword")} /></Field>
@@ -186,7 +186,7 @@ export function TrialSignupForm({ config }: { config: PublicBillingConfig }) {
               <ShieldCheck className="mt-0.5 size-4 shrink-0 text-[#009A61]" aria-hidden="true" />
               <span>Los datos de pago se ingresan únicamente en Mercado Pago. No almacenamos datos de tarjeta.</span>
             </div>
-            <Button type="submit" size="lg" disabled={submitting || form.formState.isSubmitting} className="h-12 w-full rounded-lg bg-[#009A61] text-base text-white shadow-sm hover:bg-[#007a4d]">
+            <Button type="submit" size="lg" disabled={submitting || form.formState.isSubmitting} className="h-12 w-full rounded-lg bg-[#009A61] text-base text-white shadow-sm hover:bg-[#007a4d]" data-clarity-unmask="true">
               {submitting ? <Loader2 className="size-4 animate-spin" /> : <ArrowRight className="size-4" />}
               Crear cuenta gratis
             </Button>
