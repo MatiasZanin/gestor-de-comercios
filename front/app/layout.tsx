@@ -1,9 +1,10 @@
-import type { Metadata } from 'next'
-import { GeistSans } from 'geist/font/sans'
-import { GeistMono } from 'geist/font/mono'
 import { ApiProvider } from '@/components/providers/api-provider'
 import { AuthRefreshProvider } from '@/components/providers/auth-refresh-provider'
 import { Toaster } from '@/components/ui/sonner'
+import { GeistMono } from 'geist/font/mono'
+import { GeistSans } from 'geist/font/sans'
+import type { Metadata } from 'next'
+import { MicrosoftClarity } from '../components/analytics/microsoft-clarity'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -23,6 +24,7 @@ export default function RootLayout({
           <AuthRefreshProvider />
           <Toaster />
           {children}
+          <MicrosoftClarity />
         </ApiProvider>
       </body>
     </html>
