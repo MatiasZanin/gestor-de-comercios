@@ -12,10 +12,12 @@ export function MicrosoftClarity() {
       process.env.NODE_ENV !== "production" ||
       !projectId
     ) {
+        console.warn("Microsoft Clarity is not initialized.", process.env.NODE_ENV !== "production" ? "Not in production environment." : "Missing project ID.");
       return;
     }
 
     Clarity.init(projectId);
+    console.log("Microsoft Clarity initialized");
   }, []);
 
   return null;
