@@ -105,8 +105,8 @@ export function Sidebar() {
                 <User className="w-4 h-4 text-gray-600" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 truncate">{user?.username}</p>
-                <p className="text-xs text-gray-500">Comercio: {user?.commerceId}</p>
+                <p className="text-sm font-medium text-gray-900 truncate">{user?.email}</p>
+                <p className="text-xs text-gray-500">Comercio: {billingStatus?.merchantName}</p>
               </div>
             </div>
             <Button
