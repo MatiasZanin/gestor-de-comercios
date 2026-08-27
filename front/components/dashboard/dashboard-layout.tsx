@@ -27,9 +27,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       router.replace(hasApplicationAccess({ accountStatus, commerceId, role }, billingStatus, true) ? "/dashboard" : "/acceso-restringido")
       return
     }
-    if (!loading && isAuthenticated && !hasApplicationAccess({ accountStatus, commerceId, role }, billingStatus, billingStatusLoaded) && !isSubscriptionRoute) {
-      router.replace(billingStatus?.canManageSubscription ? "/dashboard/suscripcion" : "/acceso-restringido")
-    }
   }, [accountStatus, billingStatus, billingStatusLoaded, commerceId, isAuthenticated, isSubscriptionRoute, loading, role, router])
 
   if (loading) {

@@ -41,7 +41,7 @@ export const handler = async (
         }
 
         // Validate user has access to this commerce
-        await assertCommerceAccess(event, commerceId);
+        await assertCommerceAccess(event, commerceId, { requireSubscription: false });
 
         const pk = `COM#${commerceId}`;
 

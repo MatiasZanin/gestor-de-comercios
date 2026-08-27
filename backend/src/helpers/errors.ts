@@ -8,10 +8,12 @@ import { formatJSONResponse } from '../utils/api-response';
 
 export class HttpError extends Error {
   public statusCode: number;
+  public code?: string;
 
-  constructor(message: string, statusCode = 500) {
+  constructor(message: string, statusCode = 500, code?: string) {
     super(message);
     this.statusCode = statusCode;
+    this.code = code;
     Object.setPrototypeOf(this, new.target.prototype);
   }
 }
@@ -47,8 +49,8 @@ export class TooManyRequestsError extends HttpError {
 }
 
 export class PaymentRequiredError extends HttpError {
-  constructor(message = 'Subscription required') {
-    super(message, 402);
+  constructor(message = 'La suscripción no habilita esta operación') {
+    super(message, 402, 'SUBSCRIPTION_REQUIRED');
   }
 }
 
@@ -75,6 +77,12 @@ export function buildErrorResponse(err: unknown) {
       : 'Unknown error'
   );
   if (err instanceof HttpError) {
+    if (err.code) {
+      return formatJSONResponse(
+        { error: { code: err.code, message: err.message } },
+        err.statusCode
+      );
+    }
     return formatJSONResponse({ error: err.message }, err.statusCode);
   }
   return formatJSONResponse({ error: 'Unexpected error' }, 500);

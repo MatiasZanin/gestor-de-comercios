@@ -2,10 +2,23 @@ import { authService } from "@/lib/auth/cognito"
 import type { ApiError, BillingStatusResponse, CancelSubscriptionResponse, CreateManagedUserRequest, CreateSubscriptionResponse, CreateSupportRequest, ManagedUser, ManagedUserListResponse, Product, ScaleBarcodeConfig, ScaleBarcodeConfigResponse, SupportRequestResponse, UpdateManagedUserRequest } from "@/lib/types/api"
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL!
+export const SUBSCRIPTION_REQUIRED_CODE = "SUBSCRIPTION_REQUIRED"
+
+export class ApiClientError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+    public readonly code?: string,
+  ) {
+    super(message)
+    this.name = "ApiClientError"
+  }
+}
 
 export class ApiClient {
   private static instance: ApiClient
   private onUnauthorized?: () => boolean | Promise<boolean>
+  private onSubscriptionRequired?: () => void
 
   static getInstance(): ApiClient {
     if (!ApiClient.instance) {
@@ -17,6 +30,27 @@ export class ApiClient {
   // Método para establecer el callback de redirección
   setOnUnauthorized(callback: () => boolean | Promise<boolean>) {
     this.onUnauthorized = callback
+  }
+
+  setOnSubscriptionRequired(callback?: () => void) {
+    this.onSubscriptionRequired = callback
+  }
+
+  private async throwApiError(response: Response): Promise<never> {
+    const errorData: ApiError = await response.json().catch(() => ({
+      error: "Unknown error occurred",
+    }))
+    const structuredError = typeof errorData.error === "object" ? errorData.error : undefined
+    const message = typeof errorData.error === "string"
+      ? errorData.error
+      : structuredError?.message || "Unexpected error"
+    const code = structuredError?.code
+
+    if (code === SUBSCRIPTION_REQUIRED_CODE) {
+      this.onSubscriptionRequired?.()
+    }
+
+    throw new ApiClientError(message, response.status, code)
   }
 
   private async handleUnauthorized(): Promise<boolean> {
@@ -53,10 +87,6 @@ export class ApiClient {
     })
 
     if (!response.ok) {
-      if (response.status === 402) {
-        if (typeof window !== "undefined") window.location.href = "/dashboard/suscripcion"
-        throw new Error("La suscripción no habilita el acceso al comercio")
-      }
       if (response.status === 401) {
         // Intentar refresh explícito y reintentar una vez
         const refreshedToken = await authService.refreshToken()
@@ -75,10 +105,7 @@ export class ApiClient {
         throw new Error("Sesión expirada. Redirigiendo al login...")
       }
 
-      const errorData: ApiError | { error?: string } = await response.json().catch(() => ({
-        error: { message: "Unknown error occurred" },
-      }))
-      throw new Error(typeof errorData.error === "string" ? errorData.error : errorData.error?.message || "Unexpected error")
+      return this.throwApiError(response)
     }
 
     return response.json()
@@ -98,10 +125,6 @@ export class ApiClient {
     })
 
     if (!response.ok) {
-      if (response.status === 402) {
-        if (typeof window !== "undefined") window.location.href = "/dashboard/suscripcion"
-        throw new Error("La suscripción no habilita el acceso al comercio")
-      }
       if (response.status === 401) {
         const reauthed = await this.handleUnauthorized()
         if (reauthed) {
@@ -113,10 +136,7 @@ export class ApiClient {
         throw new Error("Sesión expirada. Redirigiendo al login...")
       }
 
-      const errorData: ApiError | { error?: string } = await response.json().catch(() => ({
-        error: { message: "Unknown error occurred" },
-      }))
-      throw new Error(typeof errorData.error === "string" ? errorData.error : errorData.error?.message || "Unexpected error")
+      return this.throwApiError(response)
     }
 
     return response.json()

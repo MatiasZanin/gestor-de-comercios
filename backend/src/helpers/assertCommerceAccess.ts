@@ -55,6 +55,6 @@ export async function assertCommerceAccess(
   const profile = (result.Item as BillingProfile | undefined) ?? null
   if (!profile) return // Existing commerces without billing remain enabled.
   if (!billingAllowsAccess(profile)) {
-    throw new PaymentRequiredError("La suscripción no habilita el acceso al comercio")
+    throw new PaymentRequiredError()
   }
 }

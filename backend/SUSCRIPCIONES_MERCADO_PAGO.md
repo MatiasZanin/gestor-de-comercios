@@ -4,7 +4,7 @@ Documento elaborado a partir del código vigente al 26 de agosto de 2026.
 
 ## Resumen ejecutivo
 
-- La fuente de verdad externa es la suscripción (`preapproval`) de Mercado Pago. DynamoDB conserva una copia local utilizada para decidir si un comercio puede usar el sistema.
+- La fuente de verdad externa es la suscripción (`preapproval`) de Mercado Pago. DynamoDB conserva una copia local utilizada para decidir si un comercio puede ejecutar operaciones de escritura.
 - Crear el checkout **no activa** la cuenta: sólo deja el perfil en `pending_subscription` y guarda el ID de la suscripción y la URL de checkout.
 - El sistema considera activada la suscripción cuando consulta Mercado Pago y recibe `authorized` o `active`. Si corresponde el primer trial, guarda `trial`; de lo contrario, `active`.
 - La activación puede detectarse por tres caminos: webhook, retorno del checkout y conciliación al consultar `GET /{commerceId}/billing/status`.
@@ -12,7 +12,7 @@ Documento elaborado a partir del código vigente al 26 de agosto de 2026.
 - El dato guardado en DynamoDB es una **copia/cache**, no una garantía del estado actual de Mercado Pago. El último estado remoto sólo se confirma haciendo una nueva consulta a la API de Mercado Pago.
 - No existe una Lambda programada, cron ni EventBridge que concilie suscripciones por su cuenta.
 - Sin webhook, una cancelación o un cambio de estado en Mercado Pago se descubre cuando un usuario inicia sesión, abre la aplicación, abre/actualiza la pantalla de suscripción o durante el refresco cada cuatro horas de una pestaña abierta.
-- Las rutas normales de productos, ventas y reportes no consultan Mercado Pago: sólo leen `BILLING#PROFILE` en DynamoDB.
+- Las lecturas y exportaciones de productos, ventas y reportes no consultan Mercado Pago ni exigen suscripción. Las mutaciones comerciales validan la copia local `BILLING#PROFILE` en DynamoDB.
 - Sí, la sincronización puede fallar. Ante un error al consultar Mercado Pago, el endpoint de estado devuelve la copia local para no dejar la aplicación indisponible. Eso favorece disponibilidad, pero puede habilitar temporalmente una cuenta cuyo estado remoto ya cambió.
 
 ## Componentes y fuentes de estado
@@ -21,12 +21,12 @@ Documento elaborado a partir del código vigente al 26 de agosto de 2026.
 | --- | --- |
 | Mercado Pago `preapproval` | Estado real de la autorización recurrente y próxima fecha de cobro. |
 | Mercado Pago `authorized_payments` y `payments` | Resultado de los cobros: aprobado, rechazado, cancelado, reembolsado, etc. |
-| DynamoDB `BILLING#PROFILE` | Copia local actual usada por el backend para autorizar el acceso. |
+| DynamoDB `BILLING#PROFILE` | Copia local actual usada por el backend para autorizar mutaciones comerciales. |
 | DynamoDB `SUBSCRIPTION#<id>` | Historial local de suscripciones y marcador de activación/trial. |
 | Cognito `custom:accountStatus` | Copia del estado para el token y navegación inicial del frontend. No es la validación final del backend. |
 | Estado en memoria/local storage del frontend | Ayuda a decidir la navegación. Se reemplaza al consultar el endpoint de billing. |
 
-La autorización efectiva de cada operación comercial ocurre en `assertCommerceAccess`: valida los claims de comercio/rol y luego lee `COM#<commerceId> / BILLING#PROFILE`. Por lo tanto, ante una diferencia entre Cognito y DynamoDB, las APIs comerciales toman como referencia DynamoDB.
+La autorización efectiva ocurre en `assertCommerceAccess`: siempre valida los claims de comercio/rol y, para mutaciones, lee `COM#<commerceId> / BILLING#PROFILE`. Por lo tanto, ante una diferencia entre Cognito y DynamoDB, las operaciones de escritura toman como referencia DynamoDB. Las lecturas, exportaciones y solicitudes de soporte omiten únicamente la validación de suscripción.
 
 Existe una excepción de compatibilidad: si el comercio no tiene ningún `BILLING#PROFILE`, el backend permite el acceso para no bloquear cuentas anteriores a billing. La ausencia accidental de ese registro también produciría ese bypass.
 
@@ -122,13 +122,13 @@ Los estados `rejected`, `cancelled`, `canceled`, `refunded` y `charged_back` col
 
 ### Regla local de acceso
 
-| Estado local | Regla aplicada en cada API comercial |
+| Estado local | Regla aplicada en cada mutación comercial |
 | --- | --- |
 | `trial` | Siempre permite hasta que una sincronización cambie el estado. `trialEndsAt` no se compara en esta validación. |
 | `active` | Siempre permite hasta que una sincronización cambie el estado. `currentPeriodEndsAt` no se compara en esta validación. |
 | `past_due` | Permite únicamente mientras `graceUntil >= ahora`. |
 | `cancelled` | Permite únicamente mientras `currentPeriodEndsAt >= ahora`. |
-| `pending_subscription` | Bloquea con HTTP 402. |
+| `pending_subscription` | Bloquea con HTTP 402 y código `SUBSCRIPTION_REQUIRED`. |
 | Perfil inexistente | Permite por compatibilidad con cuentas legacy. |
 
 Consecuencia: si el perfil queda desactualizado como `trial` o `active`, el paso del tiempo por sí solo no lo vence. Es necesaria una sincronización que cambie el estado local. En cambio, un perfil ya conocido como `past_due` o `cancelled` se bloquea localmente al terminar su fecha de gracia o período, aunque no llegue otro webhook.
@@ -145,7 +145,8 @@ Consecuencia: si el perfil queda desactualizado como `trial` o `active`, el paso
 | Acción “actualizar” de la pantalla | Sí | Vuelve a ejecutar la consulta forzada. |
 | Retorno desde Mercado Pago | Sí | Sólo si Mercado Pago devuelve `preapproval_id`. |
 | Cancelación iniciada desde el sistema | Sí | Cancela en Mercado Pago, sincroniza la respuesta y fuerza una lectura final. |
-| API común de productos/ventas/reportes | No | Sólo lee el perfil local en DynamoDB. |
+| Lectura o exportación de productos/ventas/reportes | No | Valida tenant y rol, pero no consulta el perfil de billing. |
+| Mutación de productos/ventas/ofertas/cierres/usuarios | No | Valida la copia local del perfil y responde `SUBSCRIPTION_REQUIRED` si no habilita la operación. |
 | Proceso programado del backend | No existe | No se encontró `Schedule`, `ScheduleV2`, cron ni EventBridge para billing. |
 
 El backend también tiene una ventana de frescura para consultas no forzadas: por defecto 60 segundos, configurable con `BILLING_RECONCILIATION_INTERVAL_SECONDS`. Esa variable no está declarada en la plantilla SAM, por lo que el despliegue actual usa el valor por defecto salvo configuración externa.

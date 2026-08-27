@@ -34,7 +34,7 @@ export const handler = async (
   try {
     const commerceId = event.pathParameters?.commerceId;
     if (!commerceId) throw new BadRequestError('Falta commerceId');
-    await assertCommerceAccess(event, commerceId);
+    await assertCommerceAccess(event, commerceId, { requireSubscription: false });
 
     const claims = event.requestContext.authorizer?.jwt?.claims ?? {};
     if (typeof claims.sub !== 'string' || !claims.sub)

@@ -35,7 +35,7 @@ export const handler = async (
             throw new BadRequestError('Missing commerceId');
         }
 
-        await assertCommerceAccess(event, commerceId);
+        await assertCommerceAccess(event, commerceId, { requireSubscription: false });
 
         // Verify permissions: ADMIN ONLY
         const claims = (event.requestContext.authorizer as any)?.jwt?.claims ?? {};

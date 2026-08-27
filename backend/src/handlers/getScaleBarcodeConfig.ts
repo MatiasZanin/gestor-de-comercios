@@ -19,7 +19,7 @@ export const handler = async (
     const commerceId = event.pathParameters?.commerceId
     if (!commerceId) throw new BadRequestError("Missing commerceId")
 
-    await assertCommerceAccess(event, commerceId)
+    await assertCommerceAccess(event, commerceId, { requireSubscription: false })
     assertRole(event, "admin", "vendedor")
 
     const result = await docClient.send(new GetCommand({

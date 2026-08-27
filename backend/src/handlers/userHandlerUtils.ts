@@ -14,12 +14,13 @@ import {
 } from '../services/userManagementUseCase';
 
 export async function requireUserAdminContext(
-  event: APIGatewayProxyEventV2WithJWTAuthorizer
+  event: APIGatewayProxyEventV2WithJWTAuthorizer,
+  options: { requireSubscription?: boolean } = {}
 ) {
   const commerceId = event.pathParameters?.commerceId;
   if (!commerceId) throw new BadRequestError('Falta commerceId');
   assertRole(event, 'admin');
-  await assertCommerceAccess(event, commerceId);
+  await assertCommerceAccess(event, commerceId, options);
   const claims = event.requestContext.authorizer?.jwt?.claims ?? {};
   if (typeof claims.sub !== 'string' || !claims.sub)
     throw new UnauthorizedError('Identidad inválida');

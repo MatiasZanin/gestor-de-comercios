@@ -79,7 +79,7 @@ La arquitectura, los flujos de activación/cancelación, las reglas de conciliac
 
 Las altas públicas usan el email normalizado como username y confirman su propiedad mediante el código OTP de Cognito. Al crear la identidad se genera un comercio UUID, se escriben `custom:commerceIds`, `custom:accountStatus` y `custom:regId`, y el usuario se incorpora a `admin`.
 
-El grupo define permisos, pero no habilita el producto. Todas las rutas comerciales consultan `COM#<commerceId>/BILLING#PROFILE`; las rutas `/{commerceId}/billing/*` siguen disponibles cuando la cuenta está bloqueada.
+El grupo define permisos, pero no habilita las operaciones de escritura. Las lecturas, exportaciones y solicitudes de soporte permanecen disponibles; las mutaciones comerciales consultan `COM#<commerceId>/BILLING#PROFILE` y responden HTTP 402 con `SUBSCRIPTION_REQUIRED` cuando corresponde. Las rutas `/{commerceId}/billing/*` también siguen disponibles cuando la cuenta está bloqueada.
 
 Los IDs de plan se conservan para compatibilidad y conciliación de suscripciones históricas. Para nuevas altas, el backend crea un `/preapproval` individual sin plan asociado en estado `pending`, replica la frecuencia, importe y trial configurados, lo vincula al comercio mediante `external_reference`, persiste su ID y devuelve el `init_point` alojado por Mercado Pago. Esta modalidad permite que el medio de pago se elija dentro del checkout de Mercado Pago. La aplicación no solicita, recibe ni almacena tarjeta, CVV o tokens de tarjeta.
 

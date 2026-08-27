@@ -11,7 +11,9 @@ export const handler = async (
   event: APIGatewayProxyEventV2WithJWTAuthorizer
 ): Promise<APIGatewayProxyResultV2> => {
   try {
-    const { commerceId } = await requireUserAdminContext(event);
+    const { commerceId } = await requireUserAdminContext(event, {
+      requireSubscription: false,
+    });
     return formatJSONResponse(await listManagedUsers(commerceId));
   } catch (error) {
     return buildErrorResponse(error);

@@ -29,12 +29,15 @@ export function formatArgentinaDate(value: string): string {
   }).format(date)
 }
 
-export function trialPromotion(config: PublicBillingConfig): string {
-  const price = new Intl.NumberFormat("es-AR", {
+export function formatBillingPrice(config: PublicBillingConfig): string {
+  return new Intl.NumberFormat("es-AR", {
     style: "currency",
     currency: config.currencyId,
     maximumFractionDigits: 0,
   }).format(config.monthlyAmount)
-  return `Probá Gestión & Stock gratis durante ${config.trialDays} días si sos elegible. Para comenzar, autorizá un medio de pago en Mercado Pago; al terminar la prueba, se cobrará ${price} por mes hasta que canceles.`
 }
 
+export function trialPromotion(config: PublicBillingConfig): string {
+  const price = formatBillingPrice(config)
+  return `Probá Gestión & Stock gratis durante ${config.trialDays} días si sos elegible. Para comenzar, autorizá un medio de pago en Mercado Pago; al terminar la prueba, se cobrará ${price} por mes hasta que canceles.`
+}

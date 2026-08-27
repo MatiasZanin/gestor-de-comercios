@@ -31,7 +31,7 @@ export const handler = async (
             throw new BadRequestError('Missing commerceId');
         }
 
-        await assertCommerceAccess(event, commerceId);
+        await assertCommerceAccess(event, commerceId, { requireSubscription: false });
 
         const params = event.queryStringParameters || {};
         const statusFilter = params.status; // 'active' | 'scheduled' | 'expired'

@@ -94,7 +94,7 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer): P
         const commerceId = event.pathParameters?.commerceId;
         if (!commerceId) throw new BadRequestError('Missing commerceId');
 
-        await assertCommerceAccess(event, commerceId);
+        await assertCommerceAccess(event, commerceId, { requireSubscription: false });
         assertRole(event, 'admin');
 
         const queryParams = event.queryStringParameters || {};

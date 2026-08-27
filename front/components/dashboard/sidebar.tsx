@@ -1,7 +1,6 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { hasApplicationAccess } from "@/lib/auth/account-access"
 import { useAuth } from "@/lib/hooks/use-auth"
 import { cn } from "@/lib/utils"
 import { Banknote, BarChart3, ClipboardList, HelpCircle, LogOut, Menu, Package, ShoppingCart, Tag, User, Users, X } from "lucide-react"
@@ -22,21 +21,16 @@ const fullNavigation = [
   { name: "Necesito ayuda", href: "/dashboard/ayuda", icon: HelpCircle },
 ]
 
-const limitedNavigation = [{ name: "Suscripción", href: "/dashboard/suscripcion", icon: User }]
-
 export function Sidebar() {
   const [isOpen, setIsOpen] = useState(false)
   const pathname = usePathname()
-  const { user, accountStatus, commerceId, role, billingStatus, billingStatusLoaded, logout } = useAuth()
+  const { user, role, billingStatus, logout } = useAuth()
 
-  const canAccessApp = hasApplicationAccess({ accountStatus, commerceId, role }, billingStatus, billingStatusLoaded)
   const canManageSubscription = billingStatus?.canManageSubscription === true
-  const navigation = canAccessApp
-    ? fullNavigation.filter((item) => {
-        if (item.href === "/dashboard/suscripcion" && !canManageSubscription) return false
-        return !("adminOnly" in item && item.adminOnly) || role === "admin"
-      })
-    : canManageSubscription ? limitedNavigation : []
+  const navigation = fullNavigation.filter((item) => {
+    if (item.href === "/dashboard/suscripcion" && !canManageSubscription) return false
+    return !("adminOnly" in item && item.adminOnly) || role === "admin"
+  })
 
   const handleLogout = () => {
     logout()

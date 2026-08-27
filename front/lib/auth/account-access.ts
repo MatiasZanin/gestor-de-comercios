@@ -33,7 +33,7 @@ export function hasApplicationAccess(
 export function authenticatedHome(
   state: Pick<AuthState, "accountStatus" | "commerceId" | "role"> & { isCommerceOwner?: boolean | null }
 ): string {
-  if (hasApplicationAccess(state)) return "/dashboard"
+  if (state.commerceId && state.role) return "/dashboard"
   return state.isCommerceOwner === true
     ? "/dashboard/suscripcion"
     : "/acceso-restringido"

@@ -141,12 +141,14 @@ export interface RangeReportResponse {
 }
 
 // API Error Response
-export interface ApiError {
+export type ApiError = {
   error: {
     message: string;
     code?: string;
   };
-}
+} | {
+  error?: string;
+};
 
 export type SupportProblemType =
   | "PRODUCTS"
