@@ -1,20 +1,23 @@
-import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from "aws-lambda"
-import { BadRequestError, buildErrorResponse } from "../helpers/errors"
-import { formatJSONResponse } from "../utils/api-response"
-import { getRegistrationStatus } from "../services/billingUseCase"
+import type {
+  APIGatewayProxyEventV2,
+  APIGatewayProxyResultV2,
+} from 'aws-lambda';
+import { BadRequestError, buildErrorResponse } from '../helpers/errors';
+import { formatJSONResponse } from '../utils/api-response';
+import { getRegistrationStatus } from '../services/registrationUseCase';
 
 export const handler = async (
   event: APIGatewayProxyEventV2
 ): Promise<APIGatewayProxyResultV2> => {
   try {
-    const registrationId = event.pathParameters?.registrationId
+    const registrationId = event.pathParameters?.registrationId;
     if (!registrationId) {
-      throw new BadRequestError("Missing registrationId")
+      throw new BadRequestError('Missing registrationId');
     }
 
-    const status = await getRegistrationStatus(registrationId)
-    return formatJSONResponse(status)
+    const status = await getRegistrationStatus(registrationId);
+    return formatJSONResponse(status);
   } catch (err) {
-    return buildErrorResponse(err)
+    return buildErrorResponse(err);
   }
-}
+};

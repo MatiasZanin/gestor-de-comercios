@@ -1,6 +1,7 @@
 import {
   AdminGetUserCommand,
   CognitoIdentityProviderClient,
+  ListUsersCommand,
   ListUserPoolsCommand,
 } from '@aws-sdk/client-cognito-identity-provider';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
@@ -22,21 +23,39 @@ const docClient = DynamoDBDocumentClient.from(client);
 const cognitoClient = new CognitoIdentityProviderClient({ region: REGION });
 
 async function resolveTestUsers() {
+  const adminEmail = process.env.E2E_ADMIN_EMAIL;
+  const vendorEmail = process.env.E2E_VENDOR_EMAIL;
+  if (!adminEmail || !vendorEmail) {
+    throw new Error('E2E_ADMIN_EMAIL and E2E_VENDOR_EMAIL are required');
+  }
   const pools = await cognitoClient.send(
     new ListUserPoolsCommand({ MaxResults: 60 })
   );
   const userPoolId =
     process.env.COGNITO_USER_POOL_ID ??
-    pools.UserPools?.find(pool => pool.Name === 'commerce-mvp-dev')?.Id;
+    pools.UserPools?.find(pool => pool.Name === 'gestor-comercios-dev')?.Id;
   if (!userPoolId) throw new Error('No se encontró el User Pool dev');
   const resolve = async (username: string, role: 'admin' | 'vendedor') => {
+    const listed = await cognitoClient.send(
+      new ListUsersCommand({
+        UserPoolId: userPoolId,
+        Filter: `email = "${username.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`,
+        Limit: 1,
+      })
+    );
+    const internalUsername = listed.Users?.[0]?.Username;
+    if (!internalUsername)
+      throw new Error(`No se encontró el fixture Cognito para el rol ${role}`);
     const user = await cognitoClient.send(
-      new AdminGetUserCommand({ UserPoolId: userPoolId, Username: username })
+      new AdminGetUserCommand({
+        UserPoolId: userPoolId,
+        Username: internalUsername,
+      })
     );
     const attribute = (name: string) =>
       user.UserAttributes?.find(item => item.Name === name)?.Value ?? '';
     return {
-      username,
+      username: internalUsername,
       sub: attribute('sub'),
       email: attribute('email').trim().toLowerCase(),
       firstName: attribute('given_name') || username,
@@ -44,7 +63,10 @@ async function resolveTestUsers() {
       role,
     };
   };
-  return Promise.all([resolve('Matias', 'admin'), resolve('Juan', 'vendedor')]);
+  return Promise.all([
+    resolve(adminEmail, 'admin'),
+    resolve(vendorEmail, 'vendedor'),
+  ]);
 }
 
 async function cleanGestionComercios() {

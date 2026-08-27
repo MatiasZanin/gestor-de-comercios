@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "type": "module",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && node scripts/copy-runtime-deps.cjs",
     "test": "jest",
     "clean": "rm -rf dist",
     "build:deploy": "npm run build && sam build --use-container && sam deploy --no-confirm-changeset --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM",
@@ -29,6 +29,7 @@
     "@aws-sdk/client-sqs": "^3.591.0",
     "@aws-sdk/lib-dynamodb": "^3.591.0",
     "@aws-sdk/util-dynamodb": "^3.591.0",
+    "libphonenumber-js": "^1.13.12",
     "uuid": "^9.0.0"
   },
   "devDependencies": {

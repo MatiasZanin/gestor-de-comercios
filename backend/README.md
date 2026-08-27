@@ -69,6 +69,12 @@ La plantilla `sam/template.yaml` crea una tabla DynamoDB denominada `GestionCome
 
 ### Registro, Cognito y billing
 
+Desarrollo usa el User Pool V2 `gestor-comercios-dev`; el pool `commerce-mvp-dev` se conserva como legado hasta completar una migración y baja explícitas. El pool V2 usa email como alias de acceso no sensible a mayúsculas, verifica y recupera únicamente por email, no usa MFA/SMS y mantiene `phone_number` como atributo estándar opcional de Cognito. Las relaciones internas siempre se escriben con el `sub`; el email es un dato mutable.
+
+El alta pública tiene dos fases. `POST /public/registrations` valida todos los campos, normaliza teléfono/email, crea un identificador aleatorio y guarda sólo un registro temporal indexado por hash del email. La ventana de confirmación es de 48 horas: supera la vigencia habitual de 24 horas del código de Cognito y permite retomar el flujo después de cerrar el navegador. El atributo TTL conserva el registro siete días adicionales para que la tarea horaria pueda eliminar de forma segura la identidad `UNCONFIRMED`; si encuentra una identidad ya confirmada, completa la materialización en lugar de borrarla.
+
+Después de `ConfirmSignUp`, una transacción idempotente crea comercio, billing, perfil y relación usuario-comercio. La recuperación por email (`POST /public/registrations/recover`) y el reenvío devuelven siempre una respuesta genérica, tienen cooldown persistido en DynamoDB y no revelan si existe una cuenta. El cambio de email (`PUT /public/registrations/{registrationId}/email`) exige el identificador opaco del alta, sólo admite usuarios `UNCONFIRMED`, invalida el OTP visible y reenvía al email nuevo. La prueba real con `AdminUpdateUserAttributes` entregó el código pero no activó de forma fiable el alias nuevo antes de confirmar; por eso el flujo solicita otra vez la contraseña y recrea únicamente la identidad no confirmada. La contraseña nunca se persiste.
+
 La arquitectura, los flujos de activación/cancelación, las reglas de conciliación y el inventario completo de registros DynamoDB están documentados en [SUSCRIPCIONES_MERCADO_PAGO.md](./SUSCRIPCIONES_MERCADO_PAGO.md).
 
 Las altas públicas usan el email normalizado como username y confirman su propiedad mediante el código OTP de Cognito. Al crear la identidad se genera un comercio UUID, se escriben `custom:commerceIds`, `custom:accountStatus` y `custom:regId`, y el usuario se incorpora a `admin`.
@@ -93,20 +99,23 @@ Las funciones Lambda están expuestas a través de una API HTTP. El parámetro `
 
 Endpoints principales:
 
-| Método y ruta                         | Descripción                                                                                    |
-| ------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| **POST /{commerceId}/products**       | Crear producto (solo admin).                                                                   |
-| **PUT /{commerceId}/products/{code}** | Actualizar producto (solo admin).                                                              |
-| **GET /{commerceId}/products**        | Listar productos. Admite `lastKey` para paginación.                                            |
-| **POST /{commerceId}/sales**          | Registrar venta o devolución (admin o vendedor).                                               |
-| **GET /{commerceId}/sales**           | Listar ventas. Acepta filtros por día (`day=YYYY-MM-DD`), rango (`start` y `end`) y `lastKey`. |
-| **GET /{commerceId}/reports/daily**   | Reporte diario por comercio y día.                                                             |
-| **GET /{commerceId}/reports/range**   | Reporte por rango de fechas.                                                                   |
-| **POST /public/registrations** | Crear cuenta, comercio y enviar OTP. |
-| **POST /public/registrations/{id}/confirm-email** | Confirmar el email. |
-| **POST /{commerceId}/billing/subscribe** | Iniciar trial o reactivación; requiere propietario e `Idempotency-Key`. |
-| **POST /{commerceId}/billing/cancel** | Cancelar cobros futuros con `{ reason }`; requiere propietario e `Idempotency-Key`. |
-| **GET /{commerceId}/billing/status** | Consultar entitlement; limita los datos de gestión al propietario. |
+| Método y ruta                                     | Descripción                                                                                    |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| **POST /{commerceId}/products**                   | Crear producto (solo admin).                                                                   |
+| **PUT /{commerceId}/products/{code}**             | Actualizar producto (solo admin).                                                              |
+| **GET /{commerceId}/products**                    | Listar productos. Admite `lastKey` para paginación.                                            |
+| **POST /{commerceId}/sales**                      | Registrar venta o devolución (admin o vendedor).                                               |
+| **GET /{commerceId}/sales**                       | Listar ventas. Acepta filtros por día (`day=YYYY-MM-DD`), rango (`start` y `end`) y `lastKey`. |
+| **GET /{commerceId}/reports/daily**               | Reporte diario por comercio y día.                                                             |
+| **GET /{commerceId}/reports/range**               | Reporte por rango de fechas.                                                                   |
+| **POST /public/registrations**                    | Crear el alta temporal y enviar OTP por email.                                                 |
+| **POST /public/registrations/{id}/confirm-email** | Confirmar el email y crear las entidades definitivas.                                          |
+| **POST /public/registrations/recover**            | Recuperar/reenviar de forma genérica un alta pendiente.                                        |
+| **POST /public/registrations/confirm-email**      | Confirmar desde recuperación directa por email.                                                |
+| **PUT /public/registrations/{id}/email**          | Corregir el email de un alta no confirmada.                                                    |
+| **POST /{commerceId}/billing/subscribe**          | Iniciar trial o reactivación; requiere propietario e `Idempotency-Key`.                        |
+| **POST /{commerceId}/billing/cancel**             | Cancelar cobros futuros con `{ reason }`; requiere propietario e `Idempotency-Key`.            |
+| **GET /{commerceId}/billing/status**              | Consultar entitlement; limita los datos de gestión al propietario.                             |
 
 ### Testing
 

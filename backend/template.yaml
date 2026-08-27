@@ -108,8 +108,9 @@ Globals:
         MERCADO_PAGO_WEBHOOK_SECRET: !Ref MercadoPagoWebhookSecret
         MERCADO_PAGO_PREAPPROVAL_PLAN_ID: !Ref MercadoPagoPreapprovalPlanId
         MERCADO_PAGO_REACTIVATION_PLAN_ID: !Ref MercadoPagoReactivationPlanId
-        COGNITO_USER_POOL_ID: !Ref UserPool
-        COGNITO_CLIENT_ID: !Ref UserPoolClient
+        COGNITO_USER_POOL_ID: !Ref UserPoolV2
+        COGNITO_CLIENT_ID: !Ref UserPoolClientV2
+        REGISTRATION_EMAIL_GSI: GSI-Altas-Pendientes-Por-Email
         CANCELLATION_FEEDBACK_QUEUE_URL: !Ref CancellationFeedbackQueue
         CANCELLATION_EMAIL_FROM: !Ref CancellationEmailFrom
         CANCELLATION_EMAIL_TO: !Ref CancellationEmailTo
@@ -144,6 +145,10 @@ Resources:
           AttributeType: S
         - AttributeName: monthlyUnits
           AttributeType: N
+        - AttributeName: emailLookupPk
+          AttributeType: S
+        - AttributeName: emailLookupSk
+          AttributeType: S
       KeySchema:
         - AttributeName: PK
           KeyType: HASH
@@ -197,8 +202,16 @@ Resources:
               - code
               - uom
               - priceSale
+        - IndexName: GSI-Altas-Pendientes-Por-Email
+          KeySchema:
+            - AttributeName: emailLookupPk
+              KeyType: HASH
+            - AttributeName: emailLookupSk
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
 
-  ## Cognito User Pool y grupos de roles
+  ## User Pool legado. Se conserva deliberadamente durante la migración V2.
   UserPool:
     Type: AWS::Cognito::UserPool
     Properties:
@@ -263,6 +276,101 @@ Resources:
       SupportedIdentityProviders:
         - COGNITO
 
+  ## Arquitectura V2 utilizada por desarrollo y por todas las referencias activas.
+  UserPoolV2:
+    Type: AWS::Cognito::UserPool
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      UserPoolName: !Sub gestor-comercios-${CommerceStage}
+      UsernameAttributes:
+        - email
+      UsernameConfiguration:
+        CaseSensitive: false
+      AutoVerifiedAttributes:
+        - email
+      MfaConfiguration: 'OFF'
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+          - Name: verified_email
+            Priority: 1
+      UserAttributeUpdateSettings:
+        AttributesRequireVerificationBeforeUpdate:
+          - email
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireLowercase: true
+          RequireUppercase: true
+          RequireNumbers: true
+          RequireSymbols: true
+      Schema:
+        - Name: email
+          Required: true
+          Mutable: true
+        - Name: given_name
+          Required: false
+          Mutable: true
+        - Name: family_name
+          Required: false
+          Mutable: true
+        - Name: phone_number
+          Required: false
+          Mutable: true
+        - Name: commerceIds
+          AttributeDataType: String
+          Mutable: true
+        - Name: accountStatus
+          AttributeDataType: String
+          Mutable: true
+        - Name: regId
+          AttributeDataType: String
+          Mutable: true
+
+  UserPoolAdminGroupV2:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      GroupName: admin
+      UserPoolId: !Ref UserPoolV2
+      Description: Administradores con acceso total a productos y ventas.
+
+  UserPoolVendedorGroupV2:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      GroupName: vendedor
+      UserPoolId: !Ref UserPoolV2
+      Description: Vendedores con permisos limitados.
+
+  UserPoolClientV2:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: !Sub gestor-comercios-web-${CommerceStage}
+      UserPoolId: !Ref UserPoolV2
+      GenerateSecret: false
+      PreventUserExistenceErrors: ENABLED
+      EnableTokenRevocation: true
+      AllowedOAuthFlowsUserPoolClient: false
+      ExplicitAuthFlows:
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_ADMIN_USER_PASSWORD_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+      ReadAttributes:
+        - email
+        - given_name
+        - family_name
+        - phone_number
+        - custom:commerceIds
+        - custom:accountStatus
+        - custom:regId
+      WriteAttributes:
+        - email
+        - given_name
+        - family_name
+        - phone_number
+      SupportedIdentityProviders:
+        - COGNITO
+
   ## API HTTP con authorizer
   HttpApi:
     Type: AWS::Serverless::HttpApi
@@ -294,8 +402,8 @@ Resources:
             IdentitySource: '$request.header.Authorization'
             JwtConfiguration:
               Audience:
-                - !Ref UserPoolClient
-              Issuer: !Sub https://cognito-idp.${AWS::Region}.amazonaws.com/${UserPool}
+                - !Ref UserPoolClientV2
+              Issuer: !Sub https://cognito-idp.${AWS::Region}.amazonaws.com/${UserPoolV2}
         DefaultAuthorizer: CognitoJwtAuthorizer
 
   ## Rol para Lambdas con acceso a DynamoDB
@@ -323,6 +431,7 @@ Resources:
                   - dynamodb:Query
                   - dynamodb:DeleteItem
                   - dynamodb:ConditionCheckItem
+                  - dynamodb:Scan
                   - dynamodb:DescribeTable
                 Resource: !GetAtt GestionComercios.Arn
               - Effect: Allow
@@ -341,6 +450,10 @@ Resources:
                 Action:
                   - dynamodb:Query
                 Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/GestionComercios-${CommerceStage}/index/GSI-Ranking-Mensual
+              - Effect: Allow
+                Action:
+                  - dynamodb:Query
+                Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/GestionComercios-${CommerceStage}/index/GSI-Altas-Pendientes-Por-Email
               - Effect: Allow
                 Action:
                   - dynamodb:DescribeStream
@@ -363,7 +476,7 @@ Resources:
                   - cognito-idp:ListUsers
                   - cognito-idp:ConfirmSignUp
                   - cognito-idp:ResendConfirmationCode
-                Resource: !Sub arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${UserPool}
+                Resource: !Sub arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${UserPoolV2}
               - Effect: Allow
                 Action:
                   - sqs:SendMessage
@@ -1026,6 +1139,74 @@ Resources:
             Auth:
               Authorizer: NONE
 
+  RecoverPendingRegistrationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub recoverPendingRegistration-${CommerceStage}
+      CodeUri: ./dist
+      Handler: handlers/recoverPendingRegistration.handler
+      Role: !GetAtt LambdaDynamoRole.Arn
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: '/public/registrations/recover'
+            Method: POST
+            Auth:
+              Authorizer: NONE
+
+  ConfirmRecoveredRegistrationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub confirmRecoveredRegistration-${CommerceStage}
+      CodeUri: ./dist
+      Handler: handlers/confirmRecoveredRegistration.handler
+      Role: !GetAtt LambdaDynamoRole.Arn
+      Timeout: 30
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: '/public/registrations/confirm-email'
+            Method: POST
+            Auth:
+              Authorizer: NONE
+
+  ChangePendingRegistrationEmailFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub changePendingRegistrationEmail-${CommerceStage}
+      CodeUri: ./dist
+      Handler: handlers/changePendingRegistrationEmail.handler
+      Role: !GetAtt LambdaDynamoRole.Arn
+      Timeout: 30
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: '/public/registrations/{registrationId}/email'
+            Method: PUT
+            Auth:
+              Authorizer: NONE
+
+  CleanupExpiredRegistrationsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub cleanupExpiredRegistrations-${CommerceStage}
+      CodeUri: ./dist
+      Handler: handlers/cleanupExpiredRegistrations.handler
+      Role: !GetAtt LambdaDynamoRole.Arn
+      Timeout: 60
+      Events:
+        HourlyCleanup:
+          Type: Schedule
+          Properties:
+            Schedule: rate(1 hour)
+            Enabled: true
+
   MercadoPagoWebhookFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -1191,3 +1372,15 @@ Outputs:
   HttpApiUrl:
     Description: URL base de la API HTTP.
     Value: !Sub 'https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com/${CommerceStage}'
+  UserPoolV2Id:
+    Description: ID del User Pool V2 activo.
+    Value: !Ref UserPoolV2
+  UserPoolClientV2Id:
+    Description: ID del App Client V2 activo (sin secret).
+    Value: !Ref UserPoolClientV2
+  UserPoolV2Issuer:
+    Description: Issuer JWT del User Pool V2 activo.
+    Value: !Sub https://cognito-idp.${AWS::Region}.amazonaws.com/${UserPoolV2}
+  LegacyUserPoolId:
+    Description: ID del User Pool anterior retenido durante la migración.
+    Value: !Ref UserPool

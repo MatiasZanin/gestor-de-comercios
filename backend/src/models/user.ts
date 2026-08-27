@@ -8,6 +8,7 @@ export interface CommerceUserProfile {
   cognitoSub: string;
   cognitoUsername: string;
   email: string;
+  phoneNumber?: string;
   firstName: string;
   lastName: string;
   role: Role;

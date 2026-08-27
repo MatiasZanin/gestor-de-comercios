@@ -1,48 +1,60 @@
-"use client"
+"use client";
 
-import { useCallback, useEffect, useState } from "react"
-import Image from "next/image"
-import { ArrowLeft, ArrowRight, MessageCircleQuestion } from "lucide-react"
+import { useCallback, useEffect, useState } from "react";
+import Image from "next/image";
+import { ArrowLeft, ArrowRight, MessageCircleQuestion } from "lucide-react";
 
-import { Button } from "@/components/ui/button"
+import { Button } from "@/components/ui/button";
 import {
   Carousel,
   type CarouselApi,
   CarouselContent,
   CarouselItem,
-} from "@/components/ui/carousel"
-import { cn } from "@/lib/utils"
-import { loginCarouselItems } from "./login-carousel-items"
+} from "@/components/ui/carousel";
+import { cn } from "@/lib/utils";
+import { loginCarouselItems } from "./login-carousel-items";
 
-const WHATSAPP_HELP_URL = "https://wa.me/541133593078"
+const WHATSAPP_HELP_URL = "https://wa.me/541133593078";
 
-export function LoginCarouselPanel() {
-  const [api, setApi] = useState<CarouselApi>()
-  const [current, setCurrent] = useState(0)
+export function LoginCarouselPanel({ compact = false }: { compact?: boolean }) {
+  const [api, setApi] = useState<CarouselApi>();
+  const [current, setCurrent] = useState(0);
 
   const updateCurrent = useCallback((carouselApi: CarouselApi) => {
-    if (carouselApi) setCurrent(carouselApi.selectedScrollSnap())
-  }, [])
+    if (carouselApi) setCurrent(carouselApi.selectedScrollSnap());
+  }, []);
 
   useEffect(() => {
-    if (!api) return
+    if (!api) return;
 
-    updateCurrent(api)
-    api.on("select", updateCurrent)
-    api.on("reInit", updateCurrent)
+    updateCurrent(api);
+    api.on("select", updateCurrent);
+    api.on("reInit", updateCurrent);
 
     return () => {
-      api.off("select", updateCurrent)
-      api.off("reInit", updateCurrent)
-    }
-  }, [api, updateCurrent])
+      api.off("select", updateCurrent);
+      api.off("reInit", updateCurrent);
+    };
+  }, [api, updateCurrent]);
 
   return (
-    <aside className="relative hidden min-h-[680px] overflow-hidden bg-[linear-gradient(145deg,#00a86b_0%,#009a61_48%,#007a4d_100%)] text-white lg:flex lg:flex-col">
+    <aside
+      className={cn(
+        "relative overflow-hidden bg-[linear-gradient(145deg,#00a86b_0%,#009a61_48%,#007a4d_100%)] text-white",
+        compact
+          ? "flex min-h-[250px] flex-col lg:min-h-[680px]"
+          : "hidden min-h-[680px] lg:flex lg:flex-col",
+      )}
+    >
       <div className="pointer-events-none absolute -right-24 -top-24 size-72 rounded-full bg-white/8 blur-2xl" />
       <div className="pointer-events-none absolute -bottom-32 -left-20 size-80 rounded-full bg-emerald-950/15 blur-3xl" />
 
-      <div className="relative z-10 flex justify-end px-8 pt-8">
+      <div
+        className={cn(
+          "relative z-10 justify-end px-8 pt-8",
+          compact ? "hidden lg:flex" : "flex",
+        )}
+      >
         <a
           href={WHATSAPP_HELP_URL}
           target="_blank"
@@ -57,14 +69,26 @@ export function LoginCarouselPanel() {
       <Carousel
         setApi={setApi}
         opts={{ loop: true, align: "center" }}
-        className="relative z-10 flex flex-1 flex-col justify-center px-12 pb-8 pt-4"
+        className={cn(
+          "relative z-10 flex flex-1 flex-col justify-center",
+          compact
+            ? "px-5 py-5 sm:px-8 lg:px-12 lg:pb-8 lg:pt-4"
+            : "px-12 pb-8 pt-4",
+        )}
         aria-label="Beneficios de Gestor de Comercios"
       >
         <CarouselContent className="ml-0">
           {loginCarouselItems.map((item) => (
             <CarouselItem key={item.path} className="pl-0">
               <div className="mx-auto flex max-w-[520px] flex-col items-center text-center">
-                <div className="relative mb-7 aspect-[16/10] w-full">
+                <div
+                  className={cn(
+                    "relative aspect-[16/10] w-full",
+                    compact
+                      ? "mb-2 max-w-[190px] lg:mb-7 lg:max-w-none"
+                      : "mb-7",
+                  )}
+                >
                   <Image
                     src={item.path}
                     alt=""
@@ -74,14 +98,37 @@ export function LoginCarouselPanel() {
                     className="object-contain"
                   />
                 </div>
-                <h2 className="text-2xl font-semibold tracking-tight xl:text-[28px]">{item.title}</h2>
-                <p className="mt-3 max-w-md text-sm leading-6 text-emerald-50/85 xl:text-base">{item.desc}</p>
+                <h2
+                  className={cn(
+                    "font-semibold tracking-tight",
+                    compact
+                      ? "text-lg lg:text-2xl xl:text-[28px]"
+                      : "text-2xl xl:text-[28px]",
+                  )}
+                >
+                  {item.title}
+                </h2>
+                <p
+                  className={cn(
+                    "max-w-md text-emerald-50/85",
+                    compact
+                      ? "mt-1 text-xs leading-5 lg:mt-3 lg:text-sm lg:leading-6 xl:text-base"
+                      : "mt-3 text-sm leading-6 xl:text-base",
+                  )}
+                >
+                  {item.desc}
+                </p>
               </div>
             </CarouselItem>
           ))}
         </CarouselContent>
 
-        <div className="mt-7 flex items-center justify-center gap-4">
+        <div
+          className={cn(
+            "flex items-center justify-center gap-4",
+            compact ? "mt-3 lg:mt-7" : "mt-7",
+          )}
+        >
           <Button
             type="button"
             size="icon"
@@ -93,7 +140,10 @@ export function LoginCarouselPanel() {
             <ArrowLeft className="size-4" />
           </Button>
 
-          <div className="flex items-center gap-2" aria-label={`Diapositiva ${current + 1} de ${loginCarouselItems.length}`}>
+          <div
+            className="flex items-center gap-2"
+            aria-label={`Diapositiva ${current + 1} de ${loginCarouselItems.length}`}
+          >
             {loginCarouselItems.map((item, index) => (
               <button
                 key={item.path}
@@ -122,5 +172,5 @@ export function LoginCarouselPanel() {
         </div>
       </Carousel>
     </aside>
-  )
+  );
 }

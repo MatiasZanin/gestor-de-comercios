@@ -1,13 +1,9 @@
 import { createHash, randomUUID } from "crypto"
 import {
   AdminAddUserToGroupCommand,
-  AdminGetUserCommand,
   AdminUpdateUserAttributesCommand,
   CognitoIdentityProviderClient,
-  ConfirmSignUpCommand,
   ListUsersCommand,
-  ResendConfirmationCodeCommand,
-  SignUpCommand,
 } from "@aws-sdk/client-cognito-identity-provider"
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb"
 import { DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand } from "@aws-sdk/lib-dynamodb"
@@ -23,10 +19,6 @@ import type {
   CancelSubscriptionResponse,
   CreateSubscriptionResponse,
   PublicBillingConfigResponse,
-  PublicRegistrationRequest,
-  PublicRegistrationResponse,
-  RegistrationRecord,
-  RegistrationStatusResponse,
   SubscriptionRecord,
   SubscriptionViewState,
   WebhookEventRecord,
@@ -59,26 +51,6 @@ function requireEnv(name: string): string {
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase()
-}
-
-function normalizeMerchantName(name: string): string {
-  return name
-    .replace(/[\u0000-\u001f\u007f]/g, "")
-    .trim()
-    .replace(/\s+/g, " ")
-}
-
-function registrationIdForEmail(email: string): string {
-  return createHash("sha256").update(normalizeEmail(email)).digest("hex").slice(0, 24)
-}
-
-function maskEmail(email: string): string {
-  const [local, domain] = email.split("@")
-  return `${local.slice(0, 1)}***@${domain}`
-}
-
-function registrationKey(registrationId: string) {
-  return { PK: `REG#${registrationId}`, SK: "REGISTRATION" as const }
 }
 
 function commerceKey(commerceId: string) {
@@ -136,10 +108,6 @@ async function putItem(item: object, createOnly = false) {
         : {}),
     })
   )
-}
-
-async function getRegistration(registrationId: string) {
-  return getItem<RegistrationRecord>(registrationKey(registrationId))
 }
 
 async function getBillingProfile(commerceId: string) {
@@ -209,18 +177,6 @@ function getMpClient() {
   return new MercadoPagoClient(requireEnv("MERCADO_PAGO_ACCESS_TOKEN"))
 }
 
-async function findCognitoUsersByEmail(email: string) {
-  const escaped = email.replace(/\\/g, "\\\\").replace(/\"/g, '\\"')
-  const result = await cognitoClient.send(
-    new ListUsersCommand({
-      UserPoolId: requireEnv("COGNITO_USER_POOL_ID"),
-      Filter: `email = "${escaped}"`,
-      Limit: 2,
-    })
-  )
-  return result.Users ?? []
-}
-
 async function updateCognitoAttributes(input: {
   username: string
   status: BillingStatus
@@ -240,37 +196,6 @@ async function updateCognitoAttributes(input: {
   )
 }
 
-async function createCognitoUser(input: PublicRegistrationRequest, registrationId: string, commerceId: string) {
-  const email = normalizeEmail(input.email)
-  const result = await cognitoClient.send(
-    new SignUpCommand({
-      ClientId: requireEnv("COGNITO_CLIENT_ID"),
-      Username: email,
-      Password: input.password,
-      UserAttributes: [
-        { Name: "email", Value: email },
-        { Name: "given_name", Value: input.firstName.trim() },
-        { Name: "family_name", Value: input.lastName.trim() },
-      ],
-    })
-  )
-
-  await updateCognitoAttributes({
-    username: email,
-    status: BILLING_STATUS.PENDING_SUBSCRIPTION,
-    commerceId,
-    registrationId,
-  })
-  await cognitoClient.send(
-    new AdminAddUserToGroupCommand({
-      UserPoolId: requireEnv("COGNITO_USER_POOL_ID"),
-      Username: email,
-      GroupName: "admin",
-    })
-  )
-  return result.UserSub ?? ""
-}
-
 export async function getPublicBillingConfig(): Promise<PublicBillingConfigResponse> {
   return {
     monthlyAmount: billingConfig.monthlyAmount,
@@ -278,171 +203,6 @@ export async function getPublicBillingConfig(): Promise<PublicBillingConfigRespo
     trialDays: billingConfig.trialDays,
     graceDays: billingConfig.graceDays,
     planReason: billingConfig.planReason,
-  }
-}
-
-export async function createPublicRegistration(input: PublicRegistrationRequest): Promise<PublicRegistrationResponse> {
-  if (!input.acceptTerms) throw new BadRequestError("Debe aceptar los términos y condiciones")
-
-  requireEnv("TABLE_NAME")
-  requireEnv("COGNITO_USER_POOL_ID")
-  requireEnv("COGNITO_CLIENT_ID")
-
-  const email = normalizeEmail(input.email)
-  const registrationId = registrationIdForEmail(email)
-  const existingRegistration = await getRegistration(registrationId)
-  const cognitoUsers = await findCognitoUsersByEmail(email)
-
-  if (existingRegistration) {
-    return {
-      registrationId,
-      status: existingRegistration.status,
-      maskedEmail: maskEmail(email),
-    }
-  }
-  if (cognitoUsers.length > 0) throw new ConflictError("Ya existe una cuenta para ese email")
-
-  const commerceId = randomUUID()
-  const createdAt = nowIso()
-  const merchantName = normalizeMerchantName(input.merchantName)
-  const registration: RegistrationRecord = {
-    ...registrationKey(registrationId),
-    type: "REGISTRATION",
-    registrationId,
-    commerceId,
-    email,
-    firstName: input.firstName.trim(),
-    lastName: input.lastName.trim(),
-    merchantName,
-    status: "email_verification_pending",
-    userPoolUsername: email,
-    createdAt,
-    updatedAt: createdAt,
-    retryCount: 1,
-  }
-
-  await putItem(registration, true)
-  try {
-    const ownerCognitoSub = await createCognitoUser(input, registrationId, commerceId)
-    const commerce: CommerceProfile = {
-      ...commerceKey(commerceId),
-      type: "COMMERCE",
-      commerceId,
-      merchantName,
-      ownerCognitoSub,
-      ownerEmail: email,
-      scaleBarcodeConfig: DEFAULT_SCALE_BARCODE_CONFIG,
-      createdAt,
-      updatedAt: createdAt,
-    }
-    const billing: BillingProfile = {
-      ...billingKey(commerceId),
-      type: "BILLING_PROFILE",
-      commerceId,
-      merchantName,
-      ownerEmail: email,
-      ownerCognitoSub,
-      status: BILLING_STATUS.PENDING_SUBSCRIPTION,
-      mercadoPagoPlanId: billingConfig.planId,
-      createdAt,
-      updatedAt: createdAt,
-    }
-    const ownerUser: CommerceUserProfile = {
-      PK: `COM#${commerceId}`,
-      SK: `USER#${ownerCognitoSub}`,
-      type: "COMMERCE_USER",
-      commerceId,
-      cognitoSub: ownerCognitoSub,
-      cognitoUsername: email,
-      email,
-      firstName: input.firstName.trim(),
-      lastName: input.lastName.trim(),
-      role: "admin",
-      createdAt,
-      updatedAt: createdAt,
-    }
-    await Promise.all([
-      putItem({ ...registration, ownerCognitoSub }),
-      putItem(commerce),
-      putItem(billing),
-      putItem(ownerUser),
-    ])
-  } catch (error) {
-    // The durable registration makes a partial signup observable and recoverable.
-    throw error
-  }
-
-  return {
-    registrationId,
-    status: registration.status,
-    maskedEmail: maskEmail(email),
-  }
-}
-
-export async function confirmRegistrationEmail(registrationId: string, code: string) {
-  const registration = await getRegistration(registrationId)
-  if (!registration) throw new NotFoundError("Registration not found")
-
-  try {
-    await cognitoClient.send(
-      new ConfirmSignUpCommand({
-        ClientId: requireEnv("COGNITO_CLIENT_ID"),
-        Username: registration.email,
-        ConfirmationCode: code,
-      })
-    )
-  } catch (error: any) {
-    if (error?.name !== "NotAuthorizedException") throw error
-    const user = await cognitoClient.send(
-      new AdminGetUserCommand({
-        UserPoolId: requireEnv("COGNITO_USER_POOL_ID"),
-        Username: registration.email,
-      })
-    )
-    if (user.UserStatus !== "CONFIRMED") throw error
-  }
-
-  const updated: RegistrationRecord = {
-    ...registration,
-    status: "pending_subscription",
-    updatedAt: nowIso(),
-  }
-  await putItem(updated)
-  await createWelcomeEmailNotification({
-    registrationId: updated.registrationId,
-    email: updated.email,
-    firstName: updated.firstName,
-    merchantName: updated.merchantName,
-  })
-  return {
-    registrationId,
-    status: updated.status,
-    loginUrl: "/login?next=/suscripcion",
-  }
-}
-
-export async function resendRegistrationCode(registrationId: string) {
-  const registration = await getRegistration(registrationId)
-  if (!registration) throw new NotFoundError("Registration not found")
-  if (registration.status !== "email_verification_pending") {
-    throw new ConflictError("El email ya fue confirmado")
-  }
-  await cognitoClient.send(
-    new ResendConfirmationCodeCommand({
-      ClientId: requireEnv("COGNITO_CLIENT_ID"),
-      Username: registration.email,
-    })
-  )
-}
-
-export async function getRegistrationStatus(registrationId: string): Promise<RegistrationStatusResponse> {
-  const registration = await getRegistration(registrationId)
-  if (!registration) throw new NotFoundError("Registration not found")
-  return {
-    registrationId,
-    status: registration.status,
-    maskedEmail: maskEmail(registration.email),
-    merchantName: registration.merchantName,
   }
 }
 

@@ -27,10 +27,12 @@ async function resolveUserPoolId() {
   const pools = await cognito.send(
     new ListUserPoolsCommand({ MaxResults: 60 })
   );
-  const pool = pools.UserPools?.find(item => item.Name === 'commerce-mvp-dev');
+  const pool = pools.UserPools?.find(
+    item => item.Name === 'gestor-comercios-dev'
+  );
   if (!pool?.Id)
     throw new Error(
-      'No se encontró commerce-mvp-dev; definí COGNITO_USER_POOL_ID'
+      'No se encontró gestor-comercios-dev; definí COGNITO_USER_POOL_ID'
     );
   return pool.Id;
 }
