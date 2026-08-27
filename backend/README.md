@@ -69,6 +69,8 @@ La plantilla `sam/template.yaml` crea una tabla DynamoDB denominada `GestionCome
 
 ### Registro, Cognito y billing
 
+La arquitectura, los flujos de activación/cancelación, las reglas de conciliación y el inventario completo de registros DynamoDB están documentados en [SUSCRIPCIONES_MERCADO_PAGO.md](./SUSCRIPCIONES_MERCADO_PAGO.md).
+
 Las altas públicas usan el email normalizado como username y confirman su propiedad mediante el código OTP de Cognito. Al crear la identidad se genera un comercio UUID, se escriben `custom:commerceIds`, `custom:accountStatus` y `custom:regId`, y el usuario se incorpora a `admin`.
 
 El grupo define permisos, pero no habilita el producto. Todas las rutas comerciales consultan `COM#<commerceId>/BILLING#PROFILE`; las rutas `/{commerceId}/billing/*` siguen disponibles cuando la cuenta está bloqueada.
