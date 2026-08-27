@@ -1,10 +1,12 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import {
+  AdminDeleteUserCommand,
   AdminGetUserCommand,
   AdminUpdateUserAttributesCommand,
   CognitoIdentityProviderClient,
   ConfirmSignUpCommand,
+  InitiateAuthCommand,
   ListUsersCommand,
   ResendConfirmationCodeCommand,
   SignUpCommand,
@@ -24,6 +26,7 @@ import {
   normalizeEmail,
   normalizePhoneNumber,
   recoverPendingRegistration,
+  recoverPendingRegistrationAccess,
 } from '../src/services/registrationUseCase';
 import type { RegistrationRecord } from '../src/models/billing';
 
@@ -237,18 +240,25 @@ describe('registration V2 architecture', () => {
     ).toBe(false);
   });
 
-  it('changes an UNCONFIRMED email by securely recreating the identity without persisting the password', async () => {
+  it('changes an UNCONFIRMED email on the same Cognito identity and preserves its sub', async () => {
     dynamoSend.mockImplementation(async (command: unknown) => {
       if (command instanceof GetCommand) return { Item: pending };
       return {};
     });
     cognitoSend.mockImplementation(async (command: unknown) => {
       if (command instanceof AdminGetUserCommand)
-        return { Username: 'internal', UserStatus: 'UNCONFIRMED' };
-      if (command instanceof ListUsersCommand) return { Users: [] };
-      if (command instanceof SignUpCommand)
         return {
-          UserSub: 'new-internal',
+          Username: pending.userPoolUsername,
+          UserStatus: 'UNCONFIRMED',
+          UserAttributes: [{ Name: 'sub', Value: pending.userPoolUsername }],
+        };
+      if (command instanceof ListUsersCommand) return { Users: [] };
+      if (command instanceof InitiateAuthCommand)
+        throw Object.assign(new Error('not confirmed'), {
+          name: 'UserNotConfirmedException',
+        });
+      if (command instanceof ResendConfirmationCodeCommand)
+        return {
           CodeDeliveryDetails: { DeliveryMedium: 'EMAIL' },
         };
       return {};
@@ -268,11 +278,64 @@ describe('registration V2 architecture', () => {
       email: 'new@example.test',
       passwordRequired: false,
     });
-    const signUp = cognitoSend.mock.calls
+    const attributeUpdates = cognitoSend.mock.calls
       .map(call => call[0])
-      .find(command => command instanceof SignUpCommand) as SignUpCommand;
-    expect(signUp.input.Username).toBe('new@example.test');
+      .filter(
+        command => command instanceof AdminUpdateUserAttributesCommand
+      ) as AdminUpdateUserAttributesCommand[];
+    expect(attributeUpdates).toHaveLength(2);
+    expect(attributeUpdates[0].input).toMatchObject({
+      Username: pending.userPoolUsername,
+      UserAttributes: [
+        { Name: 'email', Value: 'new@example.test' },
+        { Name: 'email_verified', Value: 'true' },
+      ],
+    });
+    expect(attributeUpdates[1].input).toMatchObject({
+      Username: pending.userPoolUsername,
+      UserAttributes: [{ Name: 'email_verified', Value: 'false' }],
+    });
+    expect(
+      cognitoSend.mock.calls.some(
+        call => call[0] instanceof AdminDeleteUserCommand
+      )
+    ).toBe(false);
+    expect(
+      cognitoSend.mock.calls.some(call => call[0] instanceof SignUpCommand)
+    ).toBe(false);
     expect(JSON.stringify(dynamoSend.mock.calls)).not.toContain('Password1!');
+  });
+
+  it('rejects an email change before mutation when the current password is invalid', async () => {
+    dynamoSend.mockImplementation(async (command: unknown) =>
+      command instanceof GetCommand ? { Item: pending } : {}
+    );
+    cognitoSend.mockImplementation(async (command: unknown) => {
+      if (command instanceof AdminGetUserCommand)
+        return {
+          Username: pending.userPoolUsername,
+          UserStatus: 'UNCONFIRMED',
+        };
+      if (command instanceof ListUsersCommand) return { Users: [] };
+      if (command instanceof InitiateAuthCommand)
+        throw Object.assign(new Error('incorrect credentials'), {
+          name: 'NotAuthorizedException',
+        });
+      return {};
+    });
+
+    await expect(
+      changePendingRegistrationEmail({
+        registrationId: pending.registrationId,
+        newEmail: 'new@example.test',
+        password: 'WrongPassword1!',
+      })
+    ).rejects.toThrow('No se pudo recuperar el alta pendiente');
+    expect(
+      cognitoSend.mock.calls.some(
+        call => call[0] instanceof AdminUpdateUserAttributesCommand
+      )
+    ).toBe(false);
   });
 
   it('returns the same generic recovery response and enforces an atomic resend cooldown', async () => {
@@ -293,6 +356,49 @@ describe('registration V2 architecture', () => {
         call => call[0] instanceof ResendConfirmationCodeCommand
       )
     ).toBe(true);
+  });
+
+  it('recovers the opaque registration id only after Cognito validates the pending credentials', async () => {
+    dynamoSend.mockImplementation(async (command: unknown) =>
+      command instanceof QueryCommand ? { Items: [pending] } : {}
+    );
+    cognitoSend.mockImplementation(async (command: unknown) => {
+      if (command instanceof InitiateAuthCommand) {
+        throw Object.assign(new Error('not confirmed'), {
+          name: 'UserNotConfirmedException',
+        });
+      }
+      return {};
+    });
+
+    await expect(
+      recoverPendingRegistrationAccess(pending.email, 'Password1!')
+    ).resolves.toEqual({
+      registrationId: pending.registrationId,
+      email: pending.email,
+    });
+    const auth = cognitoSend.mock.calls[0][0] as InitiateAuthCommand;
+    expect(auth.input).toMatchObject({
+      AuthFlow: 'USER_PASSWORD_AUTH',
+      AuthParameters: { USERNAME: pending.email, PASSWORD: 'Password1!' },
+    });
+    expect(JSON.stringify(dynamoSend.mock.calls)).not.toContain('Password1!');
+  });
+
+  it('does not reveal a pending registration when Cognito rejects the credentials', async () => {
+    cognitoSend.mockImplementation(async (command: unknown) => {
+      if (command instanceof InitiateAuthCommand) {
+        throw Object.assign(new Error('incorrect credentials'), {
+          name: 'NotAuthorizedException',
+        });
+      }
+      return {};
+    });
+
+    await expect(
+      recoverPendingRegistrationAccess(pending.email, 'WrongPassword1!')
+    ).rejects.toThrow('No se pudo recuperar el alta pendiente');
+    expect(dynamoSend).not.toHaveBeenCalled();
   });
 
   it('does not resend for an expired temporary registration', async () => {

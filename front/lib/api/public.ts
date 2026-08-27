@@ -73,6 +73,16 @@ export async function recoverPendingRegistration(email: string) {
   );
 }
 
+export async function recoverPendingRegistrationAccess(
+  email: string,
+  password: string,
+) {
+  return request<{ registrationId: string; email: string }>(
+    "/public/registrations/recover-access",
+    { method: "POST", body: JSON.stringify({ email, password }) },
+  );
+}
+
 export async function confirmRecoveredRegistration(
   email: string,
   code: string,

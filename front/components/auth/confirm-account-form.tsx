@@ -22,6 +22,7 @@ import {
   confirmRecoveredRegistration,
   confirmRegistrationEmail,
   recoverPendingRegistration,
+  recoverPendingRegistrationAccess,
   resendRegistrationCode,
 } from "@/lib/api/public";
 import {
@@ -48,7 +49,6 @@ export function ConfirmAccountForm() {
   const [mode, setMode] = useState<"identify" | "otp">("identify");
   const [editing, setEditing] = useState(false);
   const [newEmail, setNewEmail] = useState("");
-  const [passwordRequired, setPasswordRequired] = useState(false);
   const [password, setPassword] = useState("");
   const [cooldown, setCooldown] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -171,24 +171,30 @@ export function ConfirmAccountForm() {
 
   const changeEmail = async (event: FormEvent) => {
     event.preventDefault();
-    if (!registrationId) return;
     setLoading(true);
     setError(null);
     try {
+      let currentRegistrationId = registrationId;
+      if (!currentRegistrationId) {
+        const recovered = await recoverPendingRegistrationAccess(
+          email,
+          password,
+        );
+        currentRegistrationId = recovered.registrationId;
+        setRegistrationId(recovered.registrationId);
+      }
       const result = await changePendingRegistrationEmail(
-        registrationId,
+        currentRegistrationId,
         newEmail,
-        passwordRequired ? password : undefined,
+        password,
       );
       if (result.passwordRequired) {
-        setPasswordRequired(true);
         setMessage(result.message ?? null);
         return;
       }
       setEmail(result.email ?? newEmail.trim().toLowerCase());
       setCode("");
       setPassword("");
-      setPasswordRequired(false);
       setEditing(false);
       setCooldown(result.cooldownSeconds ?? 60);
       setMessage("Actualizamos el email y enviamos un código nuevo.");
@@ -315,30 +321,26 @@ export function ConfirmAccountForm() {
                 required
               />
             </div>
-            {passwordRequired ? (
-              <div className="space-y-2">
-                <Label htmlFor="changeEmailPassword">Contraseña</Label>
-                <Input
-                  id="changeEmailPassword"
-                  type="password"
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  required
-                />
-                <p className="text-sm text-slate-500">
-                  Cognito requiere recrear únicamente la identidad no
-                  confirmada. La contraseña no se guarda.
-                </p>
-              </div>
-            ) : null}
+            <div className="space-y-2">
+              <Label htmlFor="changeEmailPassword">Contraseña</Label>
+              <Input
+                id="changeEmailPassword"
+                type="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                required
+              />
+              <p className="text-sm text-slate-500">
+                La usamos para validar que el alta es tuya. No se guarda.
+              </p>
+            </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => {
                   setEditing(false);
-                  setPasswordRequired(false);
                   setPassword("");
                 }}
                 disabled={loading}
@@ -363,28 +365,19 @@ export function ConfirmAccountForm() {
           <form onSubmit={confirm} className="space-y-5" noValidate>
             <div className="flex items-center justify-between gap-3 text-sm">
               <span className="text-slate-600">¿El email no es correcto?</span>
-              {registrationId ? (
-                <Button
-                  type="button"
-                  variant="link"
-                  className="h-auto p-0 text-emerald-700"
-                  onClick={() => {
-                    setNewEmail(email);
-                    setEditing(true);
-                    setCode("");
-                  }}
-                >
-                  <Pencil className="size-3.5" />
-                  Editar
-                </Button>
-              ) : (
-                <Link
-                  href="/registrarme"
-                  className="font-medium text-emerald-700"
-                >
-                  Reiniciar el alta
-                </Link>
-              )}
+              <Button
+                type="button"
+                variant="link"
+                className="h-auto p-0 text-emerald-700"
+                onClick={() => {
+                  setNewEmail(email);
+                  setEditing(true);
+                  setCode("");
+                }}
+              >
+                <Pencil className="size-3.5" />
+                Editar
+              </Button>
             </div>
             <div className="space-y-2">
               <Label htmlFor="confirmationCode">Código de verificación</Label>

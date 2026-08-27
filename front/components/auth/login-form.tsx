@@ -14,6 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authenticatedHome } from "@/lib/auth/account-access";
+import { recoverPendingRegistrationAccess } from "@/lib/api/public";
 import { savePendingRegistrationNavigation } from "@/lib/auth/pending-registration";
 import { useAuth } from "@/lib/hooks/use-auth";
 import { ArrowRight, Loader2 } from "lucide-react";
@@ -105,8 +106,20 @@ export function LoginForm() {
         caught?.code === "UserNotConfirmedException" ||
         caught?.name === "UserNotConfirmedException"
       ) {
+        const normalizedEmail = username.trim().toLowerCase();
+        let registrationId: string | undefined;
+        try {
+          const pending = await recoverPendingRegistrationAccess(
+            normalizedEmail,
+            password,
+          );
+          registrationId = pending.registrationId;
+        } catch {
+          // Confirmation remains available if access recovery is temporarily unavailable.
+        }
         savePendingRegistrationNavigation({
-          email: username.trim().toLowerCase(),
+          registrationId,
+          email: normalizedEmail,
           source: "login",
           attemptId: crypto.randomUUID(),
         });

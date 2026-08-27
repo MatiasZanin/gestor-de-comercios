@@ -1156,6 +1156,23 @@ Resources:
             Auth:
               Authorizer: NONE
 
+  RecoverPendingRegistrationAccessFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub recoverPendingRegistrationAccess-${CommerceStage}
+      CodeUri: ./dist
+      Handler: handlers/recoverPendingRegistrationAccess.handler
+      Role: !GetAtt LambdaDynamoRole.Arn
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: '/public/registrations/recover-access'
+            Method: POST
+            Auth:
+              Authorizer: NONE
+
   ConfirmRecoveredRegistrationFunction:
     Type: AWS::Serverless::Function
     Properties:

@@ -6,6 +6,7 @@ import {
   AdminUpdateUserAttributesCommand,
   CognitoIdentityProviderClient,
   ConfirmSignUpCommand,
+  InitiateAuthCommand,
   ListUsersCommand,
   ResendConfirmationCodeCommand,
   SignUpCommand,
@@ -28,6 +29,7 @@ import {
   BadRequestError,
   ConflictError,
   NotFoundError,
+  UnauthorizedError,
 } from '../helpers/errors';
 import type {
   BillingProfile,
@@ -178,7 +180,9 @@ async function deleteExpiredUnconfirmedUser(
   registration: RegistrationRecord
 ): Promise<void> {
   try {
-    const user = await getCognitoUser(registration.email);
+    const user = await getCognitoUser(
+      registration.userPoolUsername || registration.email
+    );
     if (user.UserStatus === 'UNCONFIRMED') {
       await cognitoClient.send(
         new AdminDeleteUserCommand({
@@ -386,7 +390,7 @@ async function resendForRegistration(
   await cognitoClient.send(
     new ResendConfirmationCodeCommand({
       ClientId: requireEnv('COGNITO_CLIENT_ID'),
-      Username: registration.email,
+      Username: registration.userPoolUsername || registration.email,
     })
   );
   return true;
@@ -423,6 +427,61 @@ export async function recoverPendingRegistration(emailInput: string) {
   };
 }
 
+export async function recoverPendingRegistrationAccess(
+  emailInput: string,
+  password: string
+) {
+  const email = normalizeEmail(emailInput);
+  const denied = () =>
+    new UnauthorizedError('No se pudo recuperar el alta pendiente');
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !password) {
+    throw denied();
+  }
+
+  await assertUnconfirmedCredentials(email, password);
+
+  const registration = await findPendingRegistrationByEmail(email);
+  if (
+    !registration ||
+    registration.expiresAt <= Math.floor(Date.now() / 1000)
+  ) {
+    throw denied();
+  }
+
+  return {
+    registrationId: registration.registrationId,
+    email: registration.email,
+  };
+}
+
+async function assertUnconfirmedCredentials(
+  username: string,
+  password: string
+): Promise<void> {
+  try {
+    await cognitoClient.send(
+      new InitiateAuthCommand({
+        ClientId: requireEnv('COGNITO_CLIENT_ID'),
+        AuthFlow: 'USER_PASSWORD_AUTH',
+        AuthParameters: {
+          USERNAME: username,
+          PASSWORD: password,
+        },
+      })
+    );
+    // A confirmed account must never grant access to a stale pending record.
+    throw new UnauthorizedError('No se pudo recuperar el alta pendiente');
+  } catch (error: any) {
+    if (error instanceof UnauthorizedError) throw error;
+    // Cognito only reaches this state after accepting the credentials for an
+    // existing identity. No token is issued while the user is unconfirmed.
+    if (error?.name !== 'UserNotConfirmedException') {
+      throw new UnauthorizedError('No se pudo recuperar el alta pendiente');
+    }
+  }
+}
+
 async function materializeConfirmedRegistration(
   registration: RegistrationRecord
 ) {
@@ -433,7 +492,9 @@ async function materializeConfirmedRegistration(
       loginUrl: '/login?confirmed=1',
     };
   }
-  const user = await getCognitoUser(registration.email);
+  const user = await getCognitoUser(
+    registration.userPoolUsername || registration.email
+  );
   if (user.UserStatus !== 'CONFIRMED')
     throw new ConflictError('La cuenta todavía no está confirmada');
   const ownerCognitoSub = cognitoAttribute(user, 'sub');
@@ -604,7 +665,7 @@ async function confirmAndMaterialize(
       await cognitoClient.send(
         new ConfirmSignUpCommand({
           ClientId: requireEnv('COGNITO_CLIENT_ID'),
-          Username: registration.email,
+          Username: registration.userPoolUsername || registration.email,
           ConfirmationCode: code,
         })
       );
@@ -614,7 +675,9 @@ async function confirmAndMaterialize(
       if (error?.name === 'ExpiredCodeException')
         throw new BadRequestError('El código venció. Solicitá uno nuevo');
       if (error?.name !== 'NotAuthorizedException') throw error;
-      const user = await getCognitoUser(registration.email);
+      const user = await getCognitoUser(
+        registration.userPoolUsername || registration.email
+      );
       if (user.UserStatus !== 'CONFIRMED') throw error;
     }
   }
@@ -633,7 +696,8 @@ export async function changePendingRegistrationEmail(input: {
   const now = Math.floor(Date.now() / 1000);
   if (registration.expiresAt <= now)
     throw new ConflictError('El alta venció. Iniciá el registro nuevamente.');
-  const user = await getCognitoUser(registration.email);
+  const cognitoUsername = registration.userPoolUsername || registration.email;
+  const user = await getCognitoUser(cognitoUsername);
   if (user.UserStatus !== 'UNCONFIRMED')
     throw new ConflictError('La cuenta ya fue confirmada');
   const newEmail = normalizeEmail(input.newEmail);
@@ -641,11 +705,12 @@ export async function changePendingRegistrationEmail(input: {
     throw new BadRequestError('Ingresá un email válido');
   if (newEmail === registration.email)
     return resendRegistrationCode(registration.registrationId);
-  if ((await findCognitoUsersByEmail(newEmail)).length > 0)
+  if (
+    (await findCognitoUsersByEmail(newEmail)).some(
+      candidate => candidate.Username !== user.Username
+    )
+  )
     throw new ConflictError('No se pudo utilizar ese email');
-  // A real dev-pool test showed that AdminUpdateUserAttributes delivers a code
-  // but does not reliably activate the corrected alias for pre-confirmation login.
-  // Recreate only the UNCONFIRMED identity and never persist the supplied password.
   if (!input.password) {
     return {
       passwordRequired: true,
@@ -654,6 +719,7 @@ export async function changePendingRegistrationEmail(input: {
   }
   if (input.password.length < 8)
     throw new BadRequestError('Ingresá tu contraseña');
+  await assertUnconfirmedCredentials(cognitoUsername, input.password);
   if (
     (registration.lastEmailChangedAt ?? 0) +
       REGISTRATION_EMAIL_CHANGE_COOLDOWN_SECONDS >
@@ -688,51 +754,81 @@ export async function changePendingRegistrationEmail(input: {
     }
     throw error;
   }
-  const latest = await getCognitoUser(registration.email);
-  if (latest.UserStatus !== 'UNCONFIRMED')
-    throw new ConflictError('La cuenta ya fue confirmada');
-  await cognitoClient.send(
-    new AdminDeleteUserCommand({
-      UserPoolId: requireEnv('COGNITO_USER_POOL_ID'),
-      Username: latest.Username!,
-    })
-  );
-  const recreated = await createCognitoIdentity(
-    {
-      ...registration,
-      password: input.password,
-      acceptTerms: true,
-      email: newEmail,
-    },
-    newEmail,
-    registration.phoneNumber
-  );
-  if (recreated.CodeDeliveryDetails?.DeliveryMedium !== 'EMAIL') {
-    throw new Error('Cognito did not select email for the corrected address');
-  }
-  const userPoolUsername = recreated.UserSub ?? newEmail;
+  try {
+    const latest = await getCognitoUser(cognitoUsername);
+    if (latest.UserStatus !== 'UNCONFIRMED')
+      throw new ConflictError('La cuenta ya fue confirmada');
 
-  const updatedAt = nowIso();
-  const updated: RegistrationRecord = {
-    ...registration,
-    email: newEmail,
-    emailLookupPk: emailLookupKey(newEmail),
-    emailLookupSk: `${updatedAt}#${registration.registrationId}`,
-    userPoolUsername,
-    lastEmailChangedAt: now,
-    lastCodeSentAt: now,
-    updatedAt,
-    retryCount: registration.retryCount + 1,
-  };
-  await docClient.send(
-    new PutCommand({
-      TableName: requireEnv('TABLE_NAME'),
-      Item: updated,
-      ConditionExpression: '#status = :pending',
-      ExpressionAttributeNames: { '#status': 'status' },
-      ExpressionAttributeValues: { ':pending': 'email_verification_pending' },
-    })
-  );
+    // UsernameAttributes=email stores a stable UUID username equal to sub.
+    // Activate the corrected email on that same identity, immediately mark it
+    // unverified again, and use the normal sign-up OTP to verify and confirm it.
+    await cognitoClient.send(
+      new AdminUpdateUserAttributesCommand({
+        UserPoolId: requireEnv('COGNITO_USER_POOL_ID'),
+        Username: cognitoUsername,
+        UserAttributes: [
+          { Name: 'email', Value: newEmail },
+          { Name: 'email_verified', Value: 'true' },
+        ],
+      })
+    );
+    await cognitoClient.send(
+      new AdminUpdateUserAttributesCommand({
+        UserPoolId: requireEnv('COGNITO_USER_POOL_ID'),
+        Username: cognitoUsername,
+        UserAttributes: [{ Name: 'email_verified', Value: 'false' }],
+      })
+    );
+    const resent = await cognitoClient.send(
+      new ResendConfirmationCodeCommand({
+        ClientId: requireEnv('COGNITO_CLIENT_ID'),
+        Username: cognitoUsername,
+      })
+    );
+    if (resent.CodeDeliveryDetails?.DeliveryMedium !== 'EMAIL') {
+      throw new Error('Cognito did not select email for the corrected address');
+    }
+
+    const updatedAt = nowIso();
+    const updated: RegistrationRecord = {
+      ...registration,
+      email: newEmail,
+      emailLookupPk: emailLookupKey(newEmail),
+      emailLookupSk: `${updatedAt}#${registration.registrationId}`,
+      userPoolUsername: cognitoUsername,
+      lastEmailChangedAt: now,
+      lastCodeSentAt: now,
+      updatedAt,
+      retryCount: registration.retryCount + 1,
+    };
+    await docClient.send(
+      new PutCommand({
+        TableName: requireEnv('TABLE_NAME'),
+        Item: updated,
+        ConditionExpression: '#status = :pending',
+        ExpressionAttributeNames: { '#status': 'status' },
+        ExpressionAttributeValues: {
+          ':pending': 'email_verification_pending',
+        },
+      })
+    );
+  } catch (error) {
+    // Release the reservation so a transient Cognito/DynamoDB failure can be
+    // retried against the stable internal username without recreating the user.
+    await docClient
+      .send(
+        new UpdateCommand({
+          TableName: requireEnv('TABLE_NAME'),
+          Key: registrationKey(registration.registrationId),
+          UpdateExpression:
+            'SET updatedAt = :updated REMOVE lastEmailChangedAt',
+          ConditionExpression: 'lastEmailChangedAt = :now',
+          ExpressionAttributeValues: { ':updated': nowIso(), ':now': now },
+        })
+      )
+      .catch(() => undefined);
+    throw error;
+  }
   return {
     passwordRequired: false,
     email: newEmail,

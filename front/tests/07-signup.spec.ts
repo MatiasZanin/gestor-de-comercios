@@ -136,7 +136,6 @@ test.describe("public signup and confirmation", () => {
     await page.locator("#confirmationCode").fill("123456");
     await page.getByRole("button", { name: "Editar" }).click();
     await page.locator("#newEmail").fill("right@example.com");
-    await page.getByRole("button", { name: "Actualizar y reenviar" }).click();
     await page.locator("#changeEmailPassword").fill("Password1!");
     await page.getByRole("button", { name: "Actualizar y reenviar" }).click();
     await expect(page.getByText("right@example.com")).toBeVisible();
@@ -147,6 +146,7 @@ test.describe("public signup and confirmation", () => {
     page,
   }) => {
     let resendCalls = 0;
+    let accessCalls = 0;
     await page.route(
       "https://cognito-idp.us-east-1.amazonaws.com/**",
       (route) =>
@@ -170,11 +170,27 @@ test.describe("public signup and confirmation", () => {
         },
       });
     });
+    await page.route("**/public/registrations/recover-access", (route) => {
+      accessCalls += 1;
+      expect(route.request().postDataJSON()).toEqual({
+        email: "pending@example.com",
+        password: "Password1!",
+      });
+      return route.fulfill({
+        json: {
+          registrationId: "reg-from-login",
+          email: "pending@example.com",
+        },
+      });
+    });
     await page.goto("/login");
     await page.locator("#username").fill("pending@example.com");
     await page.locator("#password").fill("Password1!");
     await page.getByRole("button", { name: "Iniciar sesión" }).click();
     await expect(page).toHaveURL(/\/confirmar-cuenta$/);
+    await expect(page.getByRole("button", { name: "Editar" })).toBeVisible();
+    await expect(page.getByText("Reiniciar el alta")).toHaveCount(0);
+    expect(accessCalls).toBe(1);
     await expect.poll(() => resendCalls).toBe(1);
     await page.reload();
     await page.waitForTimeout(300);
