@@ -79,27 +79,28 @@ test.describe("subscription dashboard", () => {
     })
   }
 
-  test("shows the Dashboard visual language and the eligible trial copy", async ({ page }) => {
+  test("shows the commercial subscription offer and eligible trial price", async ({ page }) => {
     await page.addInitScript((state) => localStorage.setItem("authState", JSON.stringify(state)), authState("pending_subscription"))
     await setupBilling(page, { status: "pending_subscription", viewState: "never_subscribed" })
     await page.goto("/dashboard/suscripcion")
 
     await expect(page.getByRole("heading", { name: "Suscripción", exact: true })).toBeVisible()
-    await expect(page.getByText("Gestioná tu suscripción al sistema")).toBeVisible()
-    await expect(page.getByRole("heading", { name: "Mi comercio" })).toBeVisible()
-    await expect(page.getByText("Gracias por ser parte de Gestión & Stock.")).toBeVisible()
-    await expect(page.getByText(/gratis durante 30 días si sos elegible/)).toBeVisible()
-    await expect(page.getByText(/42\.000 por mes/)).toBeVisible()
+    await expect(page.getByRole("heading", { name: /Comenzá a potenciar tu negocio con Gestor de Comercios/ })).toBeVisible()
+    await expect(page.getByText("1 mes gratis")).toBeVisible()
+    await expect(page.getByText(/Después, .*42\.000 por mes/)).toBeVisible()
+    await expect(page.getByText("Accedé desde cualquier parte del mundo")).toBeVisible()
+    await expect(page.getByText("Usalo desde cualquier dispositivo")).toBeVisible()
+    await expect(page.getByAltText("Mercado Pago")).toBeVisible()
   })
 
-  test("validates email and starts the real checkout once with idempotency", async ({ page }) => {
+  test("defaults to the owner email, allows changing it and starts checkout once", async ({ page }) => {
     await page.addInitScript((state) => localStorage.setItem("authState", JSON.stringify(state)), authState("pending_subscription"))
     const routes = await setupBilling(page, { status: "pending_subscription", viewState: "never_subscribed" })
     await page.goto("/dashboard/suscripcion")
-    await page.getByRole("button", { name: "Iniciar prueba gratuita" }).click()
-    await expect(page.getByText("Ingresá un email válido")).toBeVisible()
-    await page.getByLabel("Email de Mercado Pago").fill("payer@example.com")
-    await page.getByRole("button", { name: "Iniciar prueba gratuita" }).click()
+    await expect(page.getByText("demo@example.com")).toBeVisible()
+    await page.getByRole("button", { name: "Cambiar" }).click()
+    await page.getByLabel("Email para Mercado Pago").fill("payer@example.com")
+    await page.getByRole("button", { name: "Suscribirme" }).click()
     await expect.poll(() => routes.subscribeRequest()).toMatchObject({ email: "payer@example.com" })
     expect(routes.subscribeRequest()?.idempotencyKey).toBeTruthy()
   })
@@ -141,7 +142,7 @@ test.describe("subscription dashboard", () => {
     await page.addInitScript((state) => localStorage.setItem("authState", JSON.stringify(state)), authState("pending_subscription"))
     await setupBilling(page, { status: "pending_subscription", viewState: "never_subscribed", merchantName: "" })
     await page.goto("/dashboard/suscripcion")
-    await expect(page.getByRole("heading", { name: "Tu comercio" })).toBeVisible()
+    await expect(page.getByText("Tu comercio", { exact: true })).toBeVisible()
   })
 
   test("shows loading feedback and retries a failed profile request", async ({ page }) => {
@@ -161,16 +162,16 @@ test.describe("subscription dashboard", () => {
     await expect(page.getByRole("button", { name: "Reintentar" })).toBeVisible()
     shouldFail = false
     await page.getByRole("button", { name: "Reintentar" }).click()
-    await expect(page.getByRole("heading", { name: "Mi comercio" })).toBeVisible()
+    await expect(page.getByText("Mi comercio", { exact: true })).toBeVisible()
   })
 
   test("offers re-subscription without another trial", async ({ page }) => {
     await page.addInitScript((state) => localStorage.setItem("authState", JSON.stringify(state)), authState("cancelled"))
     await setupBilling(page, { status: "cancelled", viewState: "expired", trialConsumed: true, trialEligible: false, billingPayerEmail: "payer@example.com" })
     await page.goto("/dashboard/suscripcion")
-    await expect(page.getByRole("heading", { name: "Volvé a suscribirte" })).toBeVisible()
-    await expect(page.getByRole("button", { name: "Volver a suscribirme" })).toBeVisible()
-    await expect(page.getByRole("button", { name: "Iniciar prueba gratuita" })).toHaveCount(0)
+    await expect(page.getByRole("heading", { name: /Comenzá a potenciar tu negocio con Gestor de Comercios/ })).toBeVisible()
+    await expect(page.getByRole("button", { name: "Suscribirme" })).toBeVisible()
+    await expect(page.getByText("1 mes gratis")).toHaveCount(0)
   })
 
   test("does not create a second checkout while a payment is pending", async ({ page }) => {
@@ -179,7 +180,7 @@ test.describe("subscription dashboard", () => {
     await page.goto("/dashboard/suscripcion")
     await expect(page.getByText("Pago pendiente").first()).toBeVisible()
     await expect(page.getByRole("link", { name: "Revisar en Mercado Pago" })).toBeVisible()
-    await expect(page.getByRole("button", { name: "Volver a suscribirme" })).toHaveCount(0)
+    await expect(page.getByRole("button", { name: "Suscribirme" })).toHaveCount(0)
   })
 
   test("redirects a non-owner away from billing", async ({ page }) => {

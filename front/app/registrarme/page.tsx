@@ -1,16 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { LoginCarouselPanel } from "@/components/auth/login-carousel-panel";
+import { TrialSignupForm } from "@/components/auth/trial-signup-form";
+import { GysLogo } from "@/components/shared/gys-logo";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2 } from "lucide-react";
+import { getPublicBillingConfig } from "@/lib/api/public";
+import { authenticatedHome } from "@/lib/auth/account-access";
 import { useAuth } from "@/lib/hooks/use-auth";
 import type { PublicBillingConfig } from "@/lib/types/api";
-import { getPublicBillingConfig } from "@/lib/api/public";
-import { TrialSignupForm } from "@/components/auth/trial-signup-form";
-import { LoginCarouselPanel } from "@/components/auth/login-carousel-panel";
-import { GysLogo } from "@/components/shared/gys-logo";
-import { authenticatedHome } from "@/lib/auth/account-access";
+import { Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 export default function RegistrarmePage() {
   const {

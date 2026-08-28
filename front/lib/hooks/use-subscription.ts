@@ -16,7 +16,8 @@ function messageFrom(error: unknown, fallback: string): string {
 
 export function useSubscription() {
   const router = useRouter()
-  const { isAuthenticated, loading: authLoading } = useAuth()
+  const { isAuthenticated, loading: authLoading, user } = useAuth()
+  const ownerEmail = user?.email ?? ""
   const [status, setStatus] = useState<BillingStatusResponse | null>(null)
   const [config, setConfig] = useState<PublicBillingConfig | null>(null)
   const [payerEmail, setPayerEmailState] = useState("")
@@ -37,7 +38,7 @@ export function useSubscription() {
       authService.setBillingStatus(nextStatus)
       setStatus(nextStatus)
       setConfig(nextConfig)
-      setPayerEmailState(nextStatus.billingPayerEmail ?? "")
+      setPayerEmailState(nextStatus.billingPayerEmail ?? ownerEmail)
       setError(null)
       if (!nextStatus.canManageSubscription) {
         router.replace("/acceso-restringido")
@@ -47,7 +48,7 @@ export function useSubscription() {
     } finally {
       setLoading(false)
     }
-  }, [router])
+  }, [ownerEmail, router])
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -123,6 +124,7 @@ export function useSubscription() {
   return {
     status,
     config,
+    ownerEmail,
     payerEmail,
     setPayerEmail,
     loading: authLoading || loading,
@@ -134,4 +136,3 @@ export function useSubscription() {
     continueCheckout,
   }
 }
-
