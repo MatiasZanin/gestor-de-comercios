@@ -7,6 +7,7 @@ import { Banknote, BarChart3, ClipboardList, HelpCircle, LogOut, Menu, Package, 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useState } from "react"
+import { ProductLogo } from "../shared/product-logo"
 
 const fullNavigation = [
   { name: "Dashboard", href: "/dashboard", icon: BarChart3 },
@@ -61,13 +62,10 @@ export function Sidebar() {
         <div className="flex flex-col h-full">
           <div className="p-6 border-b border-gray-200">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center">
-                <img src="/logo.png" alt="Logo" className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center" />
+              <div className="size-10 shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600">
+                <img src="/logo.png" alt="Logo" className="size-full object-cover" />
               </div>
-              <div>
-                <h1 className="font-bold text-gray-900">Sistema de Ventas</h1>
-                <p className="text-sm text-gray-500 capitalize">{user?.role}</p>
-              </div>
+              <ProductLogo className="" />
             </div>
           </div>
 
@@ -100,6 +98,7 @@ export function Sidebar() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-gray-900 truncate">{user?.email}</p>
+                <p className="text-sm text-gray-500 capitalize">{user?.role}</p>
                 <p className="text-xs text-gray-500">Comercio: {billingStatus?.merchantName}</p>
               </div>
             </div>

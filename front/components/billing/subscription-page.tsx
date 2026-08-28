@@ -1,10 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { AlertCircle, CalendarDays, CreditCard, Loader2, Mail, RefreshCw, Store } from "lucide-react"
 import { CancellationDialog } from "@/components/billing/cancellation-dialog"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -13,6 +10,9 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { formatArgentinaDate, relevantDateLabels, subscriptionStatePresentation, trialPromotion } from "@/lib/billing/subscription-presentation"
 import { useSubscription } from "@/lib/hooks/use-subscription"
 import type { BillingStatusResponse } from "@/lib/types/api"
+import { AlertCircle, CalendarDays, CreditCard, Loader2, Mail, RefreshCw, Store } from "lucide-react"
+import { useState } from "react"
+import { GysLogo } from "../shared/gys-logo"
 
 const MERCADO_PAGO_SUBSCRIPTIONS_URL = "https://www.mercadopago.com.ar/subscriptions"
 const resubscribeStates = new Set<BillingStatusResponse["viewState"]>([
@@ -28,7 +28,7 @@ function MerchantCard({ merchantName }: { merchantName: string }) {
         </div>
         <div className="min-w-0">
           <h2 className="truncate text-xl font-semibold text-gray-900">{merchantName.trim() || "Tu comercio"}</h2>
-          <p className="mt-1 text-sm text-gray-600">Gracias por ser parte de Gestión & Stock.</p>
+          <p className="mt-1 text-sm text-gray-600">Gracias por ser parte de <GysLogo className="text-xl" completeName={true}></GysLogo>.</p>
         </div>
       </CardContent>
     </Card>
@@ -89,9 +89,8 @@ export function SubscriptionPage() {
         <Card className="border-0 bg-white/80 shadow-lg backdrop-blur-sm">
           <CardHeader className="border-b border-gray-100 sm:flex-row sm:items-start sm:justify-between">
             <div className="space-y-1"><CardTitle className="text-xl text-gray-900">Datos de la suscripción</CardTitle><CardDescription>Información actualizada desde Mercado Pago.</CardDescription></div>
-            <Badge className={presentation.badgeClass}>{presentation.label}</Badge>
           </CardHeader>
-          <CardContent className="space-y-6 p-6">
+          <CardContent className="p-6 py-0">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="rounded-xl bg-gray-50 p-4">
                 <div className="flex items-center gap-2 text-sm font-medium text-gray-700"><CreditCard className="h-4 w-4 text-emerald-600" />Estado</div>
