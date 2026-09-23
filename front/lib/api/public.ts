@@ -28,8 +28,11 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return response.json();
 }
 
-export async function getPublicBillingConfig(): Promise<PublicBillingConfig> {
-  return request<PublicBillingConfig>("/public/billing/config");
+export async function getPublicBillingConfig(
+  promo?: string,
+): Promise<PublicBillingConfig> {
+  const query = promo ? `?promo=${encodeURIComponent(promo)}` : "";
+  return request<PublicBillingConfig>(`/public/billing/config${query}`);
 }
 
 export async function createPublicRegistration(
@@ -117,7 +120,9 @@ export function getBillingCopy(config: PublicBillingConfig): string {
     minimumFractionDigits: 0,
   }).format(config.monthlyAmount || 0);
 
-  return `${config.trialDays} días gratis. Luego ${price} por mes. Podés cancelar cuando quieras.`;
+  return config.trialEligible
+    ? `${config.trialDays} días gratis, luego ${price} por mes. Podés cancelar cuando quieras.`
+    : `${price} por mes, cobro desde el primer mes. Podés cancelar cuando quieras.`;
 }
 
 export function getStatusLabel(status: BillingStatus | string): string {

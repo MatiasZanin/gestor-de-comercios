@@ -240,6 +240,10 @@ export async function createPublicRegistration(
   requireEnv('TABLE_NAME');
   requireEnv('COGNITO_USER_POOL_ID');
   requireEnv('COGNITO_CLIENT_ID');
+  const trialPromoCode = process.env.TRIAL_PROMO_CODE;
+  const trialEligible = Boolean(
+    trialPromoCode && input.promo?.trim() === trialPromoCode
+  );
 
   const email = normalizeEmail(input.email);
   const phoneNumber = normalizePhoneNumber(input.phoneNumber);
@@ -295,6 +299,7 @@ export async function createPublicRegistration(
     lastName: normalizeName(input.lastName),
     phoneNumber,
     merchantName: normalizeName(input.merchantName),
+    trialEligible,
     status: 'email_verification_pending',
     userPoolUsername: '',
     createdAt,
@@ -543,7 +548,10 @@ async function materializeConfirmedRegistration(
     ownerEmail: registration.email,
     ownerCognitoSub,
     status: BILLING_STATUS.PENDING_SUBSCRIPTION,
-    mercadoPagoPlanId: billingConfig.planId,
+    mercadoPagoPlanId: registration.trialEligible
+      ? billingConfig.planId
+      : billingConfig.reactivationPlanId,
+    trialEligible: registration.trialEligible === true,
     createdAt: registration.createdAt,
     updatedAt,
   };
@@ -624,6 +632,7 @@ async function materializeConfirmedRegistration(
     email: registration.email,
     firstName: registration.firstName,
     merchantName: registration.merchantName,
+    trialEligible: registration.trialEligible === true,
   });
   return {
     registrationId: registration.registrationId,

@@ -6,10 +6,11 @@ const billingConfig = {
   trialDays: 30,
   graceDays: 3,
   planReason: "G&S Comercios",
+  trialEligible: false,
 };
 
 async function mockConfig(page: import("@playwright/test").Page) {
-  await page.route("**/public/billing/config", (route) =>
+  await page.route("**/public/billing/config**", (route) =>
     route.fulfill({ json: billingConfig }),
   );
 }
@@ -35,6 +36,7 @@ test.describe("public signup and confirmation", () => {
       }),
     );
     await page.goto("/registrarme");
+    await expect(page.getByText(/30 días gratis/)).toHaveCount(0);
     await expect(page.getByText("Paso 1 de 3")).toBeVisible();
     await page.getByRole("button", { name: "Continuar" }).click();
     await expect(
@@ -47,6 +49,7 @@ test.describe("public signup and confirmation", () => {
     await page.locator("#phoneNumber").fill("11 2345-6789");
     await page.getByRole("button", { name: "Continuar" }).click();
     await expect(page.getByText("Paso 2 de 3")).toBeVisible();
+    await expect(page.getByText(/cobro desde el primer mes/)).toBeVisible();
     await page.getByRole("button", { name: "Volver" }).click();
     await expect(page.locator("#merchantName")).toHaveValue("Mi comercio");
     await page.getByRole("button", { name: "Continuar" }).click();
@@ -66,6 +69,48 @@ test.describe("public signup and confirmation", () => {
     await expect(page.getByText("Paso 3 de 3")).toBeVisible();
     await expect(page.getByText("demo@example.com")).toBeVisible();
     await expect(page.getByText(/Spam o Correo no deseado/)).toBeVisible();
+  });
+
+  test("sends the promo and shows the free month only after backend validation", async ({
+    page,
+  }) => {
+    await page.route("**/public/billing/config**", (route) => {
+      expect(new URL(route.request().url()).searchParams.get("promo")).toBe(
+        "1mes",
+      );
+      return route.fulfill({
+        json: { ...billingConfig, trialEligible: true },
+      });
+    });
+    await page.route("**/public/registrations", (route) => {
+      expect(route.request().postDataJSON()).toMatchObject({ promo: "1mes" });
+      return route.fulfill({
+        status: 201,
+        json: {
+          registrationId: "reg-promo",
+          status: "email_verification_pending",
+          maskedEmail: "p***@example.com",
+          email: "promo@example.com",
+          cooldownSeconds: 60,
+          deliveryMedium: "EMAIL",
+        },
+      });
+    });
+
+    await page.goto("/registrarme?promo=1mes");
+    await expect(page.getByText(/30 días gratis/)).toBeVisible();
+    await page.locator("#merchantName").fill("Mi comercio");
+    await page.locator("#firstName").fill("Promo");
+    await page.locator("#lastName").fill("Usuario");
+    await page.locator("#phoneNumber").fill("11 2345-6789");
+    await page.getByRole("button", { name: "Continuar" }).click();
+    await page.locator("#email").fill("promo@example.com");
+    await page.locator("#password").fill("Password1!");
+    await page.locator("#acceptTerms").click();
+    await page
+      .getByRole("button", { name: "Crear cuenta y continuar" })
+      .click();
+    await expect(page).toHaveURL(/\/confirmar-cuenta$/);
   });
 
   test("direct access recovers generically, accepts a pasted OTP and redirects to Login", async ({

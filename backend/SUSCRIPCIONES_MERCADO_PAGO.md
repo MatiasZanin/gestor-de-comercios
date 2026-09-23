@@ -6,7 +6,7 @@ Documento elaborado a partir del código vigente al 26 de agosto de 2026.
 
 - La fuente de verdad externa es la suscripción (`preapproval`) de Mercado Pago. DynamoDB conserva una copia local utilizada para decidir si un comercio puede ejecutar operaciones de escritura.
 - Crear el checkout **no activa** la cuenta: sólo deja el perfil en `pending_subscription` y guarda el ID de la suscripción y la URL de checkout.
-- El sistema considera activada la suscripción cuando consulta Mercado Pago y recibe `authorized` o `active`. Si corresponde el primer trial, guarda `trial`; de lo contrario, `active`.
+- El sistema considera activada la suscripción cuando consulta Mercado Pago y recibe `authorized` o `active`. Sólo guarda `trial` si el alta recibió una promoción válida y el beneficio todavía no fue consumido; de lo contrario, guarda `active`.
 - La activación puede detectarse por tres caminos: webhook, retorno del checkout y conciliación al consultar `GET /{commerceId}/billing/status`.
 - Sí se puede consultar Mercado Pago usando datos guardados: principalmente `currentSubscriptionId`/`mercadoPagoSubscriptionId`; como respaldo existen `billingPayerEmail` y `mercadoPagoPlanId`.
 - El dato guardado en DynamoDB es una **copia/cache**, no una garantía del estado actual de Mercado Pago. El último estado remoto sólo se confirma haciendo una nueva consulta a la API de Mercado Pago.
@@ -75,7 +75,7 @@ El backend:
 
 1. valida el email de Mercado Pago;
 2. verifica que ese email no esté vinculado a otro comercio;
-3. decide si corresponde trial usando el perfil y todo el historial `SUBSCRIPTION#*`;
+3. decide si corresponde trial exigiendo `BILLING#PROFILE.trialEligible = true` y verificando en el perfil y todo el historial `SUBSCRIPTION#*` que nunca se activó una suscripción;
 4. crea un `/preapproval` individual en Mercado Pago con `external_reference = commerceId`, importe, moneda, frecuencia mensual y trial cuando corresponde;
 5. guarda los registros locales y devuelve `init_point` al frontend.
 
@@ -108,7 +108,7 @@ El email de “trial activado” sólo se crea cuando la activación fue procesa
 
 | Estado remoto | Estado local persistido | Efecto |
 | --- | --- | --- |
-| `authorized`, `active` con trial todavía no consumido | `trial` | Acceso habilitado y trial marcado como consumido. |
+| `authorized`, `active` con promoción válida y trial todavía no consumido | `trial` | Acceso habilitado y `trialConsumedAt` marcado para impedir que se repita. |
 | `authorized`, `active` sin trial | `active` | Acceso habilitado. |
 | `paused`, `rejected` | `past_due` | Acceso sólo hasta `graceUntil`. |
 | `cancelled`, `canceled` | `cancelled` | Acceso sólo hasta `currentPeriodEndsAt`, si esa fecha existe y es futura. |
@@ -195,7 +195,7 @@ Todos viven en la tabla single-table `GestionComercios-<stage>`, con claves `PK`
 
 | Tipo | PK | SK | Uso | Retención |
 | --- | --- | --- | --- | --- |
-| `BILLING_PROFILE` | `COM#<commerceId>` | `BILLING#PROFILE` | Estado local actual, IDs de Mercado Pago, fechas, payer y timestamps de sync. Es el registro que protege las APIs. | Sin TTL. |
+| `BILLING_PROFILE` | `COM#<commerceId>` | `BILLING#PROFILE` | Estado local actual, `trialEligible`, consumo del trial, IDs de Mercado Pago, fechas, payer y timestamps de sync. Es el registro que protege las APIs. | Sin TTL. |
 | `BILLING_SUBSCRIPTION` | `COM#<commerceId>` | `SUBSCRIPTION#<subscriptionId>` | Historial por suscripción, estado observado, trial y activación. | Sin TTL. |
 | `BILLING_SUBSCRIPTION_LINK` | `MP_SUBSCRIPTION#<subscriptionId>` | `BILLING` | Búsqueda inversa de una suscripción de Mercado Pago al comercio. | Sin TTL. |
 | `BILLING_PAYER_LINK` | `MP_PAYER#<sha256(email normalizado)>` | `BILLING` | Búsqueda inversa por email y evita reutilizar un payer en otro comercio. El item también contiene el email en texto. | Sin TTL. |
@@ -207,7 +207,7 @@ Todos viven en la tabla single-table `GestionComercios-<stage>`, con claves `PK`
 
 | Tipo | PK | SK | Relación con suscripciones |
 | --- | --- | --- | --- |
-| `REGISTRATION` | `REG#<sha256(email)[0:24]>` | `REGISTRATION` | Une el alta pública con `commerceId` y el usuario Cognito. Su `status` de alta llega hasta `pending_subscription`; no es la fuente de acceso posterior. |
+| `REGISTRATION` | `REG#<registrationId>` | `REGISTRATION` | Une el alta pública con `commerceId` y el usuario Cognito y conserva `trialEligible` desde el registro hasta la confirmación. Su `status` llega hasta `pending_subscription`; no es la fuente de acceso posterior. |
 | `COMMERCE` | `COM#<commerceId>` | `PROFILE` | Contiene `ownerCognitoSub`, usado para decidir quién puede administrar billing. |
 | `COMMERCE_USER` | `COM#<commerceId>` | `USER#<ownerCognitoSub>` | Se usa para obtener el nombre del propietario al enviar el email de trial. |
 | `TRANSACTIONAL_EMAIL` de bienvenida | `EMAIL#WELCOME#<registrationId>` | `NOTIFICATION` | Outbox durable del email posterior a confirmar el registro. |

@@ -9,10 +9,21 @@ import { authenticatedHome } from "@/lib/auth/account-access";
 import { useAuth } from "@/lib/hooks/use-auth";
 import type { PublicBillingConfig } from "@/lib/types/api";
 import { Loader2 } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 
-export default function RegistrarmePage() {
+function RegistrationLoading() {
+  return (
+    <div className="flex min-h-svh items-center justify-center bg-[radial-gradient(circle_at_top_left,_rgba(0,154,97,0.10),_transparent_35%),linear-gradient(135deg,_#f8fafc_0%,_#f7fbf9_55%,_#f8fafc_100%)] px-4">
+      <div className="text-center">
+        <Loader2 className="mx-auto mb-4 size-8 animate-spin text-[#009A61]" />
+        <p className="text-sm text-slate-600">Preparando tu registro...</p>
+      </div>
+    </div>
+  );
+}
+
+function RegistrarmeContent() {
   const {
     isAuthenticated,
     loading,
@@ -22,6 +33,7 @@ export default function RegistrarmePage() {
     isCommerceOwner,
   } = useAuth();
   const router = useRouter();
+  const promo = useSearchParams().get("promo")?.trim() || undefined;
   const [config, setConfig] = useState<PublicBillingConfig | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [configLoading, setConfigLoading] = useState(true);
@@ -46,7 +58,7 @@ export default function RegistrarmePage() {
     let mounted = true;
     setConfigLoading(true);
 
-    getPublicBillingConfig()
+    getPublicBillingConfig(promo)
       .then((value) => {
         if (!mounted) return;
         setConfig(value);
@@ -64,17 +76,10 @@ export default function RegistrarmePage() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [promo]);
 
   if (loading || isAuthenticated || configLoading) {
-    return (
-      <div className="flex min-h-svh items-center justify-center bg-[radial-gradient(circle_at_top_left,_rgba(0,154,97,0.10),_transparent_35%),linear-gradient(135deg,_#f8fafc_0%,_#f7fbf9_55%,_#f8fafc_100%)] px-4">
-        <div className="text-center">
-          <Loader2 className="mx-auto mb-4 size-8 animate-spin text-[#009A61]" />
-          <p className="text-sm text-slate-600">Preparando tu registro...</p>
-        </div>
-      </div>
-    );
+    return <RegistrationLoading />;
   }
 
   return (
@@ -90,7 +95,7 @@ export default function RegistrarmePage() {
         {config ? (
           <div className="grid w-full overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-[0_24px_70px_-24px_rgba(15,23,42,0.28)] lg:grid-cols-[0.9fr_1.1fr]">
             <div className="order-2 lg:order-1">
-              <TrialSignupForm config={config} />
+              <TrialSignupForm config={config} promo={promo} />
             </div>
             <div className="order-1 lg:order-2">
               <LoginCarouselPanel compact />
@@ -104,5 +109,13 @@ export default function RegistrarmePage() {
         </span>
       </footer>
     </main>
+  );
+}
+
+export default function RegistrarmePage() {
+  return (
+    <Suspense fallback={<RegistrationLoading />}>
+      <RegistrarmeContent />
+    </Suspense>
   );
 }

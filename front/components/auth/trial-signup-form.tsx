@@ -76,7 +76,13 @@ const signupSchema = z.object({
 
 type SignupValues = z.infer<typeof signupSchema>;
 
-export function TrialSignupForm({ config }: { config: PublicBillingConfig }) {
+export function TrialSignupForm({
+  config,
+  promo,
+}: {
+  config: PublicBillingConfig;
+  promo?: string;
+}) {
   const [step, setStep] = useState<1 | 2>(1);
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -123,6 +129,7 @@ export function TrialSignupForm({ config }: { config: PublicBillingConfig }) {
       const response = await createPublicRegistration({
         ...values,
         phoneNumber,
+        ...(promo ? { promo } : {}),
       });
       savePendingRegistrationNavigation({
         registrationId: response.registrationId,
@@ -177,7 +184,9 @@ export function TrialSignupForm({ config }: { config: PublicBillingConfig }) {
           </CardTitle>
           <CardDescription className="mt-2 text-sm leading-6 text-slate-600">
             {step === 1
-              ? `Creá tu cuenta y probá Gestor de Comercios gratis durante ${config.trialDays} días.`
+              ? config.trialEligible
+                ? `Creá tu cuenta con ${config.trialDays} días gratis; después abonás el plan mensual.`
+                : "Creá tu cuenta y suscribite al plan mensual para comenzar."
               : "Elegí los datos con los que vas a ingresar al sistema."}
           </CardDescription>
         </div>

@@ -49,6 +49,7 @@ function record(
     subscriptionUrl: 'https://comercios.gestionystock.com/suscripcion',
     appUrl: 'https://comercios.gestionystock.com',
     logoUrl: 'https://comercios.gestionystock.com/logo.png',
+    trialEligible: true,
     trialStartedAt: '2026-08-25T12:00:00.000Z',
     trialEndsAt: '2026-09-24T12:00:00.000Z',
     createdAt: '2026-08-25T12:00:00.000Z',
@@ -101,6 +102,19 @@ describe('transactional emails', () => {
     );
   });
 
+  it('does not promise a free month in a regular welcome email', () => {
+    const rendered = renderTransactionalEmail({
+      ...record('WELCOME'),
+      trialEligible: false,
+    });
+
+    expect(rendered.subject).toContain('activá tu suscripción');
+    expect(rendered.html).toContain('cobra desde el primer mes');
+    expect(rendered.html).toContain('Activar mi suscripción');
+    expect(rendered.html).not.toContain('Tu primer mes es GRATIS');
+    expect(rendered.text).not.toContain('mes gratis');
+  });
+
   it('creates deterministic outbox records using the app subscription route', async () => {
     mockDynamoSend.mockResolvedValue({});
 
@@ -109,6 +123,7 @@ describe('transactional emails', () => {
       email: 'ana@example.com',
       firstName: 'Ana',
       merchantName: 'Almacén Demo',
+      trialEligible: true,
     });
     await createTrialActivatedEmailNotification({
       commerceId: 'commerce-1',

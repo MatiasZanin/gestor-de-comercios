@@ -18,6 +18,7 @@ function profile(status: BillingProfile["status"], overrides: Partial<BillingPro
     ownerCognitoSub: "owner-sub",
     merchantName: "Legacy name",
     mercadoPagoPlanId: "plan-1",
+    trialEligible: true,
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
     ...overrides,
@@ -173,6 +174,25 @@ describe("billing view state", () => {
         [],
       ),
     ).toBe(false)
+  })
+
+  it("does not grant a trial to an account without a valid promotion", () => {
+    const regular = profile("pending_subscription", { trialEligible: false })
+
+    expect(isTrialEligible(regular, [])).toBe(false)
+    expect(
+      buildBillingStatusResponse({
+        profile: regular,
+        commerce: { merchantName: "Mi comercio", ownerCognitoSub: "owner-sub" },
+        history: [],
+        current: null,
+        actorSub: "owner-sub",
+      }),
+    ).toMatchObject({
+      viewState: "never_subscribed",
+      trialConsumed: false,
+      trialEligible: false,
+    })
   })
 
   it("presents an abandoned checkout as eligible without changing the frontend", () => {

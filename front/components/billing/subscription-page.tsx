@@ -166,7 +166,7 @@ function Price({ config, trialEligible }: { config: PublicBillingConfig; trialEl
         <span className="text-4xl font-bold tracking-tight text-slate-950 sm:text-5xl">{price}</span>
         <span className="pb-1 text-sm font-medium text-slate-500">/ mes</span>
       </div>
-      <p className="mt-3 text-sm leading-6 text-slate-600">Un único plan con todas las herramientas incluidas.</p>
+      <p className="mt-3 text-sm leading-6 text-slate-600">Cobro desde el primer mes. Todas las herramientas están incluidas.</p>
     </div>
   )
 }

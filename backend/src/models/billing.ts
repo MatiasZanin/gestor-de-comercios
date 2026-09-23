@@ -18,6 +18,7 @@ export interface BillingProfile {
   ownerCognitoSub: string;
   merchantName: string;
   mercadoPagoPlanId: string;
+  trialEligible: boolean;
   currentSubscriptionId?: string;
   mercadoPagoSubscriptionId?: string;
   billingPayerEmail?: string;
@@ -65,6 +66,7 @@ export interface RegistrationRecord {
   lastName: string;
   phoneNumber: string;
   merchantName: string;
+  trialEligible: boolean;
   status: RegistrationStatus;
   userPoolUsername: string;
   ownerCognitoSub?: string;
@@ -95,6 +97,7 @@ export interface PublicBillingConfigResponse {
   trialDays: number;
   graceDays: number;
   planReason: string;
+  trialEligible: boolean;
 }
 
 export interface PublicRegistrationRequest {
@@ -105,6 +108,7 @@ export interface PublicRegistrationRequest {
   phoneNumber: string;
   merchantName: string;
   acceptTerms: boolean;
+  promo?: string;
 }
 
 export interface PublicRegistrationResponse {

@@ -34,6 +34,10 @@ Parameters:
     Type: Number
     Default: 30
     Description: Duración del trial inicial.
+  TrialPromoCode:
+    Type: String
+    Default: 1mes
+    Description: Código promocional que habilita el trial inicial.
   BillingGraceDays:
     Type: Number
     Default: 3
@@ -101,6 +105,7 @@ Globals:
         BILLING_MONTHLY_AMOUNT: !Ref BillingMonthlyAmount
         BILLING_CURRENCY_ID: !Ref BillingCurrencyId
         BILLING_TRIAL_DAYS: !Ref BillingTrialDays
+        TRIAL_PROMO_CODE: !Ref TrialPromoCode
         BILLING_GRACE_DAYS: !Ref BillingGraceDays
         BILLING_PLAN_REASON: !Ref BillingPlanReason
         BILLING_PUBLIC_REGISTRATION_PATH: !Ref BillingPublicRegistrationPath

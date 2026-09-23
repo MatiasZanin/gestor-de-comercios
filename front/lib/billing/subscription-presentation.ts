@@ -39,5 +39,7 @@ export function formatBillingPrice(config: PublicBillingConfig): string {
 
 export function trialPromotion(config: PublicBillingConfig): string {
   const price = formatBillingPrice(config)
-  return `Probá Gestión & Stock gratis durante ${config.trialDays} días si sos elegible. Para comenzar, autorizá un medio de pago en Mercado Pago; al terminar la prueba, se cobrará ${price} por mes hasta que canceles.`
+  return config.trialEligible
+    ? `${config.trialDays} días gratis, luego ${price} por mes. Para comenzar, autorizá un medio de pago en Mercado Pago.`
+    : `${price} por mes, cobro desde el primer mes. El medio de pago se autoriza en Mercado Pago.`
 }

@@ -25,6 +25,7 @@ function parseBody(event: APIGatewayProxyEventV2): PublicRegistrationRequest {
   const merchantName =
     typeof body.merchantName === 'string' ? body.merchantName.trim() : '';
   const acceptTerms = !!body.acceptTerms;
+  const promo = typeof body.promo === 'string' ? body.promo.trim() : undefined;
 
   if (
     !firstName ||
@@ -57,6 +58,7 @@ function parseBody(event: APIGatewayProxyEventV2): PublicRegistrationRequest {
     phoneNumber,
     merchantName,
     acceptTerms,
+    ...(promo ? { promo } : {}),
   };
 }
 

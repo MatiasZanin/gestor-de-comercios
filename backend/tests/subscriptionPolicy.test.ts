@@ -14,6 +14,7 @@ function profile(status: BillingProfile["status"], dates: Partial<BillingProfile
     ownerCognitoSub: "sub",
     merchantName: "Test",
     mercadoPagoPlanId: "plan",
+    trialEligible: false,
     createdAt: now,
     updatedAt: now,
     ...dates,

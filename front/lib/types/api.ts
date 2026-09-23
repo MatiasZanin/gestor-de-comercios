@@ -195,6 +195,7 @@ export interface PublicBillingConfig {
   trialDays: number;
   graceDays: number;
   planReason: string;
+  trialEligible: boolean;
 }
 
 export interface PublicRegistrationRequest {
@@ -205,6 +206,7 @@ export interface PublicRegistrationRequest {
   phoneNumber: string;
   merchantName: string;
   acceptTerms: boolean;
+  promo?: string;
 }
 
 export interface PublicRegistrationResponse {
@@ -226,6 +228,7 @@ export interface BillingProfile {
   ownerCognitoSub: string;
   merchantName: string;
   mercadoPagoPlanId: string;
+  trialEligible: boolean;
   mercadoPagoSubscriptionId?: string;
   currentSubscriptionId?: string;
   billingPayerEmail?: string;

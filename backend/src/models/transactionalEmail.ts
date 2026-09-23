@@ -14,6 +14,7 @@ export interface TransactionalEmailRecord {
   subscriptionUrl?: string;
   appUrl: string;
   logoUrl: string;
+  trialEligible?: boolean;
   trialStartedAt?: string;
   trialEndsAt?: string;
   createdAt: string;

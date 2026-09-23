@@ -56,6 +56,7 @@ const pending: RegistrationRecord = {
   lastName: 'Pérez',
   phoneNumber: '+5491123456789',
   merchantName: 'Comercio Demo',
+  trialEligible: true,
   status: 'email_verification_pending',
   userPoolUsername: 'cognito-internal',
   createdAt: '2026-01-01T00:00:00.000Z',
@@ -79,6 +80,7 @@ describe('registration V2 architecture', () => {
     process.env.BILLING_GRACE_DAYS = '3';
     process.env.BILLING_PLAN_REASON = 'G&S Comercios';
     process.env.MERCADO_PAGO_PREAPPROVAL_PLAN_ID = 'plan-test';
+    process.env.TRIAL_PROMO_CODE = '1mes';
   });
 
   it('normalizes email and Argentine phone to E.164', () => {
@@ -132,6 +134,60 @@ describe('registration V2 architecture', () => {
       writes.some(command => command instanceof TransactWriteCommand)
     ).toBe(false);
     expect(JSON.stringify(writes)).not.toContain('Password1!');
+    const temporary = writes.find(
+      command => command instanceof PutCommand
+    ) as PutCommand;
+    expect(temporary.input.Item).toMatchObject({ trialEligible: false });
+  });
+
+  it('persists trial eligibility only when the backend promo code matches', async () => {
+    dynamoSend.mockImplementation(async (command: unknown) =>
+      command instanceof QueryCommand ? { Items: [] } : {}
+    );
+    cognitoSend.mockImplementation(async (command: unknown) => {
+      if (command instanceof ListUsersCommand) return { Users: [] };
+      if (command instanceof SignUpCommand)
+        return {
+          UserSub: 'permanent-sub',
+          CodeDeliveryDetails: { DeliveryMedium: 'EMAIL' },
+        };
+      return {};
+    });
+
+    await createPublicRegistration({
+      firstName: 'Ana',
+      lastName: 'Pérez',
+      email: 'promo@example.test',
+      phoneNumber: '+54 9 11 2345-6789',
+      password: 'Password1!',
+      merchantName: 'Demo',
+      acceptTerms: true,
+      promo: '1mes',
+    });
+
+    const temporary = dynamoSend.mock.calls
+      .map(call => call[0])
+      .find(command => command instanceof PutCommand) as PutCommand;
+    expect(temporary.input.Item).toMatchObject({ trialEligible: true });
+
+    dynamoSend.mockClear();
+    cognitoSend.mockClear();
+    await createPublicRegistration({
+      firstName: 'Ana',
+      lastName: 'Pérez',
+      email: 'invalid-promo@example.test',
+      phoneNumber: '+54 9 11 2345-6789',
+      password: 'Password1!',
+      merchantName: 'Demo',
+      acceptTerms: true,
+      promo: 'otro-codigo',
+    });
+    const invalidPromoTemporary = dynamoSend.mock.calls
+      .map(call => call[0])
+      .find(command => command instanceof PutCommand) as PutCommand;
+    expect(invalidPromoTemporary.input.Item).toMatchObject({
+      trialEligible: false,
+    });
   });
 
   it('rejects a duplicate confirmed email before creating any temporary entity', async () => {
@@ -184,6 +240,9 @@ describe('registration V2 architecture', () => {
       ) as TransactWriteCommand;
     expect(transaction.input.TransactItems).toHaveLength(4);
     expect(JSON.stringify(transaction.input)).toContain('USER#permanent-sub');
+    expect(transaction.input.TransactItems?.[1]?.Put?.Item).toMatchObject({
+      trialEligible: true,
+    });
     expect(JSON.stringify(transaction.input)).not.toContain('Password1!');
     expect(
       cognitoSend.mock.calls.some(

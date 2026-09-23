@@ -164,13 +164,30 @@ function isActivatedSubscriptionStatus(status?: string): boolean {
   return ["authorized", "active"].includes((status ?? "").toLowerCase())
 }
 
-export function isTrialEligible(profile: BillingProfile, history: SubscriptionRecord[]): boolean {
+function hasConsumedTrial(profile: BillingProfile, history: SubscriptionRecord[]): boolean {
   const hasTrialMarkers = Boolean(profile.trialConsumedAt || profile.trialStartedAt || profile.trialEndsAt)
-  const hasActivatedSubscription = history.some(
-    record => Boolean(record.activatedAt) || isActivatedSubscriptionStatus(record.status)
+  const hasActivatedTrial = history.some(
+    record =>
+      record.includesTrial &&
+      (Boolean(record.activatedAt) || isActivatedSubscriptionStatus(record.status))
   )
-  const currentlyActivated = profile.status === BILLING_STATUS.TRIAL || profile.status === BILLING_STATUS.ACTIVE
-  return !hasTrialMarkers && !hasActivatedSubscription && !currentlyActivated
+  return hasTrialMarkers || hasActivatedTrial || profile.status === BILLING_STATUS.TRIAL
+}
+
+function hasActivatedSubscription(profile: BillingProfile, history: SubscriptionRecord[]): boolean {
+  return (
+    profile.status === BILLING_STATUS.TRIAL ||
+    profile.status === BILLING_STATUS.ACTIVE ||
+    history.some(record => Boolean(record.activatedAt) || isActivatedSubscriptionStatus(record.status))
+  )
+}
+
+export function isTrialEligible(profile: BillingProfile, history: SubscriptionRecord[]): boolean {
+  return (
+    profile.trialEligible === true &&
+    !hasConsumedTrial(profile, history) &&
+    !hasActivatedSubscription(profile, history)
+  )
 }
 
 function getMpClient() {
@@ -196,13 +213,16 @@ async function updateCognitoAttributes(input: {
   )
 }
 
-export async function getPublicBillingConfig(): Promise<PublicBillingConfigResponse> {
+export async function getPublicBillingConfig(promo?: string): Promise<PublicBillingConfigResponse> {
+  const trialPromoCode = process.env.TRIAL_PROMO_CODE
+  const trialEligible = Boolean(trialPromoCode && promo?.trim() === trialPromoCode)
   return {
     monthlyAmount: billingConfig.monthlyAmount,
     currencyId: billingConfig.currencyId,
     trialDays: billingConfig.trialDays,
     graceDays: billingConfig.graceDays,
     planReason: billingConfig.planReason,
+    trialEligible,
   }
 }
 
@@ -796,7 +816,7 @@ export function buildBillingStatusResponse(input: {
 }): BillingStatusResponse {
   const { profile, commerce, history, current, actorSub } = input
   const canManageSubscription = !!actorSub && actorSub === commerce?.ownerCognitoSub
-  const trialConsumed = !isTrialEligible(profile, history)
+  const trialConsumed = hasConsumedTrial(profile, history)
   const viewState = deriveSubscriptionViewState(profile, history)
   return {
     commerceId: profile.commerceId,
@@ -805,7 +825,7 @@ export function buildBillingStatusResponse(input: {
     viewState,
     canManageSubscription,
     trialConsumed,
-    trialEligible: !trialConsumed,
+    trialEligible: isTrialEligible(profile, history),
     relevantDate: deriveRelevantBillingDate(profile, viewState),
     trialEndsAt: profile.trialEndsAt,
     currentPeriodEndsAt: profile.currentPeriodEndsAt,

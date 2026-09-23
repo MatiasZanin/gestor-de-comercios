@@ -97,6 +97,7 @@ export async function createWelcomeEmailNotification(input: {
   email: string;
   firstName: string;
   merchantName: string;
+  trialEligible: boolean;
 }): Promise<void> {
   const appUrl = baseUrl();
   await createNotification(`WELCOME#${input.registrationId}`, {
@@ -107,6 +108,7 @@ export async function createWelcomeEmailNotification(input: {
     subscriptionUrl: `${appUrl}/suscripcion`,
     appUrl,
     logoUrl: `${appUrl}/logo.png`,
+    trialEligible: input.trialEligible,
   });
 }
 
@@ -208,10 +210,17 @@ function shell(
 function welcomeHtml(record: TransactionalEmailRecord): string {
   const subscriptionUrl =
     record.subscriptionUrl ?? `${record.appUrl}/suscripcion`;
+  const hasTrial = record.trialEligible === true;
+  const preheader = hasTrial
+    ? `Tu comercio ${record.merchantName} ya fue creado. Activá tu primer mes gratis.`
+    : `Tu comercio ${record.merchantName} ya fue creado. Activá tu suscripción.`;
+  const offer = hasTrial
+    ? `<div style="height:22px;line-height:22px;">&nbsp;</div>${trialHighlight()}<p style="margin:22px 0 18px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:26px;color:#475569;">Para comenzar a utilizar Gestor de Comercios, terminá de activar tu suscripción mediante Mercado Pago. <strong style="color:#0f172a;">El primer mes no tiene costo</strong> y podés cancelar la suscripción cuando quieras.</p>`
+    : `<p style="margin:22px 0 18px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:26px;color:#475569;">Para comenzar a utilizar Gestor de Comercios, activá tu suscripción mediante Mercado Pago. El abono mensual se cobra desde el primer mes y podés cancelar cuando quieras.</p>`;
   return shell(
     record,
-    `Tu comercio ${record.merchantName} ya fue creado. Activá tu primer mes gratis.`,
-    `<h1 class="mobile-title" style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:31px;line-height:39px;font-weight:700;color:#0f172a;">¡Bienvenido a Gestor de Comercios, ${escapeHtml(record.firstName)}!</h1><p style="margin:14px 0 22px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:26px;color:#475569;">Tu comercio <strong style="color:#0f172a;">${escapeHtml(record.merchantName)}</strong> ya fue creado correctamente.</p>${details(record)}<div style="height:22px;line-height:22px;">&nbsp;</div>${trialHighlight()}<p style="margin:22px 0 18px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:26px;color:#475569;">Para comenzar a utilizar Gestor de Comercios, terminá de activar tu suscripción mediante Mercado Pago. <strong style="color:#0f172a;">El primer mes no tiene costo</strong> y podés cancelar la suscripción cuando quieras.</p>${button('Activar mi mes gratis', subscriptionUrl)}<div style="height:30px;line-height:30px;">&nbsp;</div><h2 style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:20px;line-height:27px;color:#0f172a;">Acceso a Gestor de Comercios</h2><p style="margin:10px 0 17px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:24px;color:#475569;">Para ingresar utilizá el email y la contraseña con los que creaste tu cuenta. Por seguridad, nunca enviamos tu contraseña por email.</p>${button('Ir a Gestor de Comercios', record.appUrl, true)}<div style="height:28px;line-height:28px;">&nbsp;</div>`
+    preheader,
+    `<h1 class="mobile-title" style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:31px;line-height:39px;font-weight:700;color:#0f172a;">¡Bienvenido a Gestor de Comercios, ${escapeHtml(record.firstName)}!</h1><p style="margin:14px 0 22px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:26px;color:#475569;">Tu comercio <strong style="color:#0f172a;">${escapeHtml(record.merchantName)}</strong> ya fue creado correctamente.</p>${details(record)}${offer}${button(hasTrial ? 'Activar mi mes gratis' : 'Activar mi suscripción', subscriptionUrl)}<div style="height:30px;line-height:30px;">&nbsp;</div><h2 style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:20px;line-height:27px;color:#0f172a;">Acceso a Gestor de Comercios</h2><p style="margin:10px 0 17px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:24px;color:#475569;">Para ingresar utilizá el email y la contraseña con los que creaste tu cuenta. Por seguridad, nunca enviamos tu contraseña por email.</p>${button('Ir a Gestor de Comercios', record.appUrl, true)}<div style="height:28px;line-height:28px;">&nbsp;</div>`
   );
 }
 
@@ -230,21 +239,39 @@ function trialActivatedHtml(record: TransactionalEmailRecord): string {
 }
 
 function emailText(record: TransactionalEmailRecord): string {
-  const common = [
+  const detailsText = [
     `Comercio: ${record.merchantName}`,
     `Nombre: ${record.firstName}`,
     `Email: ${record.to}`,
-    '',
-    'Tu primer mes es GRATIS.',
   ];
   if (record.template === 'WELCOME') {
+    const subscriptionUrl =
+      record.subscriptionUrl ?? `${record.appUrl}/suscripcion`;
+    if (!record.trialEligible) {
+      return [
+        `¡Bienvenido a Gestor de Comercios, ${record.firstName}!`,
+        `Tu comercio ${record.merchantName} ya fue creado correctamente.`,
+        '',
+        ...detailsText,
+        '',
+        'Activá tu suscripción mediante Mercado Pago. El abono se cobra desde el primer mes y podés cancelar cuando quieras.',
+        `Activar mi suscripción: ${subscriptionUrl}`,
+        '',
+        `Ir a Gestor de Comercios: ${record.appUrl}`,
+        'Para ingresar utilizá el email y la contraseña con los que creaste tu cuenta.',
+        '',
+        `Ayuda: ${CONTACT_EMAIL} | WhatsApp ${CONTACT_PHONE}: ${CONTACT_WHATSAPP_URL}`,
+      ].join('\n');
+    }
     return [
       `¡Bienvenido a Gestor de Comercios, ${record.firstName}!`,
       `Tu comercio ${record.merchantName} ya fue creado correctamente.`,
       '',
-      ...common,
+      ...detailsText,
+      '',
+      'Tu primer mes es GRATIS.',
       'Terminá de activar tu suscripción mediante Mercado Pago. Podés cancelarla cuando quieras.',
-      `Activar mi mes gratis: ${record.subscriptionUrl ?? `${record.appUrl}/suscripcion`}`,
+      `Activar mi mes gratis: ${subscriptionUrl}`,
       '',
       `Ir a Gestor de Comercios: ${record.appUrl}`,
       'Para ingresar utilizá el email y la contraseña con los que creaste tu cuenta.',
@@ -258,7 +285,9 @@ function emailText(record: TransactionalEmailRecord): string {
     `Tu período de prueba ya está activo, ${record.firstName}.`,
     `Mercado Pago confirmó correctamente la suscripción de ${record.merchantName}.`,
     '',
-    ...common,
+    ...detailsText,
+    '',
+    'Tu primer mes es GRATIS.',
     ...(start ? [`Inicio de la prueba: ${start}`] : []),
     ...(end ? [`Fin estimado del período gratuito: ${end}`] : []),
     'Ya podés utilizar Gestor de Comercios y cancelar la suscripción cuando quieras.',
@@ -279,7 +308,9 @@ export function renderTransactionalEmail(record: TransactionalEmailRecord): {
     { subject: string; html: () => string }
   > = {
     WELCOME: {
-      subject: 'Bienvenido a Gestor de Comercios — activá tu mes gratis',
+      subject: record.trialEligible
+        ? 'Bienvenido a Gestor de Comercios — activá tu mes gratis'
+        : 'Bienvenido a Gestor de Comercios — activá tu suscripción',
       html: () => welcomeHtml(record),
     },
     TRIAL_ACTIVATED: {
